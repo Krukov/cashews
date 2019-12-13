@@ -1,9 +1,5 @@
-==========
 CASHEWS 🥔
-===========
-
-.. image:: https://travis-ci.org/Krukov/cashews.svg?branch=master
-    :target: https://travis-ci.org/Krukov/cashews
+=========
 
 Async cache utils with simple api to build fast and reliable applications
 -------------------------------------------------------------------------
@@ -224,5 +220,5 @@ Rate limit for function call. Do not call function if rate limit is reached, and
         return {"status": value}
     
 
-# todo:
+# todos:
 cache invalidation solution

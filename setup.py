@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 
-with open("README.rst", "rt", encoding="utf8") as f:
+with open("README.md", "rt", encoding="utf8") as f:
     readme = f.read()
 
 PROJECT_NAME = "cashews"
@@ -17,16 +17,29 @@ setup(
     description="cache tools with async power",
     keywords="cache aio async multicache aiocache",
     long_description=readme,
+    long_description_content_type="text/markdown",
     classifiers=[
         "Programming Language :: Python",
+        "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Framework :: AsyncIO",
+        "Intended Audience :: Information Technology",
+        "Intended Audience :: System Administrators",
+        "Operating System :: OS Independent",
+        "Topic :: Internet",
+        "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Software Development :: Libraries",
+        "Topic :: Software Development",
+        "Typing :: Typed",
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
     ],
     packages=find_packages(),
     install_requires=None,
     extras_require={
         "redis": ["aioredis>=1.0.0"],
-        "dev": ['black;python_version>="3.6"', "codecov", "coverage", "flake8", "pytest", "pylint" "pytest-asyncio"],
+        "dev": ["black", "codecov", "coverage", "flake8", "pytest", "isort", "pylint" "pytest-asyncio"],
     },
 )
