@@ -22,7 +22,7 @@ async def main(cache):
         await cache.incr("inr_key")  # -> int
         await cache.expire("key", timeout=timedelta(hours=10))
         await cache.delete("key")
-        await cache.ping()  # -> bytes
+        print(await cache.ping())  # -> bytes
 
     await cache.set_lock("key", value="value", expire=60)  # -> bool
     await cache.is_locked("key", wait=60)  # -> bool
@@ -34,5 +34,6 @@ def prefix(_, key):
 
 
 if __name__ == "__main__":
-    cache.setup("redis://0.0.0.0/2?", hooks=[prefix])
+    # cache.setup("mem://", hooks=[prefix])
+    cache.setup("redis://0.0.0.0/2?hash_key=test", hooks=[prefix])
     asyncio.run(main(cache))

@@ -80,7 +80,9 @@ class ProxyBackend(Backend):
         return await self._target.expire(key, timeout)
 
     async def ping(self, message: Optional[str] = None) -> str:
-        return await self._target.ping(message)
+        if message is not None:
+            return await self._target.ping(message)
+        return await self._target.ping()
 
     async def clear(self):
         return await self._target.clear()

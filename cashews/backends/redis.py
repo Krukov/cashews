@@ -44,21 +44,26 @@ class _Redis(PickleSerializerMixin, Redis_):
 
 class Redis(ProxyBackend):
     def __init__(self, address, hash_key, safe=False, **kwargs):
-        self.pool = create_pool(address=address, **kwargs)
         self._target_class = _SafeRedis if safe else _Redis
+        if isinstance(hash_key, str):
+            hash_key = hash_key.encode()
         self._hash_key = hash_key
+        self._address = address
+        self._kwargs = kwargs
         super().__init__()
 
     async def init(self):
+        pool = create_pool(address=self._address, **self._kwargs)
+
         try:
-            await self.pool._fill_free(override_min=False)
+            await pool._fill_free(override_min=False)
         except Exception:
             self.pool.close()
             await self.pool.wait_closed()
             await self.pool.wait_closed()
             raise
 
-        self._target = self._target_class(self.pool, hash_key=self._hash_key)
+        self._target = self._target_class(pool, hash_key=self._hash_key)
 
     def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist=None):
         if exist is True:

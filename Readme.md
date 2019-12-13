@@ -17,7 +17,7 @@ There are a few advance techniques with cache and async programming that can hel
 
 # Features
 - Support Multi backend (Memory, Redis, memcache by request)
-- Can cache any objects securely with pickle. 
+- Can cache any objects securely with pickle (use hash key). 
 - Simple configuring and API
 
 ## Utils
@@ -38,8 +38,8 @@ Cache object is a single object that can be configured in one place by url::
 
     from cashews import cache
     
-    cache.setup("redis://0.0.0.0/?db=1&create_connection_timeout=0.5&safe=0")
-    cache.setup("redis://0.0.0.0/", db=1, create_connection_timeout=0.5, safe=False)
+    cache.setup("redis://0.0.0.0/?db=1&create_connection_timeout=0.5&safe=0&hash_key=my_sicret")
+    cache.setup("redis://0.0.0.0/", db=1, create_connection_timeout=0.5, safe=False, hash_key=b"my_key")
     cache.setup("mem://")
 
 if you dont like global objects or prefer more manageable way you can work with cache class 
