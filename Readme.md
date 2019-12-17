@@ -12,15 +12,17 @@ Why
 
 Cache plays significant role in modern applications and everybody wanna use all power of async programming and cache..
 There are a few advance techniques with cache and async programming that can help you to build simple, fast,
- scalable and reliable applications. 
+ scalable and reliable applications. Caches
 
 
 # Features
+- Decorator base api, just decorate and play
+- Cache invalidation by time, 'ttl' a required parameter to avoid storage overflow and endless cache
 - Support Multi backend (Memory, Redis, memcache by request)
 - Can cache any objects securely with pickle (use hash key). 
 - Simple configuring and API
 
-## Utils
+## API
 - [simple cache](#simple-cache)
 - [fail cache](#fail-cache)
 - [hit-rate cache](#hit-cache)
@@ -28,7 +30,7 @@ There are a few advance techniques with cache and async programming that can hel
 - [rate-limit](#rate-limit)
 - [cache with early expiration/rebuilding](#early)
 - [locked cache](#locked) 
-    
+- [api for key storage/backend](#basic-api)
 
 Usage
 -----
@@ -39,8 +41,10 @@ Cache object is a single object that can be configured in one place by url::
     from cashews import cache
     
     cache.setup("redis://0.0.0.0/?db=1&create_connection_timeout=0.5&safe=0&hash_key=my_sicret")
+    or
     cache.setup("redis://0.0.0.0/", db=1, create_connection_timeout=0.5, safe=False, hash_key=b"my_key")
-    cache.setup("mem://")
+    or
+    cache.setup("mem://") # for inmemory cache
 
 if you dont like global objects or prefer more manageable way you can work with cache class 
 
@@ -49,26 +53,6 @@ if you dont like global objects or prefer more manageable way you can work with 
     cache = Cache()
     cache.setup("mem://")
 
-
-### Basic api
-There are 11 basic methods to work with key-storage::
-
-    from cashews import cache
-    
-    cache.setup("mem://")
-
-    await cache.set(key="key", value={"any": True}, expire=60, exist=None)  # -> bool
-    await cache.get("key")  # -> Any
-    await cache.incr("key") # -> int
-    await cache.delete("key")
-    await cache.expire("key", timeout=10)
-    await cache.ping(message=None)  # -> bytes
-    await cache.clear()
-    await cache.set_lock("key", value="value", expire=60)  # -> bool
-    await cache.is_locked("key", wait=60)  # -> bool
-    await cache.unlock("key", "value")  # -> bool
-    async with cache.lock("key", expire=10):
- 
 
 
 ### Simple cache
@@ -84,8 +68,8 @@ Typical cache strategy: execute, store and return cached value till expiration::
 
 
 
-ttl: seconds in int value or as timedelta object to define time to store objects
-func_args: arguments of call that will be used in key, can be tuple or dict with argument name as a key and callable object as a transform function for value of this argument
+:param ttl: seconds in int value or as timedelta object to define time to store objects
+:param func_args: arguments of call that will be used in key, can be tuple or dict with argument name as a key and callable object as a transform function for value of this argument
 
     @cache(ttl=100, func_args=("arg", "token"))
     def long_running_function(arg, user: User, token: str = "token"):
@@ -219,6 +203,27 @@ Rate limit for function call. Do not call function if rate limit is reached, and
     async def get(name):
         return {"status": value}
     
+
+### Basic api
+There are 11 basic methods to work with key-storage::
+
+    from cashews import cache
+    
+    cache.setup("mem://")
+
+    await cache.set(key="key", value={"any": True}, expire=60, exist=None)  # -> bool
+    await cache.get("key")  # -> Any
+    await cache.incr("key") # -> int
+    await cache.delete("key")
+    await cache.expire("key", timeout=10)
+    await cache.ping(message=None)  # -> bytes
+    await cache.clear()
+    await cache.set_lock("key", value="value", expire=60)  # -> bool
+    await cache.is_locked("key", wait=60)  # -> bool
+    await cache.unlock("key", "value")  # -> bool
+    async with cache.lock("key", expire=10):
+ 
+
 
 # todos:
 cache invalidation solution
