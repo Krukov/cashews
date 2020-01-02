@@ -1,14 +1,13 @@
 import inspect
 from datetime import timedelta
 from functools import wraps
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
+from . import cache_utils
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory
-from .cache_utils import cache as cache_decor
-from .cache_utils import early, fail, hit, locked, perf, rate_limit
-from .key import get_call_values
+from .key import FuncArgsType, get_call_values
 
 
 def call_hook(command):
@@ -16,6 +15,8 @@ def call_hook(command):
         @wraps(func)
         async def _func(*args, **kwargs):
             self = args[0]
+            if not self.enable:
+                return None
             all_in_kwargs = get_call_values(func, args, kwargs, func_args=None)
             key = await self._hook_call(command, all_in_kwargs.get("key", ""))
             if "key" in all_in_kwargs:
@@ -34,13 +35,18 @@ class Cache(ProxyBackend):
         self.__init = False
         self.__address = None
         self._kwargs = {}
-        self.execute_hooks = None
+        self.enable = False
+        self.execute_hooks = ()
         super().__init__()
 
     def setup(self, settings_url: str, hooks=(), **kwargs):
         self.execute_hooks = hooks
         params = settings_url_parse(settings_url)
         params.update(kwargs)
+        if "disable" in params:
+            self.enable = not params.pop("disable")
+        else:
+            self.enable = params.pop("enable", True)
         self._setup_backend(**params)
 
     def _setup_backend(self, backend: Type[Backend], **kwargs):
@@ -51,6 +57,8 @@ class Cache(ProxyBackend):
         await self._init()
 
     async def _init(self):
+        if not self.enable:
+            return None
         if not self.__init:
             await self._target.init()
         self.__init = True
@@ -112,32 +120,121 @@ class Cache(ProxyBackend):
         wait = wait.total_seconds() if wait and isinstance(wait, timedelta) else wait
         return await self._target.is_locked(key, wait=wait)
 
-    rate_limit = rate_limit
+    # DecoratorS
+    def rate_limit(
+        self,
+        limit: int,
+        period: Union[int, timedelta],
+        ttl: Optional[Union[int, timedelta]] = None,
+        func_args: FuncArgsType = None,
+        action: Optional[Callable] = None,
+        prefix="rate_limit",
+    ):  # pylint: disable=too-many-arguments
+        return cache_utils.rate_limit(
+            self, limit=limit, period=period, ttl=ttl, func_args=func_args, action=action, prefix=prefix
+        )
 
-    cache = cache_decor
-    __call__ = cache_decor
-    fail = fail
-    early = early
-    hit = hit
-    perf = perf
-    locked = locked
+    def cache(
+        self,
+        ttl: Union[int, timedelta],
+        func_args: FuncArgsType = None,
+        key: Optional[str] = None,
+        condition: Optional[Callable[[Any], bool]] = None,
+        prefix: str = "",
+    ):
+        return cache_utils.cache(self, ttl=ttl, func_args=func_args, key=key, condition=condition, prefix=prefix)
+
+    __call__ = cache
+
+    def fail(
+        self,
+        ttl: Union[int, timedelta],
+        exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+        key: Optional[str] = None,
+        func_args: FuncArgsType = None,
+        prefix: str = "fail",
+    ):
+        return cache_utils.fail(self, ttl=ttl, exceptions=exceptions, key=key, func_args=func_args, prefix=prefix)
+
+    def early(
+        self,
+        ttl: Optional[Union[int, timedelta]],
+        func_args: FuncArgsType = None,
+        key: Optional[str] = None,
+        condition: Optional[Callable[[Any], bool]] = None,
+        prefix: str = "early",
+    ):
+        return cache_utils.early(self, ttl=ttl, func_args=func_args, key=key, condition=condition, prefix=prefix)
+
+    def hit(
+        self,
+        ttl: Union[int, timedelta],
+        cache_hits: int,
+        update_before: int = 0,
+        func_args: FuncArgsType = None,
+        key: Optional[str] = None,
+        condition: Optional[Callable[[Any], bool]] = None,
+        prefix: str = "hit",
+    ):
+        return cache_utils.hit(
+            self,
+            ttl=ttl,
+            cache_hits=cache_hits,
+            update_before=update_before,
+            func_args=func_args,
+            key=key,
+            condition=condition,
+            prefix=prefix,
+        )
+
+    def perf(
+        self,
+        ttl: Union[int, timedelta],
+        func_args: FuncArgsType = None,
+        key: Optional[str] = None,
+        trace_size: int = 10,
+        perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
+        prefix: str = "perf",
+    ):
+        return cache_utils.perf(
+            self,
+            ttl=ttl,
+            func_args=func_args,
+            key=key,
+            trace_size=trace_size,
+            perf_condition=perf_condition,
+            prefix=prefix,
+        )
+
+    def locked(
+        self,
+        ttl: Union[int, timedelta],
+        func_args: FuncArgsType = None,
+        key: Optional[str] = None,
+        lock_ttl: Union[int, timedelta] = 1,
+        prefix: str = "lock",
+    ):
+        return cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, lock_ttl=lock_ttl, prefix=prefix)
 
 
 def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:
     new_params = {}
-    bool_keys = ("safe",)
-    true_values = ("1", "true", "True")
+    bool_keys = ("safe", "enable", "disable")
+    true_values = (
+        "1",
+        "true",
+    )
     for key, value in params.items():
         if value.isdigit():
             value = int(value)
-        elif key in bool_keys:
-            value = value in true_values
+        elif key.lower() in bool_keys:
+            value = value.lower() in true_values
         else:
             try:
                 value = float(value)
             except ValueError:
                 pass
-        new_params[key] = value
+        new_params[key.lower()] = value
     return new_params
 
 

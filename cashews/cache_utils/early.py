@@ -3,10 +3,10 @@ import logging
 import time
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
 from ..backends.interface import Backend
-from ..key import get_cache_key
+from ..key import FuncArgsType, get_cache_key
 
 __all__ = ("early",)
 logger = logging.getLogger(__name__)
@@ -19,9 +19,9 @@ def _default_condition(result) -> bool:
 def early(
     backend: Backend,
     ttl: Optional[Union[int, timedelta]],
-    func_args: Optional[Union[Dict, Tuple]] = None,
+    func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    condition: Callable[[Any], bool] = _default_condition,
+    condition: Optional[Callable[[Any], bool]] = None,
     prefix: str = "early",
 ):
     """
@@ -36,8 +36,12 @@ def early(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
+    condition = _default_condition if condition is None else condition
 
     def _decor(func):
+        if not backend.enable:
+            return func
+
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)

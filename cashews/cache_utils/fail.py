@@ -1,10 +1,10 @@
 import asyncio
 from datetime import timedelta
 from functools import wraps
-from typing import Dict, Optional, Tuple, Type, Union
+from typing import Optional, Tuple, Type, Union
 
 from ..backends.interface import Backend
-from ..key import get_cache_key
+from ..key import FuncArgsType, get_cache_key
 
 __all__ = ("fail",)
 
@@ -14,7 +14,7 @@ def fail(
     ttl: Union[int, timedelta],
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
-    func_args: Optional[Union[Dict, Tuple]] = None,
+    func_args: FuncArgsType = None,
     prefix: str = "fail",
 ):
     """
@@ -28,6 +28,9 @@ def fail(
     """
 
     def _decor(func):
+        if not backend.enable:
+            return func
+
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)

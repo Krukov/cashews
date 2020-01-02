@@ -22,8 +22,6 @@ class DummyCache:
         self.store = {}
 
     async def set(self, key: str, value, *args, **kwargs) -> None:
-        if isinstance(value, str):
-            value = value.encode()
         self.store[key] = value
 
     async def get(self, key: str, *args, **kwargs):
@@ -93,6 +91,11 @@ async def test_unsecure_value(cache):
 
 
 async def test_no_value(cache):
+    assert await cache.get("key") is None
+
+
+async def test_pickle_error_value(cache):
+    cache.store["key"] = cache.get_sign(b"no_pickle_data") + b"_" + b"no_pickle_data"
     assert await cache.get("key") is None
 
 

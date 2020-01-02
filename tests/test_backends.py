@@ -1,6 +1,8 @@
 import asyncio
+from unittest.mock import Mock
 
 import pytest
+from cashews.backends.interface import Backend, ProxyBackend
 from cashews.backends.memory import Memory
 
 pytestmark = pytest.mark.asyncio
@@ -44,3 +46,29 @@ async def test_expire(cache):
     assert await cache.get("key") == b"value"
     await asyncio.sleep(0.01)
     assert await cache.get("key") is None
+
+
+@pytest.mark.parametrize(
+    ("method", "args", "defaults"),
+    (
+        ("get", ("key",), None),
+        ("set", ("key", "value"), {"exist": None, "expire": None}),
+        ("incr", ("key",), None),
+        ("delete", ("key",), None),
+        ("expire", ("key", 10), None),
+        ("ping", (), None),
+        ("clear", (), None),
+        ("set_lock", ("key", "value", 10), None),
+        ("unlock", ("key", "value"), None),
+        ("is_locked", ("key",), {"wait": None}),
+    ),
+)
+async def test_proxy_backend(method, args, defaults):
+    target = Mock(wraps=Backend())
+    backend = ProxyBackend(target=target)
+
+    await getattr(backend, method)(*args)
+    if defaults:
+        getattr(target, method).assert_called_once_with(*args, **defaults)
+    else:
+        getattr(target, method).assert_called_once_with(*args)

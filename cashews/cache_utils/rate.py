@@ -5,10 +5,10 @@ from collections import deque
 from datetime import timedelta
 from functools import wraps
 from statistics import mean
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Iterable, Optional, Union
 
 from ..backends.interface import Backend
-from ..key import get_cache_key
+from ..key import FuncArgsType, get_cache_key
 
 __all__ = ("hit", "perf", "rate_limit")
 
@@ -25,9 +25,9 @@ def hit(
     ttl: Union[int, timedelta],
     cache_hits: int,
     update_before: int = 0,
-    func_args: Optional[Union[Dict, Tuple]] = None,
+    func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    condition: Callable[[Any], bool] = _default_condition,
+    condition: Optional[Callable[[Any], bool]] = None,
     prefix: str = "hit",
 ):
     """
@@ -41,8 +41,12 @@ def hit(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'hit'
     """
+    condition = _default_condition if condition is None else condition
 
     def _decor(func):
+        if not backend.enable:
+            return func
+
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
@@ -75,10 +79,10 @@ def _default_perf_condition(current: float, previous: Iterable[float]) -> bool:
 def perf(
     backend: Backend,
     ttl: Union[int, timedelta],
-    func_args: Optional[Union[Dict, Tuple]] = None,
+    func_args: FuncArgsType = None,
     key: Optional[str] = None,
     trace_size: int = 10,
-    perf_condition: Callable[[float, Iterable[float]], bool] = _default_perf_condition,
+    perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
     prefix: str = "perf",
 ):
     """
@@ -93,9 +97,13 @@ def perf(
     :param prefix: custom prefix for key, default 'perf'
 
     """
+    perf_condition = _default_perf_condition if perf_condition is None else perf_condition
     call_results = deque([], maxlen=trace_size)
 
     def _decor(func):
+        if not backend.enable:
+            return func
+
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
@@ -131,8 +139,8 @@ def rate_limit(
     limit: int,
     period: Union[int, timedelta],
     ttl: Optional[Union[int, timedelta]] = None,
-    func_args: Optional[Union[Dict, Tuple]] = None,
-    action: Callable = _default_action,
+    func_args: FuncArgsType = None,
+    action: Optional[Callable] = None,
     prefix="rate_limit",
 ):  # pylint: disable=too-many-arguments
     """
@@ -146,8 +154,12 @@ def rate_limit(
     :param action: call when rate limit reached, default raise RateLimitException
     :param prefix: custom prefix for key, default 'rate_limit'
     """
+    action = _default_action if action is None else action
 
     def decorator(func):
+        if not backend.enable:
+            return func
+
         @wraps(func)
         async def wrapped_func(*args, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args)

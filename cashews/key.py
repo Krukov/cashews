@@ -58,7 +58,7 @@ def get_cache_key_template(func: Callable, func_args: FuncArgsType = None, key: 
     return ":".join([func.__module__, func.__name__, *chain(*params.items())]).lower()
 
 
-def get_call_values(func: Callable, args, kwargs, func_args: Optional[Union[Dict, Tuple]]) -> Dict:
+def get_call_values(func: Callable, args, kwargs, func_args: FuncArgsType) -> Dict:
     """
     Return dict with arguments and their values for function call with given positional and keywords arguments
     :param func: Target function

@@ -7,19 +7,17 @@ from decimal import Decimal
 import dataclasses
 
 from cashews import cache, early, fail, locked
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 logging.basicConfig(level=logging.DEBUG)
 
-# cache2 = Cache()
-# cache2.setup("mem://")
 cache.setup(
     "redis://0.0.0.0/",
     db=2,
     safe=False,
     create_connection_timeout=0.5,
     hash_key=b"test",
-    # compress_level=9,
+    # enable=False,
 )
 # cache.setup("mem://")
 
@@ -49,8 +47,12 @@ async def get3():
     return {"status": "ok"}
 
 
+def rate_limit_action(*args, **kwargs):
+    raise HTTPException(status_code=429, detail="Too many requests")
+
+
 @app.get("/cache/rate/")
-@cache.rate_limit(1, period=10, ttl=60)
+@cache.rate_limit(1, period=10, ttl=60, action=rate_limit_action)
 async def get4():
     return {"status": "ok"}
 

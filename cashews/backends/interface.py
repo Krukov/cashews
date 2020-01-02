@@ -8,6 +8,8 @@ class LockedException(Exception):
 
 
 class Backend:
+    enable = True
+
     def __init__(self, *args, **kwargs):
         ...
 
@@ -91,7 +93,7 @@ class ProxyBackend(Backend):
         return await self._target.close()
 
     async def set_lock(self, key: str, value: Any, expire: Union[float, int]) -> bool:
-        return await self._target.set_lock(key)
+        return await self._target.set_lock(key, value, expire)
 
     async def is_locked(self, key: str, wait: Union[int, float, None] = None) -> bool:
         return await self._target.is_locked(key, wait=wait)

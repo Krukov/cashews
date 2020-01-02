@@ -1,7 +1,7 @@
 import pytest
 from cashews.backends.memory import Memory
 from cashews.backends.redis import Redis
-from cashews.cache import settings_url_parse
+from cashews.wrapper import settings_url_parse
 
 
 @pytest.mark.parametrize(
