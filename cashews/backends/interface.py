@@ -8,8 +8,6 @@ class LockedException(Exception):
 
 
 class Backend:
-    enable = True
-
     def __init__(self, *args, **kwargs):
         ...
 

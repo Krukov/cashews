@@ -15,7 +15,7 @@ def call_hook(command):
         @wraps(func)
         async def _func(*args, **kwargs):
             self = args[0]
-            if not self.enable:
+            if self.disable:
                 return None
             all_in_kwargs = get_call_values(func, args, kwargs, func_args=None)
             key = await self._hook_call(command, all_in_kwargs.get("key", ""))
@@ -30,6 +30,10 @@ def call_hook(command):
     return decor
 
 
+def _not_decorator(func):
+    return func
+
+
 class Cache(ProxyBackend):
     def __init__(self):
         self.__init = False
@@ -38,6 +42,10 @@ class Cache(ProxyBackend):
         self.enable = False
         self.execute_hooks = ()
         super().__init__()
+
+    @property
+    def disable(self):
+        return not self.enable
 
     def setup(self, settings_url: str, hooks=(), **kwargs):
         self.execute_hooks = hooks
@@ -57,7 +65,7 @@ class Cache(ProxyBackend):
         await self._init()
 
     async def _init(self):
-        if not self.enable:
+        if self.disable:
             return None
         if not self.__init:
             await self._target.init()
@@ -130,11 +138,13 @@ class Cache(ProxyBackend):
         action: Optional[Callable] = None,
         prefix="rate_limit",
     ):  # pylint: disable=too-many-arguments
+        if self.disable:
+            return _not_decorator
         return cache_utils.rate_limit(
             self, limit=limit, period=period, ttl=ttl, func_args=func_args, action=action, prefix=prefix
         )
 
-    def cache(
+    def __call__(
         self,
         ttl: Union[int, timedelta],
         func_args: FuncArgsType = None,
@@ -142,9 +152,12 @@ class Cache(ProxyBackend):
         condition: Optional[Callable[[Any], bool]] = None,
         prefix: str = "",
     ):
+        if self.disable:
+            return _not_decorator
+
         return cache_utils.cache(self, ttl=ttl, func_args=func_args, key=key, condition=condition, prefix=prefix)
 
-    __call__ = cache
+    cache = __call__
 
     def fail(
         self,
@@ -154,6 +167,9 @@ class Cache(ProxyBackend):
         func_args: FuncArgsType = None,
         prefix: str = "fail",
     ):
+        if self.disable:
+            return _not_decorator
+
         return cache_utils.fail(self, ttl=ttl, exceptions=exceptions, key=key, func_args=func_args, prefix=prefix)
 
     def early(
@@ -164,6 +180,9 @@ class Cache(ProxyBackend):
         condition: Optional[Callable[[Any], bool]] = None,
         prefix: str = "early",
     ):
+        if self.disable:
+            return _not_decorator
+
         return cache_utils.early(self, ttl=ttl, func_args=func_args, key=key, condition=condition, prefix=prefix)
 
     def hit(
@@ -176,6 +195,9 @@ class Cache(ProxyBackend):
         condition: Optional[Callable[[Any], bool]] = None,
         prefix: str = "hit",
     ):
+        if self.disable:
+            return _not_decorator
+
         return cache_utils.hit(
             self,
             ttl=ttl,
@@ -196,6 +218,9 @@ class Cache(ProxyBackend):
         perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
         prefix: str = "perf",
     ):
+        if self.disable:
+            return _not_decorator
+
         return cache_utils.perf(
             self,
             ttl=ttl,
@@ -214,6 +239,9 @@ class Cache(ProxyBackend):
         lock_ttl: Union[int, timedelta] = 1,
         prefix: str = "lock",
     ):
+        if self.disable:
+            return _not_decorator
+
         return cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, lock_ttl=lock_ttl, prefix=prefix)
 
 
