@@ -31,7 +31,7 @@ def get_cache_key(
     return key.format(**key_values).lower()
 
 
-def get_cache_key_template(func: Callable, func_args: FuncArgsType = None, key: Optional[str] = None,) -> str:
+def get_cache_key_template(func: Callable, func_args: FuncArgsType = None, key: Optional[str] = None) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs
     if func_args is passed key build with parameters are included in func_args dict or tuple otherwise use all of them

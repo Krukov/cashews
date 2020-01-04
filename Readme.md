@@ -17,7 +17,7 @@ There are a few advance techniques with cache and async programming that can hel
 
 # Features
 - Decorator base api, just decorate and play
-- Cache invalidation by time, 'ttl' a required parameter to avoid storage overflow and endless cache
+- Cache invalidation by time, 'ttl' is a required parameter to avoid storage overflow and endless cache
 - Support Multi backend (Memory, Redis, memcache by request)
 - Can cache any objects securely with pickle (use hash key). 
 - Simple configuring and API
@@ -31,6 +31,7 @@ There are a few advance techniques with cache and async programming that can hel
 - [cache with early expiration/rebuilding](#early)
 - [locked cache](#locked) 
 - [api for key storage/backend](#basic-api)
+- [auto invalidation](#invalidation)
 
 Usage
 -----
@@ -63,7 +64,7 @@ Typical cache strategy: execute, store and return cached value till expiration::
     from datetime import timedelta
     
     @cache(ttl=timedelta(hours=3))
-    def long_running_function(arg, kward):
+    async def long_running_function(arg, kward):
         ...
 
 
@@ -72,19 +73,19 @@ Typical cache strategy: execute, store and return cached value till expiration::
 :param func_args: arguments of call that will be used in key, can be tuple or dict with argument name as a key and callable object as a transform function for value of this argument
 
     @cache(ttl=100, func_args=("arg", "token"))
-    def long_running_function(arg, user: User, token: str = "token"):
+    async def long_running_function(arg, user: User, token: str = "token"):
         ...
 
-    long_running_function("name", user=user, token="qdfrevt")  # key will be like "long_running_function:arg:name:token:qdfrevt
+    await long_running_function("name", user=user, token="qdfrevt")  # key will be like "long_running_function:arg:name:token:qdfrevt
 
 But what if we want to user argument define a cache key or want to hide token from cache
     
     
     @cache(ttl=100, func_args={"arg": True, "token": get_md5, "user": attrgetter("uid")})
-    def long_running_function(arg, user: User, token: str = "token"):
+    async def long_running_function(arg, user: User, token: str = "token"):
         ...
 
-    long_running_function("name", user=user, token="qdfrevt")  # key will be like "long_running_function:arg:name:token:7ea802f0544ff108aace43e2d3752a28:user:51e6da60-2553-45ec-9e56-d9538b9614c8
+    await long_running_function("name", user=user, token="qdfrevt")  # key will be like "long_running_function:arg:name:token:7ea802f0544ff108aace43e2d3752a28:user:51e6da60-2553-45ec-9e56-d9538b9614c8
 
 
 
@@ -218,12 +219,28 @@ There are 11 basic methods to work with key-storage::
     await cache.expire("key", timeout=10)
     await cache.ping(message=None)  # -> bytes
     await cache.clear()
-    await cache.set_lock("key", value="value", expire=60)  # -> bool
     await cache.is_locked("key", wait=60)  # -> bool
-    await cache.unlock("key", "value")  # -> bool
     async with cache.lock("key", expire=10):
- 
+       ...
+    await cache.set_lock("key", value="value", expire=60)  # -> bool
+    await cache.unlock("key", "value")  # -> bool
+    
 
+### Invalidation
+Cache invalidation - on of the main Computer Science well known problem. That's why 'ttl' is a required parameter for all cache decorators
+Another strategy to cache invalidation implementer throue next api:
 
-# todos:
-cache invalidation solution
+    from cashews import cache
+    from datetime import timedelta
+    
+    @cache(ttl=timedelta(days=1))
+    asunc def user_items(user_id):
+        ...
+    
+    @cache(ttl=timedelta(hours=3))
+    async def items(page=1):
+        ...
+
+    @cache.invalidate(items, {"page": None})
+    @cache.invalidate(user_items, )
+    async def create_item(user_id) 

@@ -31,9 +31,9 @@ async def get():
     return {"status": "ok"}
 
 
-@app.get("/cache/early/")
+@app.get("/cache/early/{name}")
 @early(ttl=10)
-async def get2():
+async def get2(name: str):
     print("HIT!", datetime.datetime.utcnow().isoformat())
     await asyncio.sleep(1)
     return {"status": "ok"}
@@ -51,9 +51,10 @@ def rate_limit_action(*args, **kwargs):
     raise HTTPException(status_code=429, detail="Too many requests")
 
 
-@app.get("/cache/rate/")
+@app.get("/cache/rate/{name}")
 @cache.rate_limit(1, period=10, ttl=60, action=rate_limit_action)
-async def get4():
+@cache.invalidate(func=get3)
+async def get4(name: str):
     return {"status": "ok"}
 
 

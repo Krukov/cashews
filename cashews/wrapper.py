@@ -159,6 +159,9 @@ class Cache(ProxyBackend):
 
     cache = __call__
 
+    def invalidate(self, target_func, args_map: Optional[Dict] = None):
+        return cache_utils.invalidate(self, target_func=target_func, args_map=args_map)
+
     def fail(
         self,
         ttl: Union[int, timedelta],
