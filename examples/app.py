@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 import dataclasses
 
-from cashews import cache, early, fail, locked
+from cashews import cache, early, fail, locked, invalidate
 from fastapi import FastAPI, HTTPException
 
 logging.basicConfig(level=logging.DEBUG)
@@ -31,9 +31,9 @@ async def get():
     return {"status": "ok"}
 
 
-@app.get("/cache/early/")
+@app.get("/cache/early/{name}")
 @early(ttl=10)
-async def get2():
+async def get2(name: str):
     print("HIT!", datetime.datetime.utcnow().isoformat())
     await asyncio.sleep(1)
     return {"status": "ok"}
@@ -51,9 +51,9 @@ def rate_limit_action(*args, **kwargs):
     raise HTTPException(status_code=429, detail="Too many requests")
 
 
-@app.get("/cache/rate/")
+@app.get("/cache/rate/{name}")
 @cache.rate_limit(1, period=10, ttl=60, action=rate_limit_action)
-async def get4():
+async def get4(name: str):
     return {"status": "ok"}
 
 
@@ -97,3 +97,15 @@ async def all_():
     )
     await cache.get("key")
     return {"status": time.time() - start}
+
+
+@app.get("/inv/{number}/")
+@cache(ttl=datetime.timedelta(days=1))
+async def inv(number: int):
+    return random.random()
+
+
+@app.get("/inv/")
+@invalidate(inv)
+async def inv_do():
+    return "ok"

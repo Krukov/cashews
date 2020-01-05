@@ -28,6 +28,9 @@ class Backend:
     async def delete(self, key: str):
         ...
 
+    async def delete_match(self, pattern: str):
+        ...
+
     async def expire(self, key: str, timeout: Union[float, int]):
         ...
 
@@ -75,6 +78,9 @@ class ProxyBackend(Backend):
 
     async def delete(self, key: str):
         return await self._target.delete(key)
+
+    async def delete_match(self, pattern: str):
+        return await self._target.delete_match(pattern)
 
     async def expire(self, key: str, timeout: Union[int, float]):
         return await self._target.expire(key, timeout)
