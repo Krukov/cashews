@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import Any, Optional, Union
 
 from .interface import Backend
@@ -33,13 +34,23 @@ class Memory(Backend):
         return value
 
     async def delete(self, key: str):
-        self._delete(key)
+        async with self._lock:
+            self._delete(key)
 
     def _delete(self, key: str) -> bool:
         if key in self.store:
             del self.store[key]
             return True
         return False
+
+    async def delete_match(self, pattern: str):
+        pattern = pattern.replace("*", "[^:]+")
+        regexp = re.compile(pattern)
+        print(pattern)
+        for key in dict(self.store).keys():
+            if regexp.fullmatch(key):
+                print(key)
+                await self.delete(key)
 
     async def expire(self, key: str, timeout: float):
         value = self._get(key)

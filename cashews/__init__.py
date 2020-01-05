@@ -10,3 +10,4 @@ early = cache.early
 hit = cache.hit
 perf = cache.perf
 locked = cache.locked
+invalidate = cache.invalidate

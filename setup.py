@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 
-with open("README.md", "rt", encoding="utf8") as f:
+with open("Readme.md", "rt", encoding="utf8") as f:
     readme = f.read()
 
 PROJECT_NAME = "cashews"
@@ -40,6 +40,6 @@ setup(
     install_requires=None,
     extras_require={
         "redis": ["aioredis>=1.0.0"],
-        "dev": ["black", "codecov", "coverage", "flake8", "pytest", "isort", "pylint" "pytest-asyncio"],
+        "dev": ["black", "codecov", "coverage", "flake8", "pytest", "isort", "pylint", "pytest-asyncio"],
     },
 )

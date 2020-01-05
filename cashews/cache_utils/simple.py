@@ -4,7 +4,7 @@ from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
 from ..backends.interface import Backend
-from ..key import FuncArgsType, get_cache_key, get_cache_key_template, get_call_values
+from ..key import FuncArgsType, get_cache_key, get_cache_key_template, get_call_values, get_func_params
 
 __all__ = ("cache", "invalidate")
 
@@ -56,23 +56,37 @@ async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None)
     key_template = getattr(func, "_key_template", None)
     if not key_template:
         return None
-    return await backend.delete(
-        key_template.format(**get_call_values(func, args=(), kwargs=kwargs or {}, func_args=None))
-    )
+    values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
+    values = {k: str(v) if v is not None else "" for k, v in values.items()}
+    return await backend.delete_match(key_template.format(**values).lower())
 
 
-def invalidate(backend: Backend, target_func, args_map: Optional[Dict] = None):
+def invalidate(
+    backend: Backend,
+    target: Union[str, Callable],
+    args_map: Optional[Dict[str, str]] = None,
+    defaults: Optional[Dict[str, Any]] = None,
+):
     args_map = args_map or {}
+    defaults = defaults or {}
 
     def _decor(func):
         @wraps(func)
         async def _wrap(*args, **kwargs):
             result = await func(*args, **kwargs)
             _args = get_call_values(func, args, kwargs, func_args=None)
+            _args.update(defaults)
             for source, dest in args_map.items():
                 if dest in _args:
                     _args[source] = _args.pop(dest)
-            await invalidate_func(backend, target_func, _args)
+                if callable(dest):
+                    _args[source] = dest(*args, **kwargs)
+            if callable(target):
+                asyncio.create_task(invalidate_func(backend, target, _args))
+            else:
+                asyncio.create_task(
+                    backend.delete_match(target.format({k: str(v) if v is not None else "" for k, v in _args.items()}))
+                )
             return result
 
         return _wrap

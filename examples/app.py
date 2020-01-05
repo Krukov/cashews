@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 import dataclasses
 
-from cashews import cache, early, fail, locked
+from cashews import cache, early, fail, locked, invalidate
 from fastapi import FastAPI, HTTPException
 
 logging.basicConfig(level=logging.DEBUG)
@@ -53,7 +53,6 @@ def rate_limit_action(*args, **kwargs):
 
 @app.get("/cache/rate/{name}")
 @cache.rate_limit(1, period=10, ttl=60, action=rate_limit_action)
-@cache.invalidate(func=get3)
 async def get4(name: str):
     return {"status": "ok"}
 
@@ -98,3 +97,15 @@ async def all_():
     )
     await cache.get("key")
     return {"status": time.time() - start}
+
+
+@app.get("/inv/{number}/")
+@cache(ttl=datetime.timedelta(days=1))
+async def inv(number: int):
+    return random.random()
+
+
+@app.get("/inv/")
+@invalidate(inv)
+async def inv_do():
+    return "ok"

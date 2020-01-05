@@ -102,6 +102,10 @@ class Cache(ProxyBackend):
     async def delete(self, key: str):
         return await self._target.delete(key)
 
+    @call_hook("DELETE_MATCH")
+    async def delete_match(self, pattern: str):
+        return await self._target.delete_match(pattern)
+
     @call_hook("EXPIRE")
     async def expire(self, key: str, timeout: Union[float, int, timedelta]):
         timeout = timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
@@ -159,8 +163,8 @@ class Cache(ProxyBackend):
 
     cache = __call__
 
-    def invalidate(self, target_func, args_map: Optional[Dict] = None):
-        return cache_utils.invalidate(self, target_func=target_func, args_map=args_map)
+    def invalidate(self, target, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
+        return cache_utils.invalidate(self, target=target, args_map=args_map, defaults=defaults)
 
     def fail(
         self,

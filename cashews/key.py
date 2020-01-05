@@ -31,6 +31,13 @@ def get_cache_key(
     return key.format(**key_values).lower()
 
 
+def get_func_params(func):
+    signature = inspect.signature(func)
+    for param_name, param in signature.parameters.items():
+        if param.kind not in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]:
+            yield param_name
+
+
 def get_cache_key_template(func: Callable, func_args: FuncArgsType = None, key: Optional[str] = None) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs
@@ -49,12 +56,7 @@ def get_cache_key_template(func: Callable, func_args: FuncArgsType = None, key: 
     if func_args is not None:
         params = {param: "{" + param + "}" for param in func_args}
     else:
-        params = {}
-
-        signature = inspect.signature(func)
-        for param_name, param in signature.parameters.items():
-            if param.kind not in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]:
-                params[param_name] = "{" + param_name + "}"
+        params = {param_name: "{" + param_name + "}" for param_name in get_func_params(func)}
     return ":".join([func.__module__, func.__name__, *chain(*params.items())]).lower()
 
 

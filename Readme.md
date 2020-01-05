@@ -228,19 +228,25 @@ There are 11 basic methods to work with key-storage::
 
 ### Invalidation
 Cache invalidation - on of the main Computer Science well known problem. That's why 'ttl' is a required parameter for all cache decorators
-Another strategy to cache invalidation implementer throue next api:
+Another strategy to cache invalidation implement in next api:
 
     from cashews import cache
     from datetime import timedelta
     
     @cache(ttl=timedelta(days=1))
-    asunc def user_items(user_id):
+    asunc def user_items(user_id, fresh=False):
         ...
-    
+
     @cache(ttl=timedelta(hours=3))
     async def items(page=1):
         ...
 
-    @cache.invalidate(items, {"page": None})
-    @cache.invalidate(user_items, )
-    async def create_item(user_id) 
+    @cache.invalidate("module:items:page:*")  # the same as @cache.invalidate(items)
+    @cache.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh"; True})
+    async def create_item(user):
+       ...
+
+
+
+ todos:
+ * cache size

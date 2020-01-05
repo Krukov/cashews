@@ -97,6 +97,16 @@ class Redis(ProxyBackend):
     def unlock(self, key, value):
         return self._target.eval(_UNLOCK, keys=[key], args=[value])
 
+    def delete(self, key: str):
+        return self._target.unlink(key)
+
+    async def delete_match(self, pattern: str):
+        cursor = b"0"
+        while cursor:
+            cursor, keys = await self._target.scan(cursor, match=pattern)
+            if keys:
+                await self._target.unlink(*keys)
+
     async def close(self):
         if self._target:
             self._target.close()

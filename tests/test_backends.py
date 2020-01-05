@@ -72,3 +72,23 @@ async def test_proxy_backend(method, args, defaults):
         getattr(target, method).assert_called_once_with(*args, **defaults)
     else:
         getattr(target, method).assert_called_once_with(*args)
+
+
+async def test_delete_match(cache: Backend):
+    await cache.set("pref:test:test", b"value")
+    await cache.set("pref:value:test", b"value2")
+    await cache.set("pref:-:test", b"-")
+    await cache.set("pref:*:test", b"*")
+
+    await cache.set("ppref:test:test", b"value3")
+    await cache.set("pref:test:tests", b"value3")
+
+    await cache.delete_match("pref:*:test")
+
+    assert await cache.get("pref:test:test") is None
+    assert await cache.get("pref:value:test") is None
+    assert await cache.get("pref:-:test") is None
+    assert await cache.get("pref:*:test") is None
+
+    assert await cache.get("ppref:test:test") is not None
+    assert await cache.get("pref:test:tests") is not None
