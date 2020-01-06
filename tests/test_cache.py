@@ -19,8 +19,9 @@ class CustomError(Exception):
 
 @pytest.fixture()
 async def backend():
-    return Memory()
-    # return Redis()
+    _cache = Memory()
+    await _cache.init()
+    return _cache
 
 
 async def test_fail_cache_simple(backend):
@@ -75,8 +76,8 @@ async def test_cache_simple_cond(backend):
     assert mock.call_count == 3
 
 
-async def test_early_cache_simple():
-    @early_cache(Memory(), ttl=EXPIRE, key="key")
+async def test_early_cache_simple(backend):
+    @early_cache(backend, ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         return resp
 
@@ -89,10 +90,11 @@ async def test_early_cache_simple():
     assert await func(b"notok") == b"notok"
 
 
-async def test_early_cache_parallel():
+async def test_early_cache_parallel(backend):
+
     mock = Mock()
 
-    @early_cache(Memory(), ttl=0.1, key="key")
+    @early_cache(backend, ttl=0.1, key="key")
     async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
         mock(resp)
@@ -102,13 +104,13 @@ async def test_early_cache_parallel():
 
     assert mock.call_count == 1
 
-    for _ in range(4):  # 0.01 (first) + 4 * 0.01 = 0.06 + 0.01(executing) 0.8 will execute
+    for _ in range(5):  # 0.01 (first) + 4 * 0.01 = 0.06 + 0.01(executing) 0.8 will execute
         await asyncio.sleep(0.01)
         await asyncio.gather(*[func() for _ in range(10)])
 
     assert mock.call_count == 1
 
-    for _ in range(60):  # 0.01 (hit) + 8 * 0.01  = 0.09 - next hit
+    for _ in range(60):  # 0.01 (hit) + 60 * 0.001  = 0.07 - next hit
         await asyncio.sleep(0.001)
         await asyncio.gather(*[func() for _ in range(10)])
 

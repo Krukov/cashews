@@ -6,7 +6,7 @@ from urllib.parse import parse_qsl, urlparse
 
 from . import cache_utils
 from .backends.interface import Backend, ProxyBackend
-from .backends.memory import Memory
+from .backends.memory import Memory, MemoryInterval
 from .key import FuncArgsType, get_call_values
 
 
@@ -285,5 +285,6 @@ def settings_url_parse(url):
         params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()
     elif parse_result.scheme == "mem":
         params["backend"] = Memory
-
+        if params.get("check_interval"):
+            params["backend"] = MemoryInterval
     return params

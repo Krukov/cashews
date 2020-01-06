@@ -18,8 +18,8 @@ There are a few advance techniques with cache and async programming that can hel
 # Features
 - Decorator base api, just decorate and play
 - Cache invalidation by time, 'ttl' is a required parameter to avoid storage overflow and endless cache
-- Support Multi backend (Memory, Redis, memcache by request)
-- Can cache any objects securely with pickle (use hash key). 
+- Support Multi backend ([Memory](#memory), [Redis](#redis), memcache by request)
+- Can cache any objects securely with pickle (use [hash key](#redis)). 
 - Simple configuring and API
 
 ## API
@@ -52,8 +52,36 @@ if you dont like global objects or prefer more manageable way you can work with 
     from cashews import Cache
     
     cache = Cache()
-    cache.setup("mem://")
+    cache.setup("mem://?size=500")
 
+You can disable cache by 'enable' parameter:
+
+    cache.setup("mem://?size=500", enable=False)
+    cache.setup("redis://redis/0?enable=1")
+    cache.setup("redis://redis?enable=True")
+
+
+### Backends
+
+#### Memory
+Store values in a dict, have 2 strategies to expire keys: 
+deferred task to remove key, can overload loop by big amount of async tasks, that's why use strategy with storing expiration time is prefer
+This strategy check expiration on 'get' and periodically purge expired keys
+Also size of memory cache limit with size parameter (default 1000):
+
+    cache.setup("mem://?size=500")
+    cache.setup("mem://?check_interval=10&size=10000") # using strategy with expiration store, we increase check_interval be
+
+
+#### Redis
+Required aioredis package
+Store values in a redis key-value storage. Use 'safe' parameter to avoid raising any connection errors, command will return None in this case.
+This backend use pickle to store values, but the cashes store values with sha1 keyed hash.
+So you should set 'hash_key' parameter to protect your application from security vulnerabilities.
+You can set parameters for [redis pool](https://aioredis.readthedocs.io/en/v1.3.0/api_reference.html#aioredis.create_pool) by backend setup    
+
+    cache.setup("redis://0.0.0.0/?db=1&maxsize=10&safe=1&hash_key=my_sicret")
+    cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=0, hash_key="my_sicret")
 
 
 ### Simple cache

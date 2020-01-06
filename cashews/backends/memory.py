@@ -1,16 +1,18 @@
 import asyncio
+import datetime
 import re
 from typing import Any, Optional, Union
 
 from .interface import Backend
 
-__all__ = ("Memory",)
+__all__ = ("Memory", "MemoryInterval")
 
 
 class Memory(Backend):
-    def __init__(self):
+    def __init__(self, size: int = 1000):
         self.store = {}
-        self._handlers = {}
+        self.size = size
+        self._meta = {}
         self._lock = asyncio.Lock()
         super().__init__()
 
@@ -40,16 +42,16 @@ class Memory(Backend):
     def _delete(self, key: str) -> bool:
         if key in self.store:
             del self.store[key]
+            if key in self._meta:
+                del self._meta[key]
             return True
         return False
 
     async def delete_match(self, pattern: str):
         pattern = pattern.replace("*", "[^:]+")
         regexp = re.compile(pattern)
-        print(pattern)
         for key in dict(self.store).keys():
             if regexp.fullmatch(key):
-                print(key)
                 await self.delete(key)
 
     async def expire(self, key: str, timeout: float):
@@ -62,14 +64,16 @@ class Memory(Backend):
         return b"PONG" if message is None else message
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None) -> None:
+        if len(self.store) > self.size:
+            return None
         self.store[key] = value
 
         if expire is not None and expire > 0.0:
             loop = asyncio.get_event_loop()
-            handler = self._handlers.get(key)
+            handler = self._meta.get(key)
             if handler:
                 handler.cancel()
-            self._handlers[key] = loop.call_later(expire, self._delete, key)
+            self._meta[key] = loop.call_later(expire, self._delete, key)
 
     def _get(self, key: str) -> Optional[Any]:
         return self.store.get(key, None)
@@ -90,3 +94,32 @@ class Memory(Backend):
 
     async def unlock(self, key, value) -> bool:
         return self._delete(key)
+
+
+class MemoryInterval(Memory):
+    def __init__(self, size: int = 1000, check_interval: float = 1.0):
+        self._check_interval = check_interval
+        super().__init__(size=size)
+
+    async def init(self):
+        asyncio.create_task(self._remove_expired())
+
+    async def _remove_expired(self):
+        while True:
+            for key in self.store.keys():
+                await self.get(key)
+            await asyncio.sleep(self._check_interval)
+
+    async def get(self, key: str) -> Optional[Any]:
+        expiration = self._meta.get(key)
+        if expiration and datetime.datetime.utcnow() > expiration:
+            await self.delete(key)
+            return None
+
+        return self.store.get(key, None)
+
+    def _set(self, key: str, value: Any, expire: Optional[float] = None) -> None:
+        self.store[key] = value
+
+        if expire is not None and expire > 0.0:
+            self._meta[key] = datetime.datetime.utcnow() + datetime.timedelta(seconds=expire)
