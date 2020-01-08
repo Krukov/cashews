@@ -29,7 +29,7 @@ class PickleSerializerMixin:
             return None
 
     def get_sign(self, value: bytes):
-        return hmac.new(self._hash_key, value, hashlib.sha1).hexdigest().encode()
+        return hmac.new(self._hash_key, value, hashlib.md5).hexdigest().encode()
 
     async def set(self, key: str, value, *args, **kwargs):
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)

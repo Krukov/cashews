@@ -60,6 +60,7 @@ You can disable cache by 'enable' parameter:
     cache.setup("redis://redis/0?enable=1")
     cache.setup("redis://redis?enable=True")
 
+Also read about dynamic disabling at [simple cache](#simple-cache) section
 
 ### Backends
 
@@ -80,7 +81,7 @@ This backend use pickle to store values, but the cashes store values with sha1 k
 So you should set 'hash_key' parameter to protect your application from security vulnerabilities.
 You can set parameters for [redis pool](https://aioredis.readthedocs.io/en/v1.3.0/api_reference.html#aioredis.create_pool) by backend setup    
 
-    cache.setup("redis://0.0.0.0/?db=1&maxsize=10&safe=1&hash_key=my_sicret")
+    cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=1&hash_key=my_sicret")
     cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=0, hash_key="my_sicret")
 
 
@@ -118,7 +119,18 @@ But what if we want to user argument define a cache key or want to hide token fr
 
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call (like 'key_{token}/{arg}\{user}')
-:param condition: callable object that determines whether the result will be saved or not
+:param disable: callable object that determines whether cache will use:
+
+    def by_argument(arg):
+        def _func(args):
+            return args[arg]
+    return _func
+
+    @cache(ttl=100, disable=by_argument("nocache"))
+    async def long_running_function(arg, nocache=False):
+        ...
+
+:param store: callable object that determines whether the result will be saved or not
 :param prefix: custom prefix for key
 
 
@@ -150,7 +162,8 @@ Cache call results and drop cache after given numbers of call 'cache_hits'
 :param update_before: number of cache hits before cache will update
 :param func_args: [see simple cache params](#simple-cache)
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
-:param condition: callable object that determines whether the result will be saved or not
+:param disable: callable object that determines whether cache will use
+:param store: callable object that determines whether the result will be saved or not
 :param prefix: custom prefix for key, default "hit"
 
 Example
@@ -211,7 +224,8 @@ Warning! Not good at cold cache
 :param ttl: seconds in int or as timedelta object to store a result
 :param func_args: [see simple cache params](#simple-cache)
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
-:param condition: callable object that determines whether the result will be saved or not
+:param disable: callable object that determines whether cache will use
+:param store: callable object that determines whether the result will be saved or not
 :param prefix: custom prefix for key, default 'early'
 
 
@@ -275,6 +289,3 @@ Another strategy to cache invalidation implement in next api:
        ...
 
 
-
- todos:
- * cache size

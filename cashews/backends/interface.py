@@ -14,6 +14,9 @@ class Backend:
     async def init(self):
         ...
 
+    async def close(self):
+        ...
+
     async def set(
         self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None
     ) -> bool:

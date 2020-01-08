@@ -35,5 +35,5 @@ def prefix(_, key):
 
 if __name__ == "__main__":
     # cache.setup("mem://", hooks=[prefix])
-    cache.setup("redis://0.0.0.0/2?hash_key=test", hooks=[prefix])
+    cache.setup("redis://0.0.0.0/2?hash_key=s3243fedg", hooks=[prefix])
     asyncio.run(main(cache))

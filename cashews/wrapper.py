@@ -1,3 +1,4 @@
+import asyncio
 import inspect
 from datetime import timedelta
 from functools import wraps
@@ -39,7 +40,7 @@ class Cache(ProxyBackend):
         self.__init = False
         self.__address = None
         self._kwargs = {}
-        self.enable = False
+        self.enable = True
         self.execute_hooks = ()
         super().__init__()
 
@@ -58,7 +59,10 @@ class Cache(ProxyBackend):
         self._setup_backend(**params)
 
     def _setup_backend(self, backend: Type[Backend], **kwargs):
+        if self._target:
+            asyncio.create_task(self._target.close())
         self._target = backend(**kwargs)
+        self.__init = False
 
     async def init(self, *args, **kwargs):
         self.setup(*args, **kwargs)
@@ -153,13 +157,16 @@ class Cache(ProxyBackend):
         ttl: Union[int, timedelta],
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        condition: Optional[Callable[[Any], bool]] = None,
+        disable: Optional[Callable[[FuncArgsType], bool]] = None,
+        store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "",
     ):
         if self.disable:
             return _not_decorator
 
-        return cache_utils.cache(self, ttl=ttl, func_args=func_args, key=key, condition=condition, prefix=prefix)
+        return cache_utils.cache(
+            self, ttl=ttl, func_args=func_args, key=key, disable=disable, store=store, prefix=prefix
+        )
 
     cache = __call__
 
@@ -184,13 +191,16 @@ class Cache(ProxyBackend):
         ttl: Optional[Union[int, timedelta]],
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        condition: Optional[Callable[[Any], bool]] = None,
+        disable: Optional[Callable[[FuncArgsType], bool]] = None,
+        store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "early",
     ):
         if self.disable:
             return _not_decorator
 
-        return cache_utils.early(self, ttl=ttl, func_args=func_args, key=key, condition=condition, prefix=prefix)
+        return cache_utils.early(
+            self, ttl=ttl, func_args=func_args, key=key, disable=disable, store=store, prefix=prefix
+        )
 
     def hit(
         self,
@@ -199,7 +209,8 @@ class Cache(ProxyBackend):
         update_before: int = 0,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        condition: Optional[Callable[[Any], bool]] = None,
+        disable: Optional[Callable[[FuncArgsType], bool]] = None,
+        store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "hit",
     ):
         if self.disable:
@@ -212,7 +223,8 @@ class Cache(ProxyBackend):
             update_before=update_before,
             func_args=func_args,
             key=key,
-            condition=condition,
+            disable=disable,
+            store=store,
             prefix=prefix,
         )
 

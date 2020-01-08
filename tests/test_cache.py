@@ -54,10 +54,23 @@ async def test_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
+async def test_cache_simple_enable(backend):
+    @cache(backend, ttl=1, key="key", disable=lambda args: args["no_cache"])
+    async def func(resp=b"ok", no_cache=False):
+        return resp
+
+    assert await func() == b"ok"
+
+    await asyncio.sleep(0)
+    assert await func(b"notok") == b"ok"
+
+    assert await func(b"notok", no_cache=True) == b"notok"
+
+
 async def test_cache_simple_cond(backend):
     mock = Mock()
 
-    @cache(backend, ttl=EXPIRE, key="key", condition=lambda x: x == b"hit")
+    @cache(backend, ttl=EXPIRE, key="key", store=lambda x: x == b"hit")
     async def func(resp=b"ok"):
         mock()
         return resp

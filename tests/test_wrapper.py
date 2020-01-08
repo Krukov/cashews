@@ -15,6 +15,7 @@ def cache():
 
 def test_setup(cache):
     backend = Mock()
+    cache._target = None
     with patch("cashews.wrapper.Memory", backend):
         cache.setup("mem://localhost?test=1")
     backend.assert_called_with(test=1)

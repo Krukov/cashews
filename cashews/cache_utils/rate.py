@@ -5,19 +5,16 @@ from collections import deque
 from datetime import timedelta
 from functools import wraps
 from statistics import mean
-from typing import Any, Callable, Iterable, Optional, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Union
 
 from ..backends.interface import Backend
-from ..key import FuncArgsType, get_cache_key
+from ..key import FuncArgsType, get_cache_key, get_call_values
+from .defaults import _default_disable_condition, _default_store_condition
 
 __all__ = ("hit", "perf", "rate_limit")
 
 
 logger = logging.getLogger(__name__)
-
-
-def _default_condition(result) -> bool:
-    return result is not None
 
 
 def hit(
@@ -27,7 +24,8 @@ def hit(
     update_before: int = 0,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    condition: Optional[Callable[[Any], bool]] = None,
+    disable: Optional[Callable[[Dict[str, Any]], bool]] = None,
+    store: Optional[Callable[[Any], bool]] = None,
     prefix: str = "hit",
 ):
     """
@@ -38,14 +36,19 @@ def hit(
     :param update_before: number of cache hits before cache will update
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
-    :param condition: callable object that determines whether the result will be saved or not
+    :param disable: callable object that determines whether cache will use
+    :param store: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'hit'
     """
-    condition = _default_condition if condition is None else condition
+    store = _default_store_condition if store is None else store
+    disable = _default_disable_condition if disable is None else disable
 
     def _decor(func):
         @wraps(func)
         async def _wrap(*args, **kwargs):
+            if disable(get_call_values(func, args, kwargs, func_args=None)):
+                return await func(*args, **kwargs)
+
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             result = await backend.get(_cache_key)
             hits = await backend.incr(_cache_key + ":counter")
@@ -54,7 +57,7 @@ def hit(
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl))
                 return result
             result = await func(*args, **kwargs)
-            if condition(result):
+            if store(result):
                 asyncio.create_task(backend.delete(_cache_key + ":counter"))
                 asyncio.create_task(backend.set(_cache_key, result, expire=ttl))
             return result

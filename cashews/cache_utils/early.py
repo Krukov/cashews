@@ -3,17 +3,14 @@ import logging
 import time
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 from ..backends.interface import Backend
-from ..key import FuncArgsType, get_cache_key
+from ..key import FuncArgsType, get_cache_key, get_cache_key_template, get_call_values
+from .defaults import _default_disable_condition, _default_store_condition
 
 __all__ = ("early",)
 logger = logging.getLogger(__name__)
-
-
-def _default_condition(result) -> bool:
-    return result is not None
 
 
 def early(
@@ -21,7 +18,8 @@ def early(
     ttl: Optional[Union[int, timedelta]],
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    condition: Optional[Callable[[Any], bool]] = None,
+    disable: Optional[Callable[[Dict[str, Any]], bool]] = None,
+    store: Optional[Callable[[Any], bool]] = None,
     prefix: str = "early",
 ):
     """
@@ -33,17 +31,24 @@ def early(
     :param ttl: seconds in int or as timedelta object to store a result
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
-    :param condition: callable object that determines whether the result will be saved or not
+    :param disable: callable object that determines whether cache will use
+    :param store: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
-    condition = _default_condition if condition is None else condition
+    store = _default_store_condition if store is None else store
+    disable = _default_disable_condition if disable is None else disable
 
     def _decor(func):
+        func._key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key)
+
         @wraps(func)
         async def _wrap(*args, **kwargs):
+            if disable(get_call_values(func, args, kwargs, func_args=None)):
+                return await func(*args, **kwargs)
+
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             cached = await backend.get(_cache_key)
-            execution = _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, condition)
+            execution = _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store)
 
             if cached:
                 expire_at, delta, result = cached

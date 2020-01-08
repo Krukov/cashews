@@ -32,10 +32,10 @@ async def get():
 
 
 @app.get("/cache/early/{name}")
-@early(ttl=10)
+@early(ttl=5)
 async def get2(name: str):
     print("HIT!", datetime.datetime.utcnow().isoformat())
-    await asyncio.sleep(1)
+    await asyncio.sleep(0.1)
     return {"status": "ok"}
 
 
