@@ -186,6 +186,32 @@ class Cache(ProxyBackend):
 
         return cache_utils.fail(self, ttl=ttl, exceptions=exceptions, key=key, func_args=func_args, prefix=prefix)
 
+    def circuit_breaker(
+        self,
+        ttl: Union[int, timedelta],
+        limit: int,
+        period: Union[int, timedelta],
+        cache_ttl: Union[int, timedelta],
+        exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+        key: Optional[str] = None,
+        func_args: FuncArgsType = None,
+        prefix: str = "fail",
+    ):
+        if self.disable:
+            return _not_decorator
+
+        return cache_utils.circuit_breaker(
+            self,
+            ttl=ttl,
+            limit=limit,
+            period=period,
+            cache_ttl=cache_ttl,
+            exceptions=exceptions,
+            key=key,
+            func_args=func_args,
+            prefix=prefix,
+        )
+
     def early(
         self,
         ttl: Optional[Union[int, timedelta]],

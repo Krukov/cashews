@@ -50,7 +50,7 @@ class Memory(Backend):
     async def delete_match(self, pattern: str):
         pattern = pattern.replace("*", "[^:]+")
         regexp = re.compile(pattern)
-        for key in dict(self.store).keys():
+        for key in dict(self.store):
             if regexp.fullmatch(key):
                 await self.delete(key)
 
@@ -63,9 +63,9 @@ class Memory(Backend):
     async def ping(self, message: Optional[str] = None):
         return b"PONG" if message is None else message
 
-    def _set(self, key: str, value: Any, expire: Optional[float] = None) -> None:
+    def _set(self, key: str, value: Any, expire: Optional[float] = None):
         if len(self.store) > self.size:
-            return None
+            return
         self.store[key] = value
 
         if expire is not None and expire > 0.0:
@@ -106,7 +106,7 @@ class MemoryInterval(Memory):
 
     async def _remove_expired(self):
         while True:
-            for key in self.store.keys():
+            for key in self.store:
                 await self.get(key)
             await asyncio.sleep(self._check_interval)
 

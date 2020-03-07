@@ -289,3 +289,4 @@ Another strategy to cache invalidation implement in next api:
        ...
 
 
+http://www.grantjenks.com/docs/diskcache/api.html\#diskcache.throttle
