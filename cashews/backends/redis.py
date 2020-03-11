@@ -22,6 +22,7 @@ end
 
 
 # pylint: disable=arguments-differ
+# pylint: disable=abstract-method
 
 
 class _SafeRedis(PickleSerializerMixin, Redis_):
@@ -65,6 +66,9 @@ class Redis(ProxyBackend):
                 raise
 
         self._target = _target_class(pool, hash_key=self._hash_key)
+
+    def get_many(self, *keys: str):
+        return self._target.mget(keys[0], *keys[1:])
 
     def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist=None):
         if exist is True:

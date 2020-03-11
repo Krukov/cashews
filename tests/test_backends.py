@@ -18,6 +18,11 @@ async def test_set_get(cache):
     assert await cache.get("key") == b"value"
 
 
+async def test_set_get_many(cache):
+    await cache.set("key", b"value")
+    assert await cache.get_many("key", "no_exists") == (b"value", None)
+
+
 async def test_set_exist(cache):
     assert await cache.set("key", b"value")
     assert await cache.set("key", b"value", exist=True)

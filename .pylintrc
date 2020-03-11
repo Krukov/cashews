@@ -63,6 +63,8 @@ confidence=
 disable=missing-docstring,
         unused-argument,
         bad-continuation,
+        protected-access,
+        duplicate-code,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -176,6 +178,7 @@ good-names=k,
            env,
            os,
            ip,
+           db,
 
 # Include a hint for the correct naming format with invalid-name.
 include-naming-hint=no
@@ -449,10 +452,10 @@ known-third-party=enchant
 [DESIGN]
 
 # Maximum number of arguments for function / method.
-max-args=7
+max-args=12
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+max-attributes=12
 
 # Maximum number of boolean expressions in an if statement.
 max-bool-expr=3
@@ -467,7 +470,7 @@ max-locals=10
 max-parents=7
 
 # Maximum number of public methods for a class (see R0904).
-max-public-methods=10
+max-public-methods=15
 
 # Maximum number of return / yield for function / method body.
 max-returns=4

@@ -1,6 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Optional, Union
+from typing import Any, Optional, Tuple, Union
 
 
 class LockedException(Exception):
@@ -23,6 +23,9 @@ class Backend:
         ...
 
     async def get(self, key: str) -> Any:
+        ...
+
+    async def get_many(self, *keys: str) -> Tuple[Any]:
         ...
 
     async def incr(self, key: str) -> int:
@@ -75,6 +78,9 @@ class ProxyBackend(Backend):
 
     async def get(self, key: str) -> Any:
         return await self._target.get(key)
+
+    async def get_many(self, *keys: str) -> Tuple[Any]:
+        return await self._target.get_many(keys)
 
     async def incr(self, key: str) -> int:
         return await self._target.incr(key)

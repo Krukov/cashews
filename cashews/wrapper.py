@@ -2,7 +2,7 @@ import asyncio
 import inspect
 from datetime import timedelta
 from functools import wraps
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
 from . import cache_utils
@@ -10,13 +10,15 @@ from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
 from .key import FuncArgsType, get_call_values
 
+#  pylint: disable=too-many-public-methods
+
 
 def call_hook(command):
     def decor(func):
         @wraps(func)
         async def _func(*args, **kwargs):
             self = args[0]
-            if self.disable:
+            if self.is_disable(command, "cmds"):
                 return None
             all_in_kwargs = get_call_values(func, args, kwargs, func_args=None)
             key = await self._hook_call(command, all_in_kwargs.get("key", ""))
@@ -40,22 +42,50 @@ class Cache(ProxyBackend):
         self.__init = False
         self.__address = None
         self._kwargs = {}
-        self.enable = True
+        self._disable: Union[bool, List] = False
         self.execute_hooks = ()
         super().__init__()
 
-    @property
-    def disable(self):
-        return not self.enable
+    def is_disable(self, *cmds: str) -> bool:
+        if isinstance(self._disable, bool):
+            return self._disable
+        for cmd in cmds:
+            if cmd.lower() in [c.lower() for c in self._disable]:
+                return True
+        return False
+
+    def is_enable(self, *cmds):
+        return not self.is_disable(*cmds)
+
+    def disable(self, *cmds: str):
+        if self._disable is True:
+            self._disable = ["cmds", "decorators"]
+        if self._disable is False:
+            self._disable = []
+        self._disable.extend(cmds)
+        return self._disable is True
+
+    def enable(self, *cmds: str):
+        if self._disable is True:
+            self._disable = ["cmds", "decorators"]
+        if self._disable is False:
+            self._disable = []
+            return
+        for cmd in cmds:
+            if cmd in self._disable:
+                self._disable.remove(cmd)
+        return self._disable is True
 
     def setup(self, settings_url: str, hooks=(), **kwargs):
         self.execute_hooks = hooks
         params = settings_url_parse(settings_url)
         params.update(kwargs)
         if "disable" in params:
-            self.enable = not params.pop("disable")
+            self._disable = params.pop("disable")
         else:
-            self.enable = params.pop("enable", True)
+            self._disable = not params.pop("enable", True)
+        if not isinstance(self._disable, bool):
+            self._disable = list(self._disable)
         self._setup_backend(**params)
 
     def _setup_backend(self, backend: Type[Backend], **kwargs):
@@ -69,7 +99,7 @@ class Cache(ProxyBackend):
         await self._init()
 
     async def _init(self):
-        if self.disable:
+        if self.is_disable():
             return None
         if not self.__init:
             await self._target.init()
@@ -146,7 +176,7 @@ class Cache(ProxyBackend):
         action: Optional[Callable] = None,
         prefix="rate_limit",
     ):  # pylint: disable=too-many-arguments
-        if self.disable:
+        if self.is_disable("decorators", "rate_limit"):
             return _not_decorator
         return cache_utils.rate_limit(
             self, limit=limit, period=period, ttl=ttl, func_args=func_args, action=action, prefix=prefix
@@ -161,7 +191,7 @@ class Cache(ProxyBackend):
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "",
     ):
-        if self.disable:
+        if self.is_disable("decorators", "cache"):
             return _not_decorator
 
         return cache_utils.cache(
@@ -171,6 +201,8 @@ class Cache(ProxyBackend):
     cache = __call__
 
     def invalidate(self, target, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
+        if self.is_disable("decorators", "cache"):
+            return _not_decorator
         return cache_utils.invalidate(self, target=target, args_map=args_map, defaults=defaults)
 
     def fail(
@@ -181,31 +213,29 @@ class Cache(ProxyBackend):
         func_args: FuncArgsType = None,
         prefix: str = "fail",
     ):
-        if self.disable:
+        if self.is_disable("decorators", "fail"):
             return _not_decorator
 
         return cache_utils.fail(self, ttl=ttl, exceptions=exceptions, key=key, func_args=func_args, prefix=prefix)
 
     def circuit_breaker(
         self,
-        ttl: Union[int, timedelta],
-        limit: int,
+        errors_rate: int,
         period: Union[int, timedelta],
-        cache_ttl: Union[int, timedelta],
+        ttl: Union[int, timedelta],
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         key: Optional[str] = None,
         func_args: FuncArgsType = None,
         prefix: str = "fail",
     ):
-        if self.disable:
+        if self.is_disable("decorators", "circuit_breaker"):
             return _not_decorator
 
         return cache_utils.circuit_breaker(
             self,
-            ttl=ttl,
-            limit=limit,
+            errors_rate=errors_rate,
             period=period,
-            cache_ttl=cache_ttl,
+            ttl=ttl,
             exceptions=exceptions,
             key=key,
             func_args=func_args,
@@ -221,7 +251,7 @@ class Cache(ProxyBackend):
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "early",
     ):
-        if self.disable:
+        if self.is_disable("decorators", "early"):
             return _not_decorator
 
         return cache_utils.early(
@@ -239,7 +269,7 @@ class Cache(ProxyBackend):
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "hit",
     ):
-        if self.disable:
+        if self.is_disable("decorators", "hit"):
             return _not_decorator
 
         return cache_utils.hit(
@@ -263,7 +293,7 @@ class Cache(ProxyBackend):
         perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
         prefix: str = "perf",
     ):
-        if self.disable:
+        if self.is_disable("decorators", "perf"):
             return _not_decorator
 
         return cache_utils.perf(
@@ -284,7 +314,7 @@ class Cache(ProxyBackend):
         lock_ttl: Union[int, timedelta] = 1,
         prefix: str = "lock",
     ):
-        if self.disable:
+        if self.is_disable("decorators", "locked"):
             return _not_decorator
 
         return cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, lock_ttl=lock_ttl, prefix=prefix)
@@ -298,10 +328,10 @@ def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool,
         "true",
     )
     for key, value in params.items():
-        if value.isdigit():
-            value = int(value)
-        elif key.lower() in bool_keys:
+        if key.lower() in bool_keys:
             value = value.lower() in true_values
+        elif value.isdigit():
+            value = int(value)
         else:
             try:
                 value = float(value)

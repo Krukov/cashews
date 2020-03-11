@@ -41,20 +41,18 @@ async def test_fail_cache_simple(backend):
 
 
 async def test_circuit_breaker_simple(backend):
-    @circuit_breaker(backend, ttl=EXPIRE * 10, limit=1, period=1, cache_ttl=EXPIRE * 2, func_args=())
+    @circuit_breaker(backend, ttl=EXPIRE * 10, errors_rate=0.1, period=1, func_args=())
     async def func(fail=False):
         if fail:
             raise CustomError()
         return b"ok"
 
-    assert await func() == b"ok"
+    for _ in range(9):
+        assert await func() == b"ok"
 
     with pytest.raises(CustomError):
         await func(fail=True)
-
-    await asyncio.sleep(EXPIRE)
-    assert await func(fail=True) == b"ok"
-    await asyncio.sleep(EXPIRE)
+    await asyncio.sleep(0)
 
     with pytest.raises(CircuitBreakerSwitch):
         await func(fail=True)

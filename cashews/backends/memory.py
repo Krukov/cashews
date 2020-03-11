@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import re
-from typing import Any, Optional, Union
+from typing import Any, Optional, Tuple, Union
 
 from .interface import Backend
 
@@ -29,6 +29,9 @@ class Memory(Backend):
 
     async def get(self, key: str) -> Any:
         return self._get(key)
+
+    async def get_many(self, *keys: str) -> Tuple:
+        return tuple([self._get(key) for key in keys])
 
     async def incr(self, key: str):
         value = int(self._get(key) or 0) + 1
