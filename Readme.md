@@ -97,8 +97,8 @@ Typical cache strategy: execute, store and return cached value till expiration::
         ...
 
 
-
 :param ttl: seconds in int value or as timedelta object to define time to store objects
+
 :param func_args: arguments of call that will be used in key, can be tuple or dict with argument name as a key and callable object as a transform function for value of this argument
 
     @cache(ttl=100, func_args=("arg", "token"))
@@ -119,6 +119,7 @@ But what if we want to user argument define a cache key or want to hide token fr
 
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call (like 'key_{token}/{arg}\{user}')
+
 :param disable: callable object that determines whether cache will use:
 
     def by_argument(arg):
@@ -131,6 +132,7 @@ But what if we want to user argument define a cache key or want to hide token fr
         ...
 
 :param store: callable object that determines whether the result will be saved or not
+
 :param prefix: custom prefix for key
 
 
@@ -138,11 +140,15 @@ But what if we want to user argument define a cache key or want to hide token fr
 Return cache result (at list 1 call of function call should be succeed) if call raised one of the given exceptions,
     
 :param ttl: seconds in int or as timedelta object to store a result
+
 :param exceptions: exceptions at which returned cache result
+
 :param func_args: [see simple cache params](#simple-cache)
+
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
+
 :param prefix: custom prefix for key, default "fail"
-            
+
 Example
 -------
     
@@ -158,12 +164,19 @@ Example
 Cache call results and drop cache after given numbers of call 'cache_hits'
 
 :param ttl: seconds in int or as timedelta object to store a result
+
 :param cache_hits: number of cache hits till cache will dropped
+
 :param update_before: number of cache hits before cache will update
+
 :param func_args: [see simple cache params](#simple-cache)
+
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
+
 :param disable: callable object that determines whether cache will use
+
 :param store: callable object that determines whether the result will be saved or not
+
 :param prefix: custom prefix for key, default "hit"
 
 Example
@@ -180,11 +193,16 @@ Example
 Trace time execution of target and enable cache if it downgrade to given condition
 
 :param ttl: seconds in int or as timedelta object to store a result
+
 :param func_args: [see simple cache params](#simple-cache)
+
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
+
 :param trace_size: the number of calls that are involved
+
 :param perf_condition: callable object that determines whether the result will be cached,
        default if doubled mean value of time execution less then current
+
 :param prefix: custom prefix for key, default 'perf'
 
     
@@ -202,10 +220,14 @@ Lock following function calls till it be cached
 Can guarantee one function call for given ttl
 
 :param ttl: seconds in int or timedelta object to store a result
+
 :param func_args: [see simple cache params](#simple-cache)
+
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
+
 :param lock_ttl: seconds in int or timedelta object to lock wrapped function call
         (should be more than function execution time)
+
 :param prefix: custom prefix for key, default 'early'
 
     from cashews import cache  # or from cashews import locked
@@ -222,10 +244,15 @@ With a hot cache recalculate a result in background near expiration time
 Warning! Not good at cold cache
 
 :param ttl: seconds in int or as timedelta object to store a result
+
 :param func_args: [see simple cache params](#simple-cache)
+
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
+
 :param disable: callable object that determines whether cache will use
+
 :param store: callable object that determines whether the result will be saved or not
+
 :param prefix: custom prefix for key, default 'early'
 
 
@@ -233,10 +260,15 @@ Warning! Not good at cold cache
 Rate limit for function call. Do not call function if rate limit is reached, and call given action
 
 :param limit: number of calls
+
 :param period: Period
+
 :param ttl: time to ban, default == period
+
 :param func_args: [see simple cache params](#simple-cache)
+
 :param action: call when rate limit reached, default raise RateLimitException
+
 :param prefix: custom prefix for key, default 'rate_limit'
     
     from cashews import cache  # or from cashews import rate_limit

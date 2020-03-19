@@ -94,8 +94,16 @@ async def test_no_value(cache):
     assert await cache.get("key") is None
 
 
+async def test_replace_values(cache):
+    await cache.set("key", "key")
+    cache.store["replace"] = cache.store["key"]
+
+    with pytest.raises(UnSecureDataError):
+        await cache.get("replace")
+
+
 async def test_pickle_error_value(cache):
-    cache.store["key"] = cache.get_sign(b"no_pickle_data") + b"_" + b"no_pickle_data"
+    cache.store["key"] = cache.get_sign("key", b"no_pickle_data") + b"_" + b"no_pickle_data"
     assert await cache.get("key") is None
 
 

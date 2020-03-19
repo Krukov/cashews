@@ -20,7 +20,7 @@ class PickleSerializerMixin:
             sign, value = value.split(b"_", 1)
         except ValueError:
             raise UnSecureDataError()
-        expected_sign = self.get_sign(value)
+        expected_sign = self.get_sign(key, value)
         if expected_sign != sign:
             raise UnSecureDataError()
         try:
@@ -28,10 +28,11 @@ class PickleSerializerMixin:
         except pickle.PickleError:
             return None
 
-    def get_sign(self, value: bytes):
+    def get_sign(self, key: str, value: bytes):
+        value = key.encode() + value
         return hmac.new(self._hash_key, value, hashlib.md5).hexdigest().encode()
 
     async def set(self, key: str, value, *args, **kwargs):
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)
-        sign = self.get_sign(value)
+        sign = self.get_sign(key, value)
         return await super().set(key, sign + b"_" + value, *args, **kwargs)
