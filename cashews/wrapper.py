@@ -1,7 +1,6 @@
 import asyncio
-import inspect
 from datetime import timedelta
-from functools import wraps
+from functools import partial
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
@@ -13,28 +12,32 @@ from .key import FuncArgsType, get_call_values
 #  pylint: disable=too-many-public-methods
 
 
-def call_hook(command):
-    def decor(func):
-        @wraps(func)
-        async def _func(*args, **kwargs):
-            self = args[0]
-            if self.is_disable(command, "cmds"):
-                return None
-            all_in_kwargs = get_call_values(func, args, kwargs, func_args=None)
-            key = await self._hook_call(command, all_in_kwargs.get("key", ""))
-            if "key" in all_in_kwargs:
-                all_in_kwargs.pop("key")
-                all_in_kwargs.pop("self")
-                return await func(self, key, **all_in_kwargs)
-            return await func(*args, **kwargs)
-
-        return _func
-
-    return decor
-
-
 def _not_decorator(func):
     return func
+
+
+async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
+    if backend.is_disable(cmd, "cmds"):
+        return None
+    return await call(*args, **kwargs)
+
+
+async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
+    if not backend.is_init:
+        await backend._init()
+    return await call(*args, **kwargs)
+
+
+def add_prefix(prefix: str):
+    async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
+        call_values = get_call_values(call, args, kwargs, func_args=None)
+        key = call_values.get("key")
+        if key:
+            call_values["key"] = prefix + key
+            return await call(**call_values)
+        return await call(*args, **kwargs)
+
+    return _middleware
 
 
 class Cache(ProxyBackend):
@@ -43,8 +46,12 @@ class Cache(ProxyBackend):
         self.__address = None
         self._kwargs = {}
         self._disable: Union[bool, List] = False
-        self.execute_hooks = ()
+        self.middlewares = (_is_disable_middleware, _auto_init)
         super().__init__()
+
+    @property
+    def is_init(self):
+        return self.__init
 
     def is_disable(self, *cmds: str) -> bool:
         if isinstance(self._disable, bool):
@@ -76,8 +83,8 @@ class Cache(ProxyBackend):
                 self._disable.remove(cmd)
         return self._disable is True
 
-    def setup(self, settings_url: str, hooks=(), **kwargs):
-        self.execute_hooks = hooks
+    def setup(self, settings_url: str, middlewares: Tuple = (), **kwargs):
+        self.middlewares = tuple(middlewares) + self.middlewares
         params = settings_url_parse(settings_url)
         params.update(kwargs)
         if "disable" in params:
@@ -105,66 +112,52 @@ class Cache(ProxyBackend):
             await self._target.init()
         self.__init = True
 
-    async def _hook_call(self, command, key):
-        if not self.__init:
-            await self._init()
+    def _with_middlewares(self, cmd: str, target):
+        call = target
+        for middleware in self.middlewares:
+            call = partial(middleware, call, cmd=cmd, backend=self)
+        return call
 
-        for hook in self.execute_hooks:
-            call = hook(command, key)
-            if inspect.isawaitable(call):
-                call = await call
-            if call is not None:
-                key = call
-        return key
-
-    @call_hook("SET")
-    async def set(
+    def set(
         self, key: str, value: Any, expire: Union[None, float, int, timedelta] = None, exist: Optional[bool] = None
     ) -> bool:
         expire = expire.total_seconds() if expire and isinstance(expire, timedelta) else expire
-        return await self._target.set(key, value, expire=expire, exist=exist)
+        return self._with_middlewares("set", self._target.set)(key, value, expire=expire, exist=exist)
 
-    @call_hook("GET")
-    async def get(self, key: str) -> Any:
-        return await self._target.get(key)
+    def get(self, key: str) -> Any:
+        return self._with_middlewares("get", self._target.get)(key)
 
-    @call_hook("INCR")
-    async def incr(self, key: str) -> int:
-        return await self._target.incr(key)
+    def incr(self, key: str) -> int:
+        return self._with_middlewares("incr", self._target.incr)(key)
 
-    @call_hook("DELETE")
-    async def delete(self, key: str):
-        return await self._target.delete(key)
+    def delete(self, key: str):
+        return self._with_middlewares("delete", self._target.delete)(key)
 
-    @call_hook("DELETE_MATCH")
-    async def delete_match(self, pattern: str):
-        return await self._target.delete_match(pattern)
+    def delete_match(self, pattern: str):
+        return self._with_middlewares("delete_match", self._target.delete_match)(pattern)
 
-    @call_hook("EXPIRE")
-    async def expire(self, key: str, timeout: Union[float, int, timedelta]):
+    def expire(self, key: str, timeout: Union[float, int, timedelta]):
         timeout = timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
-        return await self._target.expire(key, timeout)
+        return self._with_middlewares("expire", self._target.expire)(key, timeout)
 
-    @call_hook("LOCK")
-    async def set_lock(self, key: str, value: Any, expire: Union[float, int, timedelta]) -> bool:
+    def set_lock(self, key: str, value: Any, expire: Union[float, int, timedelta]) -> bool:
         expire = expire.total_seconds() if isinstance(expire, timedelta) else expire
-        return await self._target.set_lock(key, value, expire=expire)
+        return self._with_middlewares("lock", self._target.set_lock)(key, value, expire=expire)
 
-    @call_hook("UNLOCK")
-    async def unlock(self, key: str, value: str) -> bool:
-        return await self._target.unlock(key, value)
+    def unlock(self, key: str, value: str) -> bool:
+        return self._with_middlewares("unlock", self._target.unlock)(key, value)
 
-    @call_hook("PING")
-    async def ping(self, message: Optional[str] = None) -> str:
-        return await self._target.ping(message)
+    def ping(self, message: Optional[str] = None) -> str:
+        return self._with_middlewares("ping", self._target.ping)(message)
 
-    @call_hook("CLEAR")
-    async def clear(self):
-        return await self._target.clear()
+    def clear(self):
+        return self._with_middlewares("clear", self._target.clear)()
 
-    async def is_locked(self, key: str, wait: Union[int, float, None] = None) -> bool:
+    def is_locked(
+        self, key: str, wait: Union[int, float, None, timedelta] = None, step: Union[int, float] = 0.1
+    ) -> bool:
         wait = wait.total_seconds() if wait and isinstance(wait, timedelta) else wait
-        return await self._target.is_locked(key, wait=wait)
+        return self._with_middlewares("is_locked", self._target.is_locked)(key, wait=wait, step=step)
 
     # DecoratorS
     def rate_limit(

@@ -87,10 +87,9 @@ class Redis(ProxyBackend):
     def set_lock(self, key: str, value, expire):
         return self.set(key, value, expire=expire, exist=False)
 
-    async def is_locked(self, key: str, wait=None):
+    async def is_locked(self, key: str, wait=None, step=0.1):
         if wait is None:
             return await self._target.exists(key)
-        step = 0.001
         while wait > 0.0:
             if not await self._target.exists(key):
                 return False

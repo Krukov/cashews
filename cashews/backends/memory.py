@@ -84,10 +84,9 @@ class Memory(Backend):
     async def set_lock(self, key: str, value, expire):
         return await self.set(key, value, expire=expire, exist=False)
 
-    async def is_locked(self, key: str, wait=None) -> bool:
+    async def is_locked(self, key: str, wait=None, step=0.1) -> bool:
         if wait is None:
             return key in self.store
-        step = 0.001
         while wait > 0:
             if key not in self.store:
                 return False

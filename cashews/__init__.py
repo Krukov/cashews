@@ -1,7 +1,7 @@
 from .cache_utils.fail import CircuitBreakerSwitch  # noqa
 from .cache_utils.locked import LockedException  # noqa
 from .cache_utils.rate import RateLimitException  # noqa
-from .wrapper import Cache
+from .wrapper import Cache, add_prefix  # noqa
 
 # pylint: disable=invalid-name
 cache = Cache()

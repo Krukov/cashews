@@ -1,7 +1,7 @@
 import asyncio
 from decimal import Decimal
 from datetime import timedelta
-from cashews import cache
+from cashews import cache, add_prefix
 
 
 async def main(cache):
@@ -25,15 +25,12 @@ async def main(cache):
         print(await cache.ping())  # -> bytes
 
     await cache.set_lock("key", value="value", expire=60)  # -> bool
-    await cache.is_locked("key", wait=60)  # -> bool
+    print(await cache.is_locked("key", wait=10, step=1))  # -> bool
     await cache.unlock("key", "value")  # -> bool
 
-
-def prefix(_, key):
-    return "v1:" + key
 
 
 if __name__ == "__main__":
     # cache.setup("mem://", hooks=[prefix])
-    cache.setup("redis://0.0.0.0/2?hash_key=s3243fedg", hooks=[prefix])
+    cache.setup("redis://0.0.0.0/0?hash_key=s3243fedg", middlewares=(add_prefix("test:"), ))
     asyncio.run(main(cache))
