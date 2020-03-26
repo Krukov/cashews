@@ -321,4 +321,5 @@ Another strategy to cache invalidation implement in next api:
        ...
 
 
-http://www.grantjenks.com/docs/diskcache/api.html\#diskcache.throttle
+TODO:
+ - API to detect result source (call or  cache)

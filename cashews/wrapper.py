@@ -305,12 +305,13 @@ class Cache(ProxyBackend):
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
         lock_ttl: Union[int, timedelta] = 1,
+        step: Union[int, float] = 0.1,
         prefix: str = "lock",
     ):
         if self.is_disable("decorators", "locked"):
             return _not_decorator
 
-        return cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, lock_ttl=lock_ttl, prefix=prefix)
+        return cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, lock_ttl=lock_ttl, step=step, prefix=prefix)
 
 
 def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:

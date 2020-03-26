@@ -15,6 +15,7 @@ def locked(
     func_args: Optional[Union[Dict, Tuple]] = None,
     key: Optional[str] = None,
     lock_ttl: Union[int, timedelta] = 1,
+    step: Union[float, int] = 0.1,
     prefix: str = "lock",
 ):
     """
@@ -43,7 +44,7 @@ def locked(
                     result = await func(*args, **kwargs)
                     asyncio.create_task(backend.set(_cache_key, result, expire=ttl))
             except LockedException:
-                await backend.is_locked(_cache_key + ":lock", wait=lock_ttl)
+                await backend.is_locked(_cache_key + ":lock", wait=lock_ttl, step=step)
                 result = await backend.get(_cache_key)
             return result
 

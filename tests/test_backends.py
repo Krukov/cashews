@@ -65,7 +65,7 @@ async def test_expire(cache):
         ("clear", (), None),
         ("set_lock", ("key", "value", 10), None),
         ("unlock", ("key", "value"), None),
-        ("is_locked", ("key",), {"wait": None}),
+        ("is_locked", ("key",), {"wait": None, "step": 0.1}),
     ),
 )
 async def test_proxy_backend(method, args, defaults):

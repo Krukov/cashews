@@ -24,13 +24,15 @@ class PickleSerializerMixin:
         if expected_sign != sign:
             raise UnSecureDataError()
         try:
-            return pickle.loads(value, fix_imports=False, encoding="bytes")
-        except pickle.PickleError:
+            value = pickle.loads(value, fix_imports=False, encoding="bytes")
+            repr(value)
+            return value
+        except (pickle.PickleError, AttributeError):
             return None
 
-    def get_sign(self, key: str, value: bytes):
+    def get_sign(self, key: str, value: bytes) -> bytes:
         value = key.encode() + value
-        return hmac.new(self._hash_key, value, hashlib.md5).hexdigest().encode()
+        return hmac.new(self._hash_key, value, hashlib.sha1).hexdigest().encode()
 
     async def set(self, key: str, value, *args, **kwargs):
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)

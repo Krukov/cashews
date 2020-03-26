@@ -154,7 +154,7 @@ async def test_early_cache_parallel(backend):
 async def test_lock_cache_parallel(backend):
     mock = Mock()
 
-    @lock_cache(backend, ttl=0.1, key="key")
+    @lock_cache(backend, ttl=0.1, key="key", step=0.01)
     async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
         mock(resp)
