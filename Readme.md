@@ -135,6 +135,22 @@ But what if we want to user argument define a cache key or want to hide token fr
 
 :param prefix: custom prefix for key
 
+In some case you may would like to know source of returned value, Is it from cache or from function execute.
+Cashews have api to detect it :
+
+    @cache.cache(ttl=10)
+    async def test(key):
+        return ...
+    
+    detect = CacheDetect()
+    
+    await test("key", _from_cache=detect)
+    assert not detect.get()
+    await asyncio.sleep(0) # we need to sleep because cachews send  deferred task to set cache value 
+    
+    await test("key", _from_cache=detect)
+    asert detect.get() 
+     
 
 ### Fail cache
 Return cache result (at list 1 call of function call should be succeed) if call raised one of the given exceptions,
@@ -301,7 +317,7 @@ There are 11 basic methods to work with key-storage::
     
 
 ### Invalidation
-Cache invalidation - on of the main Computer Science well known problem. That's why 'ttl' is a required parameter for all cache decorators
+Cache invalidation - on of the main Computer Science well known problem. That's why `ttl` is a required parameter for all cache decorators
 Another strategy to cache invalidation implement in next api:
 
     from cashews import cache
@@ -321,5 +337,46 @@ Another strategy to cache invalidation implement in next api:
        ...
 
 
-TODO:
- - API to detect result source (call or  cache)
+Also you may face problem with invalid cache arising on code changing. For example we have:
+
+    @cache(ttl=timedelta(days=1))
+    asunc def get_user(user_id):
+        return {"name": "Dmitry", "surname": "Krykov"}
+
+Than we did changes
+
+    -    return {"name": "Dmitry", "surname": "Krykov"}
+    +    return {"full_name": "Dmitry Krykov"}
+
+
+There is no way simple way to automatically detect that kind of cache invalidity, because it is a dict.
+Сertainly we can add prefix for this cache:
+
+    @cache(ttl=timedelta(days=1), prefix="v2")
+    asunc def get_user(user_id):
+        return {"full_name": "Dmitry Krykov"}
+
+but usually we forget to do it...
+The best defense against such errors is to use objects like `dataclasses` for operating with structures, 
+it adds distinctness and `cashews` can detect changes in this structure automatically by checking representation (repr) of object.
+So you can you use your own datacontainer with defined `__repr__` method that rise `AttributeError`:
+
+    from dataclasses import dataclass
+    
+    @dataclass()
+    class User:
+        name: str
+        surname: str
+    # OR
+    class User:
+        
+        def __init__(self, name, surname):
+            self.name, self.surname = name, surname
+            
+        def __repr__(self):
+            return f"{self.name} {self.surname}"
+    
+    # Will detect changes of structure
+    @cache(ttl=timedelta(days=1), prefix="v2")
+    asunc def get_user(user_id):
+        return User("Dima", "Krykov")

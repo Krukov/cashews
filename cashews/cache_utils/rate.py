@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Union
 
 from ..backends.interface import Backend
 from ..key import FuncArgsType, get_cache_key, get_call_values
-from .defaults import _default_disable_condition, _default_store_condition
+from .defaults import _default_disable_condition, _default_store_condition, CacheDetect
 
 __all__ = ("hit", "perf", "rate_limit")
 
@@ -45,7 +45,7 @@ def hit(
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
             if disable(get_call_values(func, args, kwargs, func_args=None)):
                 return await func(*args, **kwargs)
 
@@ -53,6 +53,7 @@ def hit(
             result = await backend.get(_cache_key)
             hits = await backend.incr(_cache_key + ":counter")
             if result and hits <= cache_hits:
+                _from_cache.set()
                 if update_before and cache_hits - hits == update_before:
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl))
                 return result
@@ -102,11 +103,12 @@ def perf(
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             if await backend.is_locked(_cache_key + ":lock"):
                 cached = await backend.get(_cache_key)
                 if cached:
+                    _from_cache.set()
                     return cached
             start = time.time()
             result = await func(*args, **kwargs)

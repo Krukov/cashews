@@ -5,6 +5,7 @@ from typing import Dict, Optional, Tuple, Union
 
 from ..backends.interface import Backend, LockedException
 from ..key import get_cache_key
+from .defaults import CacheDetect
 
 __all__ = ("locked",)
 
@@ -34,10 +35,11 @@ def locked(
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             cached = await backend.get(_cache_key)
             if cached:
+                _from_cache.set()
                 return cached
             try:
                 async with backend.lock(_cache_key + ":lock", lock_ttl):

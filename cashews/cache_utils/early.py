@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from ..backends.interface import Backend
 from ..key import FuncArgsType, get_cache_key, get_cache_key_template, get_call_values
-from .defaults import _default_disable_condition, _default_store_condition
+from .defaults import _default_disable_condition, _default_store_condition, CacheDetect
 
 __all__ = ("early",)
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def early(
         func._key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key)
 
         @wraps(func)
-        async def _wrap(*args, **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
             if disable(get_call_values(func, args, kwargs, func_args=None)):
                 return await func(*args, **kwargs)
 
@@ -51,6 +51,7 @@ def early(
             execution = _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store)
 
             if cached:
+                _from_cache.set()
                 expire_at, delta, result = cached
                 if expire_at <= datetime.utcnow() and await backend.set(
                     _cache_key + ":hit", "1", expire=delta.total_seconds(), exist=False

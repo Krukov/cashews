@@ -4,7 +4,8 @@ from unittest.mock import Mock
 import pytest
 from cashews.backends.memory import Memory
 from cashews.cache_utils.early import early as early_cache
-from cashews.cache_utils.fail import CircuitBreakerSwitch, circuit_breaker, fail
+from cashews.cache_utils.fail import fail
+from cashews.cache_utils.circuit_braker import CircuitBreakerOpen, circuit_breaker
 from cashews.cache_utils.locked import locked as lock_cache
 from cashews.cache_utils.rate import hit, perf
 from cashews.cache_utils.simple import cache
@@ -54,10 +55,10 @@ async def test_circuit_breaker_simple(backend):
         await func(fail=True)
     await asyncio.sleep(0)
 
-    with pytest.raises(CircuitBreakerSwitch):
+    with pytest.raises(CircuitBreakerOpen):
         await func(fail=True)
 
-    with pytest.raises(CircuitBreakerSwitch):
+    with pytest.raises(CircuitBreakerOpen):
         await func(fail=False)
 
 

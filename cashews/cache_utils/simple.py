@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from ..backends.interface import Backend
 from ..key import FuncArgsType, get_cache_key, get_cache_key_template, get_call_values, get_func_params
-from .defaults import _default_disable_condition, _default_store_condition
+from .defaults import _default_disable_condition, _default_store_condition, CacheDetect
 
 __all__ = ("cache", "invalidate")
 
@@ -37,13 +37,14 @@ def cache(
         func._key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key)
 
         @wraps(func)
-        async def _wrap(*args, **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
             if disable(get_call_values(func, args, kwargs, func_args=None)):
                 return await func(*args, **kwargs)
 
             _cache_key = prefix + get_cache_key(func, args, kwargs, func_args, key)
             cached = await backend.get(_cache_key)
             if cached:
+                _from_cache.set()
                 return cached
             result = await func(*args, **kwargs)
             if store(result):

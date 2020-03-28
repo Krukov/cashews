@@ -2,19 +2,24 @@ import asyncio
 from decimal import Decimal
 from datetime import timedelta
 from cashews import cache, add_prefix
+from cashews.cache_utils.simple import CacheDetect
 
 
 async def main(cache):
-
     await cache.clear()
 
-    @cache.cache(ttl=10)
+    @cache.cache(ttl=1000)
     async def test(key):
-        return await cache.incr(key), Decimal("100.01"), u"привет"
-
+        return await cache.incr(key), Decimal(10), b"d"
+    detect = CacheDetect()
+    assert not detect.get()
     print(await cache.incr("key"), "== 1")
-    print(await test("key"), "== 2")
-
+    print(await test("key", _from_cache=detect), "== 2")
+    await asyncio.sleep(0)
+    print(detect.get())
+    print(await test("key", _from_cache=detect), "== 2")
+    print(detect.get())
+    return
     async with cache.lock("lock", expire=10):
         await cache.clear()
         await cache.set("key", value={"any": True}, expire=timedelta(minutes=1))  # -> bool
