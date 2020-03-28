@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, Iterable, Optional, Union
 
 from ..backends.interface import Backend
 from ..key import FuncArgsType, get_cache_key, get_call_values
-from .defaults import _default_disable_condition, _default_store_condition, CacheDetect
+from .defaults import CacheDetect, _default_disable_condition, _default_store_condition
 
 __all__ = ("hit", "perf", "rate_limit")
 

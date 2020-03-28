@@ -30,7 +30,7 @@ def fail(
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(),  **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             try:
                 result = await func(*args, **kwargs)
@@ -43,5 +43,7 @@ def fail(
             else:
                 asyncio.create_task(backend.set(_cache_key, result, expire=ttl))
                 return result
+
         return _wrap
+
     return _decor

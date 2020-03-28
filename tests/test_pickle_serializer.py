@@ -41,7 +41,22 @@ def _cache():
 
 
 @pytest.mark.parametrize(
-    "value", ("test", b"test", b"1_1", 1, 1.234, Decimal("1.001"), True, False, "", 0, None, {"hi": True}, TestDC(test="test", _=1))
+    "value",
+    (
+        "test",
+        b"test",
+        b"1_1",
+        1,
+        1.234,
+        Decimal("1.001"),
+        True,
+        False,
+        "",
+        0,
+        None,
+        {"hi": True},
+        TestDC(test="test", _=1),
+    ),
 )
 async def test_serialize_simple_value(value, cache):
     await cache.set("key", value)

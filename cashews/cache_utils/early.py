@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from ..backends.interface import Backend
 from ..key import FuncArgsType, get_cache_key, get_cache_key_template, get_call_values
-from .defaults import _default_disable_condition, _default_store_condition, CacheDetect
+from .defaults import CacheDetect, _default_disable_condition, _default_store_condition
 
 __all__ = ("early",)
 logger = logging.getLogger(__name__)

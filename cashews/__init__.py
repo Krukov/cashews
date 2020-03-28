@@ -1,5 +1,5 @@
-from .cache_utils import CircuitBreakerOpen, RateLimitException, CacheDetect  # noqa
 from .backends.interface import LockedException
+from .cache_utils import CacheDetect, CircuitBreakerOpen, RateLimitException  # noqa
 from .wrapper import Cache, add_prefix  # noqa
 
 # pylint: disable=invalid-name
