@@ -1,18 +1,18 @@
 import asyncio
-from datetime import timedelta
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
 from ..backends.interface import Backend
-from ..key import FuncArgsType, get_cache_key, get_cache_key_template, get_call_values, get_func_params
-from .defaults import CacheDetect, _default_disable_condition, _default_store_condition
+from ..key import get_cache_key, get_cache_key_template, get_call_values, get_func_params
+from ..typing import FuncArgsType
+from .defaults import CacheDetect, _default_disable_condition, _default_store_condition, context_cache_detect
 
 __all__ = ("cache", "invalidate")
 
 
 def cache(
     backend: Backend,
-    ttl: Union[int, timedelta],
+    ttl: int,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
     disable: Optional[Callable[[Dict[str, Any]], bool]] = None,
@@ -23,7 +23,7 @@ def cache(
     Simple cache strategy - trying to return cached result,
     execute wrapped call and store a result with ttl if condition return true
     :param backend: cache backend
-    :param ttl: seconds in int or as timedelta object to store a result
+    :param ttl: duration in seconds to store a result
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param disable: callable object that determines whether cache will use
@@ -37,14 +37,14 @@ def cache(
         func._key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key)
 
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             if disable(get_call_values(func, args, kwargs, func_args=None)):
                 return await func(*args, **kwargs)
 
             _cache_key = prefix + get_cache_key(func, args, kwargs, func_args, key)
             cached = await backend.get(_cache_key)
             if cached:
-                _from_cache.set()
+                _from_cache.set(_cache_key)
                 return cached
             result = await func(*args, **kwargs)
             if store(result):

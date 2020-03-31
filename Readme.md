@@ -21,6 +21,8 @@ There are a few advance techniques with cache and async programming that can hel
 - Support Multi backend ([Memory](#memory), [Redis](#redis), memcache by request)
 - Can cache any objects securely with pickle (use [hash key](#redis)). 
 - Simple configuring and API
+- cache invalidation autosystem and API 
+- Cache usage detection API
 
 ## API
 - [simple cache](#simple-cache)
@@ -97,7 +99,7 @@ Typical cache strategy: execute, store and return cached value till expiration::
         ...
 
 
-:param ttl: seconds in int value or as timedelta object to define time to store objects
+:param ttl: duration in seconds or in timedelta object or a callable object to store a result
 
 :param func_args: arguments of call that will be used in key, can be tuple or dict with argument name as a key and callable object as a transform function for value of this argument
 
@@ -155,7 +157,7 @@ Cashews have api to detect it :
 ### Fail cache
 Return cache result (at list 1 call of function call should be succeed) if call raised one of the given exceptions,
     
-:param ttl: seconds in int or as timedelta object to store a result
+:param ttl: duration in seconds or in timedelta object or a callable object to store a result
 
 :param exceptions: exceptions at which returned cache result
 
@@ -179,7 +181,7 @@ Example
 ### Hit cache
 Cache call results and drop cache after given numbers of call 'cache_hits'
 
-:param ttl: seconds in int or as timedelta object to store a result
+:param ttl: duration in seconds or in timedelta object or a callable object to store a result
 
 :param cache_hits: number of cache hits till cache will dropped
 
@@ -208,7 +210,7 @@ Example
 ### Performance downgrade cache
 Trace time execution of target and enable cache if it downgrade to given condition
 
-:param ttl: seconds in int or as timedelta object to store a result
+:param ttl: duration in seconds or in timedelta object or a callable object to store a result
 
 :param func_args: [see simple cache params](#simple-cache)
 
@@ -235,7 +237,7 @@ Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.or
 Lock following function calls till it be cached
 Can guarantee one function call for given ttl
 
-:param ttl: seconds in int or timedelta object to store a result
+:param ttl: duration in seconds or in timedelta object or a callable object to store a result
 
 :param func_args: [see simple cache params](#simple-cache)
 
@@ -304,6 +306,7 @@ There are 11 basic methods to work with key-storage::
 
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)  # -> bool
     await cache.get("key")  # -> Any
+    await cache.get_many("key1", "key2")
     await cache.incr("key") # -> int
     await cache.delete("key")
     await cache.expire("key", timeout=10)

@@ -1,8 +1,8 @@
 import inspect
 from itertools import chain
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple
 
-FuncArgsType = Optional[Union[Dict[str, Callable[[Any], str]], Tuple[str]]]
+from .typing import FuncArgsType
 
 
 def get_cache_key(

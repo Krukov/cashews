@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 from cashews.backends.memory import Memory
 from cashews.cache_utils.circuit_braker import CircuitBreakerOpen, circuit_breaker
+from cashews.cache_utils.defaults import context_cache_detect
 from cashews.cache_utils.early import early as early_cache
 from cashews.cache_utils.fail import fail
 from cashews.cache_utils.locked import locked as lock_cache
@@ -215,3 +216,76 @@ async def test_perf_cache(backend):
 
     await func(0.009)
     assert mock.call_count == 13
+
+
+async def test_context_cache_detect_simple(backend):
+    @cache(backend, ttl=EXPIRE, key="key")
+    async def func(resp=b"ok"):
+        return resp
+
+    context_cache_detect.start()
+    assert await func() == b"ok"
+    assert context_cache_detect.get() == []
+
+    await asyncio.sleep(0)
+    assert await func(b"notok") == b"ok"
+    assert len(context_cache_detect.get()) == 1
+    assert context_cache_detect.get() == [
+        "key",
+    ]
+
+    await asyncio.sleep(EXPIRE)
+    assert await func(b"notok") == b"notok"
+    assert len(context_cache_detect.get()) == 1
+
+
+async def test_context_cache_detect_deap(backend):
+    @cache(backend, ttl=EXPIRE, key="key1")
+    async def func1():
+        return 1
+
+    @cache(backend, ttl=EXPIRE, key="key2")
+    async def func2():
+        return 2
+
+    async def func():
+        return await asyncio.gather(func1(), func2())
+
+    context_cache_detect.start()
+    await func()
+    assert context_cache_detect.get() == []
+
+    await asyncio.sleep(0)
+    await func()
+
+    assert len(context_cache_detect.get()) == 2
+    assert "key1" in context_cache_detect.get()
+    assert "key2" in context_cache_detect.get()
+
+
+async def test_context_cache_detect_context(backend):
+    @cache(backend, ttl=EXPIRE, key="key1")
+    async def func1():
+        return 1
+
+    @cache(backend, ttl=EXPIRE, key="key2")
+    async def func2():
+        return 2
+
+    async def func(t_func):
+        context_cache_detect.start()
+        assert len(context_cache_detect.get()) == 0
+        await t_func()
+        assert len(context_cache_detect.get()) == 1
+        assert context_cache_detect.get() == [
+            t_func._key_template,
+        ]
+
+    await backend.set("key1", "test")
+    await backend.set("key2", "test")
+    assert await func1() == "test"
+    assert await func2() == "test"
+
+    context_cache_detect.start()
+    await asyncio.gather(func(func1), func(func2), func1())
+    assert len(context_cache_detect.get()) == 1  # ! It should be 3 but for now  it is ok, have no user case

@@ -7,37 +7,10 @@ from urllib.parse import parse_qsl, urlparse
 from . import cache_utils
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
-from .key import FuncArgsType, get_call_values
+from .helpers import _auto_init, _is_disable_middleware, _not_decorator
+from .typing import TTL, FuncArgsType
 
 #  pylint: disable=too-many-public-methods
-
-
-def _not_decorator(func):
-    return func
-
-
-async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
-    if backend.is_disable(cmd, "cmds"):
-        return None
-    return await call(*args, **kwargs)
-
-
-async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
-    if not backend.is_init:
-        await backend._init()
-    return await call(*args, **kwargs)
-
-
-def add_prefix(prefix: str):
-    async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
-        call_values = get_call_values(call, args, kwargs, func_args=None)
-        key = call_values.get("key")
-        if key:
-            call_values["key"] = prefix + key
-            return await call(**call_values)
-        return await call(*args, **kwargs)
-
-    return _middleware
 
 
 class Cache(ProxyBackend):
@@ -118,14 +91,16 @@ class Cache(ProxyBackend):
             call = partial(middleware, call, cmd=cmd, backend=self)
         return call
 
-    def set(
-        self, key: str, value: Any, expire: Union[None, float, int, timedelta] = None, exist: Optional[bool] = None
-    ) -> bool:
+    def set(self, key: str, value: Any, expire: Union[float, None, TTL] = None, exist: Optional[bool] = None) -> bool:
+        expire = expire() if expire and callable(expire) else expire
         expire = expire.total_seconds() if expire and isinstance(expire, timedelta) else expire
         return self._with_middlewares("set", self._target.set)(key, value, expire=expire, exist=exist)
 
     def get(self, key: str) -> Any:
         return self._with_middlewares("get", self._target.get)(key)
+
+    def get_many(self, *keys: str):
+        return self._with_middlewares("get_many", self._target.get)(*keys)
 
     def incr(self, key: str) -> int:
         return self._with_middlewares("incr", self._target.incr)(key)
@@ -136,11 +111,13 @@ class Cache(ProxyBackend):
     def delete_match(self, pattern: str):
         return self._with_middlewares("delete_match", self._target.delete_match)(pattern)
 
-    def expire(self, key: str, timeout: Union[float, int, timedelta]):
+    def expire(self, key: str, timeout: TTL):
+        timeout = timeout() if callable(timeout) else timeout
         timeout = timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
         return self._with_middlewares("expire", self._target.expire)(key, timeout)
 
-    def set_lock(self, key: str, value: Any, expire: Union[float, int, timedelta]) -> bool:
+    def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
+        expire = expire() if callable(expire) else expire
         expire = expire.total_seconds() if isinstance(expire, timedelta) else expire
         return self._with_middlewares("lock", self._target.set_lock)(key, value, expire=expire)
 
@@ -153,9 +130,8 @@ class Cache(ProxyBackend):
     def clear(self):
         return self._with_middlewares("clear", self._target.clear)()
 
-    def is_locked(
-        self, key: str, wait: Union[int, float, None, timedelta] = None, step: Union[int, float] = 0.1
-    ) -> bool:
+    def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
+        wait = wait() if wait and callable(wait) else wait
         wait = wait.total_seconds() if wait and isinstance(wait, timedelta) else wait
         return self._with_middlewares("is_locked", self._target.is_locked)(key, wait=wait, step=step)
 
@@ -163,8 +139,8 @@ class Cache(ProxyBackend):
     def rate_limit(
         self,
         limit: int,
-        period: Union[int, timedelta],
-        ttl: Optional[Union[int, timedelta]] = None,
+        period: TTL,
+        ttl: Optional[TTL] = None,
         func_args: FuncArgsType = None,
         action: Optional[Callable] = None,
         prefix="rate_limit",
@@ -177,7 +153,7 @@ class Cache(ProxyBackend):
 
     def __call__(
         self,
-        ttl: Union[int, timedelta],
+        ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
         disable: Optional[Callable[[FuncArgsType], bool]] = None,
@@ -200,7 +176,7 @@ class Cache(ProxyBackend):
 
     def fail(
         self,
-        ttl: Union[int, timedelta],
+        ttl: TTL,
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         key: Optional[str] = None,
         func_args: FuncArgsType = None,
@@ -214,12 +190,12 @@ class Cache(ProxyBackend):
     def circuit_breaker(
         self,
         errors_rate: int,
-        period: Union[int, timedelta],
-        ttl: Union[int, timedelta],
+        period: TTL,
+        ttl: TTL,
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         key: Optional[str] = None,
         func_args: FuncArgsType = None,
-        prefix: str = "fail",
+        prefix: str = "circuit_breaker",
     ):
         if self.is_disable("decorators", "circuit_breaker"):
             return _not_decorator
@@ -237,7 +213,7 @@ class Cache(ProxyBackend):
 
     def early(
         self,
-        ttl: Optional[Union[int, timedelta]],
+        ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
         disable: Optional[Callable[[FuncArgsType], bool]] = None,
@@ -253,7 +229,7 @@ class Cache(ProxyBackend):
 
     def hit(
         self,
-        ttl: Union[int, timedelta],
+        ttl: TTL,
         cache_hits: int,
         update_before: int = 0,
         func_args: FuncArgsType = None,
@@ -279,7 +255,7 @@ class Cache(ProxyBackend):
 
     def perf(
         self,
-        ttl: Union[int, timedelta],
+        ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
         trace_size: int = 10,
@@ -301,10 +277,10 @@ class Cache(ProxyBackend):
 
     def locked(
         self,
-        ttl: Union[int, timedelta],
+        ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        lock_ttl: Union[int, timedelta] = 1,
+        lock_ttl: TTL = 1,
         step: Union[int, float] = 0.1,
         prefix: str = "lock",
     ):

@@ -2,14 +2,14 @@ import asyncio
 import logging
 import time
 from collections import deque
-from datetime import timedelta
 from functools import wraps
 from statistics import mean
-from typing import Any, Callable, Dict, Iterable, Optional, Union
+from typing import Any, Callable, Dict, Iterable, Optional
 
 from ..backends.interface import Backend
-from ..key import FuncArgsType, get_cache_key, get_call_values
-from .defaults import CacheDetect, _default_disable_condition, _default_store_condition
+from ..key import get_cache_key, get_call_values
+from ..typing import FuncArgsType
+from .defaults import CacheDetect, _default_disable_condition, _default_store_condition, context_cache_detect
 
 __all__ = ("hit", "perf", "rate_limit")
 
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def hit(
     backend: Backend,
-    ttl: Union[int, timedelta],
+    ttl: int,
     cache_hits: int,
     update_before: int = 0,
     func_args: FuncArgsType = None,
@@ -31,7 +31,7 @@ def hit(
     """
     Cache call results and drop cache after given numbers of call 'cache_hits'
     :param backend: cache backend
-    :param ttl: seconds in int or as timedelta object to store a result
+    :param ttl: duration in seconds to store a result
     :param cache_hits: number of cache hits till cache will dropped
     :param update_before: number of cache hits before cache will update
     :param func_args: arguments that will be used in key
@@ -45,7 +45,7 @@ def hit(
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             if disable(get_call_values(func, args, kwargs, func_args=None)):
                 return await func(*args, **kwargs)
 
@@ -53,7 +53,7 @@ def hit(
             result = await backend.get(_cache_key)
             hits = await backend.incr(_cache_key + ":counter")
             if result and hits <= cache_hits:
-                _from_cache.set()
+                _from_cache.set(_cache_key)
                 if update_before and cache_hits - hits == update_before:
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl))
                 return result
@@ -79,7 +79,7 @@ def _default_perf_condition(current: float, previous: Iterable[float]) -> bool:
 
 def perf(
     backend: Backend,
-    ttl: Union[int, timedelta],
+    ttl: int,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
     trace_size: int = 10,
@@ -89,7 +89,7 @@ def perf(
     """
     Trace time execution of target and enable cache if it downgrade to given condition
     :param backend: cache backend
-    :param ttl: seconds in int or as timedelta object to store a result
+    :param ttl: duration in seconds to store a result
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param trace_size: the number of calls that are involved
@@ -103,12 +103,12 @@ def perf(
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             if await backend.is_locked(_cache_key + ":lock"):
                 cached = await backend.get(_cache_key)
                 if cached:
-                    _from_cache.set()
+                    _from_cache.set(_cache_key)
                     return cached
             start = time.time()
             result = await func(*args, **kwargs)
@@ -136,8 +136,8 @@ def _default_action(*args, **kwargs):
 def rate_limit(
     backend: Backend,
     limit: int,
-    period: Union[int, timedelta],
-    ttl: Optional[Union[int, timedelta]] = None,
+    period: int,
+    ttl: int = None,
     func_args: FuncArgsType = None,
     action: Optional[Callable] = None,
     prefix="rate_limit",

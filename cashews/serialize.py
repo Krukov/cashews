@@ -13,7 +13,9 @@ class PickleSerializerMixin:
         self._hash_key = hash_key
 
     async def get(self, key):
-        value = await super().get(key)
+        return self._process(await super().get(key), key)
+
+    def _process(self, value, key):
         if not value:
             return value
         try:
@@ -29,6 +31,9 @@ class PickleSerializerMixin:
             return value
         except (pickle.PickleError, AttributeError):
             return None
+
+    async def get_many(self, *keys):
+        return [self._process(value, key) for key, value in zip(keys, await super().get_many(*keys))]
 
     def get_sign(self, key: str, value: bytes) -> bytes:
         value = key.encode() + value

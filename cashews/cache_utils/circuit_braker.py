@@ -4,7 +4,8 @@ from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
 from ..backends.interface import Backend
-from ..key import FuncArgsType, get_cache_key
+from ..key import get_cache_key
+from ..typing import TTL, FuncArgsType
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
 
@@ -16,8 +17,8 @@ class CircuitBreakerOpen(Exception):
 def circuit_breaker(
     backend: Backend,
     errors_rate: int,
-    period: Union[int, timedelta],
-    ttl: Union[int, timedelta],
+    period: TTL,
+    ttl: int,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
     func_args: FuncArgsType = None,
@@ -39,15 +40,17 @@ def circuit_breaker(
     def _decor(func):
         @wraps(func)
         async def _wrap(*args, **kwargs):
+            _period = period() if callable(period) else period
+            _period = _period.total_seconds() if isinstance(_period, timedelta) else _period
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             close = await backend.get(_cache_key + ":open")
             if close:
                 raise CircuitBreakerOpen()
-            bucket = _get_bucket_number(period, segments=100)
+            bucket = _get_bucket_number(_period, segments=100)
             total_in_bucket = await backend.incr(_cache_key + f":total:{bucket}")
             if total_in_bucket == 1:
-                asyncio.create_task(backend.expire(key=_cache_key + f":total:{bucket}", timeout=period - 1))
-                asyncio.create_task(backend.set(key=_cache_key + ":fails", value=0, expire=period))
+                asyncio.create_task(backend.expire(key=_cache_key + f":total:{bucket}", timeout=_period))
+                asyncio.create_task(backend.set(key=_cache_key + ":fails", value=0, expire=_period))
             try:
                 result = await func(*args, **kwargs)
             except exceptions as exc:
@@ -64,8 +67,6 @@ def circuit_breaker(
 
 
 def _get_bucket_number(period: Union[int, timedelta], segments: int) -> int:
-    if isinstance(period, timedelta):
-        period = period.total_seconds()
     return int((datetime.utcnow().timestamp() % period) / segments)
 
 

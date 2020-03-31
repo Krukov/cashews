@@ -28,6 +28,9 @@ class DummyCache:
     async def get(self, key: str, *args, **kwargs):
         return self.store.get(key, None)
 
+    async def get_many(self, *keys):
+        return [self.store.get(key, None) for key in keys]
+
 
 class Cache(PickleSerializerMixin, DummyCache):
     pass
@@ -61,6 +64,9 @@ def _cache():
 async def test_serialize_simple_value(value, cache):
     await cache.set("key", value)
     assert await cache.get("key") == value
+    assert await cache.get_many("key") == [
+        value,
+    ]
 
 
 @pytest.mark.parametrize("value", (NT(name="test", test="lol"), NT()))

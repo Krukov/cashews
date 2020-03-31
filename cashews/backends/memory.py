@@ -108,7 +108,8 @@ class MemoryInterval(Memory):
 
     async def _remove_expired(self):
         while True:
-            for key in self.store:
+            store = dict(self.store)
+            for key in store:
                 await self.get(key)
             await asyncio.sleep(self._check_interval)
 

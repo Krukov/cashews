@@ -1,6 +1,7 @@
 from .backends.interface import LockedException
-from .cache_utils import CacheDetect, CircuitBreakerOpen, RateLimitException  # noqa
-from .wrapper import Cache, add_prefix  # noqa
+from .cache_utils import CacheDetect, CircuitBreakerOpen, RateLimitException, context_cache_detect  # noqa
+from .helpers import add_prefix, at  # noqa
+from .wrapper import Cache  # noqa
 
 # pylint: disable=invalid-name
 cache = Cache()
@@ -12,3 +13,9 @@ hit = cache.hit
 perf = cache.perf
 locked = cache.locked
 invalidate = cache.invalidate
+
+
+mem = Cache()
+mem.setup(
+    "mem://?check_interval=1", size=1_000_000, middlewares=(add_prefix("mem"),),
+)  # 1_000_000 * 248(size of small dict) == 31 mb

@@ -1,21 +1,21 @@
 import asyncio
-from datetime import timedelta
 from functools import wraps
-from typing import Dict, Optional, Tuple, Union
+from typing import Optional, Union
 
 from ..backends.interface import Backend, LockedException
 from ..key import get_cache_key
-from .defaults import CacheDetect
+from ..typing import FuncArgsType
+from .defaults import CacheDetect, context_cache_detect
 
 __all__ = ("locked",)
 
 
 def locked(
     backend: Backend,
-    ttl: Union[int, timedelta],
-    func_args: Optional[Union[Dict, Tuple]] = None,
+    ttl: int,
+    func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    lock_ttl: Union[int, timedelta] = 1,
+    lock_ttl: int = 1,
     step: Union[float, int] = 0.1,
     prefix: str = "lock",
 ):
@@ -25,21 +25,21 @@ def locked(
     Can guarantee one function call for given ttl
 
     :param backend: cache backend
-    :param ttl: seconds in int or timedelta object to store a result
+    :param ttl: duration in seconds to store a result
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
-    :param lock_ttl: seconds in int or timedelta object to lock wrapped function call
+    :param lock_ttl: duration in seconds to lock wrapped function call
             (should be more than function execution time)
     :param prefix: custom prefix for key, default 'early'
     """
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = CacheDetect(), **kwargs):
+        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             cached = await backend.get(_cache_key)
             if cached:
-                _from_cache.set()
+                _from_cache.set(_cache_key)
                 return cached
             try:
                 async with backend.lock(_cache_key + ":lock", lock_ttl):
