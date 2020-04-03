@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
@@ -43,21 +42,20 @@ def circuit_breaker(
             _period = period() if callable(period) else period
             _period = _period.total_seconds() if isinstance(_period, timedelta) else _period
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
-            close = await backend.get(_cache_key + ":open")
-            if close:
+            if await backend.is_locked(_cache_key + ":open"):
                 raise CircuitBreakerOpen()
             bucket = _get_bucket_number(_period, segments=100)
             total_in_bucket = await backend.incr(_cache_key + f":total:{bucket}")
             if total_in_bucket == 1:
-                asyncio.create_task(backend.expire(key=_cache_key + f":total:{bucket}", timeout=_period))
-                asyncio.create_task(backend.set(key=_cache_key + ":fails", value=0, expire=_period))
+                await backend.expire(key=_cache_key + f":total:{bucket}", timeout=_period)
+                await backend.set(key=_cache_key + ":fails", value=0, expire=_period)
             try:
                 result = await func(*args, **kwargs)
             except exceptions as exc:
                 fails = await backend.incr(_cache_key + ":fails")
                 total = total_in_bucket + await _get_buckets_values(backend, segments=100, except_number=bucket)
                 if fails / total >= errors_rate:
-                    asyncio.create_task(backend.set(_cache_key + ":open", True, expire=ttl))
+                    await backend.set_lock(_cache_key + ":open", True, expire=ttl)
                 raise exc
             return result
 

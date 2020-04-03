@@ -100,7 +100,7 @@ class Cache(ProxyBackend):
         return self._with_middlewares("get", self._target.get)(key)
 
     def get_many(self, *keys: str):
-        return self._with_middlewares("get_many", self._target.get)(*keys)
+        return self._with_middlewares("get_many", self._target.get_many)(*keys)
 
     def incr(self, key: str) -> int:
         return self._with_middlewares("incr", self._target.incr)(key)

@@ -11,7 +11,7 @@ from ..key import get_cache_key, get_call_values
 from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_disable_condition, _default_store_condition, context_cache_detect
 
-__all__ = ("hit", "perf", "rate_limit")
+__all__ = ("hit", "perf", "rate_limit", "RateLimitException", "PerfDegradationException")
 
 
 logger = logging.getLogger(__name__)
@@ -59,8 +59,8 @@ def hit(
                 return result
             result = await func(*args, **kwargs)
             if store(result):
-                asyncio.create_task(backend.delete(_cache_key + ":counter"))
-                asyncio.create_task(backend.set(_cache_key, result, expire=ttl))
+                await backend.delete(_cache_key + ":counter")
+                await backend.set(_cache_key, result, expire=ttl)
             return result
 
         return _wrap
@@ -71,10 +71,15 @@ def hit(
 async def _get_and_save(func, args, kwargs, backend, key, ttl):
     result = await func(*args, **kwargs)
     await backend.set(key, result, expire=ttl)
+    return result
 
 
 def _default_perf_condition(current: float, previous: Iterable[float]) -> bool:
     return mean(previous) * 2 < current
+
+
+class PerfDegradationException(Exception):
+    pass
 
 
 def perf(
@@ -103,21 +108,18 @@ def perf(
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
+        async def _wrap(*args, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             if await backend.is_locked(_cache_key + ":lock"):
-                cached = await backend.get(_cache_key)
-                if cached:
-                    _from_cache.set(_cache_key)
-                    return cached
+                raise PerfDegradationException()
             start = time.time()
             result = await func(*args, **kwargs)
-            takes = time.time() - start
+            takes = time.perf_counter() - start
             if len(call_results) == trace_size and perf_condition(takes, call_results):
                 await backend.set_lock(_cache_key + ":lock", value=takes, expire=ttl)
-                await backend.set(_cache_key, result, expire=ttl)
-                return result
-            call_results.append(takes)
+                call_results.clear()
+            else:
+                call_results.append(takes)
             return result
 
         return _wrap

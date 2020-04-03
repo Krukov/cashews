@@ -1,5 +1,11 @@
 from .backends.interface import LockedException
-from .cache_utils import CacheDetect, CircuitBreakerOpen, RateLimitException, context_cache_detect  # noqa
+from .cache_utils import (  # noqa
+    CacheDetect,
+    CircuitBreakerOpen,
+    PerfDegradationException,
+    RateLimitException,
+    context_cache_detect,
+)
 from .helpers import add_prefix, at  # noqa
 from .wrapper import Cache  # noqa
 

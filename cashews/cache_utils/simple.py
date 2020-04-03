@@ -48,7 +48,7 @@ def cache(
                 return cached
             result = await func(*args, **kwargs)
             if store(result):
-                asyncio.create_task(backend.set(_cache_key, result, expire=ttl))
+                await backend.set(_cache_key, result, expire=ttl)
             return result
 
         return _wrap

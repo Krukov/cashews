@@ -1,4 +1,3 @@
-import asyncio
 from functools import wraps
 from typing import Optional, Union
 
@@ -44,7 +43,7 @@ def locked(
             try:
                 async with backend.lock(_cache_key + ":lock", lock_ttl):
                     result = await func(*args, **kwargs)
-                    asyncio.create_task(backend.set(_cache_key, result, expire=ttl))
+                    await backend.set(_cache_key, result, expire=ttl)
             except LockedException:
                 await backend.is_locked(_cache_key + ":lock", wait=lock_ttl, step=step)
                 result = await backend.get(_cache_key)

@@ -1,4 +1,3 @@
-import asyncio
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
@@ -41,7 +40,7 @@ def fail(
                     return cached
                 raise exc
             else:
-                asyncio.create_task(backend.set(_cache_key, result, expire=ttl))
+                await backend.set(_cache_key, result, expire=ttl)
                 return result
 
         return _wrap

@@ -36,6 +36,8 @@ class PickleSerializerMixin:
         return [self._process(value, key) for key, value in zip(keys, await super().get_many(*keys))]
 
     def get_sign(self, key: str, value: bytes) -> bytes:
+        if self._hash_key is None:
+            return b""
         value = key.encode() + value
         return hmac.new(self._hash_key, value, hashlib.sha1).hexdigest().encode()
 
