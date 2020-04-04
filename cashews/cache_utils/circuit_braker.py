@@ -50,14 +50,13 @@ def circuit_breaker(
                 await backend.expire(key=_cache_key + f":total:{bucket}", timeout=_period)
                 await backend.set(key=_cache_key + ":fails", value=0, expire=_period)
             try:
-                result = await func(*args, **kwargs)
+                return await func(*args, **kwargs)
             except exceptions as exc:
                 fails = await backend.incr(_cache_key + ":fails")
                 total = total_in_bucket + await _get_buckets_values(backend, segments=100, except_number=bucket)
                 if fails / total >= errors_rate:
                     await backend.set_lock(_cache_key + ":open", True, expire=ttl)
                 raise exc
-            return result
 
         return _wrap
 

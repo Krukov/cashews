@@ -53,7 +53,7 @@ def hit(
             result = await backend.get(_cache_key)
             hits = await backend.incr(_cache_key + ":counter")
             if result and hits <= cache_hits:
-                _from_cache.set(_cache_key)
+                _from_cache.set(_cache_key, ttl=ttl, cache_hits=cache_hits)
                 if update_before and cache_hits - hits == update_before:
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl))
                 return result
@@ -92,9 +92,9 @@ def perf(
     prefix: str = "perf",
 ):
     """
-    Trace time execution of target and enable cache if it downgrade to given condition
+    Trace time execution of target and throw exception if it downgrade to given condition
     :param backend: cache backend
-    :param ttl: duration in seconds to store a result
+    :param ttl: duration in seconds to lock
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param trace_size: the number of calls that are involved
@@ -112,7 +112,7 @@ def perf(
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             if await backend.is_locked(_cache_key + ":lock"):
                 raise PerfDegradationException()
-            start = time.time()
+            start = time.perf_counter()
             result = await func(*args, **kwargs)
             takes = time.perf_counter() - start
             if len(call_results) == trace_size and perf_condition(takes, call_results):

@@ -1,4 +1,5 @@
 from contextvars import ContextVar
+from datetime import datetime
 from typing import Any, Dict
 
 
@@ -12,10 +13,10 @@ def _default_disable_condition(args: Dict[str, Any]) -> bool:
 
 class CacheDetect:
     def __init__(self):
-        self._value = []
+        self._value = {}
 
-    def set(self, key: str):
-        self._value.append(key)
+    def set(self, key: str, **kwargs):
+        self._value[key] = kwargs
 
     def get(self):
         return self._value
@@ -29,10 +30,10 @@ class _ContextCacheDetect:
     def start(self):
         _var.set(CacheDetect())
 
-    def set(self, key: str):
+    def set(self, key: str, **kwargs):
         var = _var.get()
         if var is not None:
-            var.set(key)
+            var.set(key, **kwargs)
 
     def get(self):
         var = _var.get()

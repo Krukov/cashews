@@ -116,6 +116,9 @@ class Cache(ProxyBackend):
         timeout = timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
         return self._with_middlewares("expire", self._target.expire)(key, timeout)
 
+    def get_expire(self, key: str) -> int:
+        return self._with_middlewares("get_expire", self._target.get_expire)(key)
+
     def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
         expire = expire() if callable(expire) else expire
         expire = expire.total_seconds() if isinstance(expire, timedelta) else expire
@@ -277,19 +280,15 @@ class Cache(ProxyBackend):
 
     def locked(
         self,
-        ttl: TTL,
+        ttl: Optional[TTL] = None,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        lock_ttl: TTL = 1,
         step: Union[int, float] = 0.1,
         prefix: str = "lock",
     ):
         if self.is_disable("decorators", "locked"):
             return _not_decorator
-
-        return cache_utils.locked(
-            self, ttl=ttl, func_args=func_args, key=key, lock_ttl=lock_ttl, step=step, prefix=prefix
-        )
+        return cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, step=step, prefix=prefix)
 
 
 def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:

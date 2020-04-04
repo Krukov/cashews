@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from datetime import datetime, timedelta
@@ -49,13 +50,14 @@ def early(
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             cached = await backend.get(_cache_key)
             if cached:
-                _from_cache.set(_cache_key)
+                _from_cache.set(_cache_key, ttl=ttl)
                 expire_at, delta, result = cached
                 if expire_at <= datetime.utcnow() and await backend.set(
                     _cache_key + ":hit", "1", expire=delta.total_seconds(), exist=False
                 ):
                     logger.info("Recalculate cache for %s (exp_at %s)", _cache_key, expire_at)
-                    return await _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store)
+                    asyncio.create_task(_get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store))
+                    await asyncio.sleep(0)
                 return result
             return await _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store)
 
@@ -70,7 +72,6 @@ async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: 
     if condition(result):
         ttl = ttl() if callable(ttl) else ttl
         ttl = ttl.total_seconds() if isinstance(ttl, timedelta) else ttl
-        delta = timedelta(seconds=max([ttl - (time.perf_counter() - start) * 2, 0]))
-        logging.info("Set result for key %s", key)
+        delta = timedelta(seconds=max([ttl - (time.perf_counter() - start) * 3, 0]))
         await backend.set(key, [datetime.utcnow() + delta, delta, result], expire=ttl)
     return result

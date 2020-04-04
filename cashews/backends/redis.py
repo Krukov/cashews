@@ -34,8 +34,8 @@ class _SafeRedis(PickleSerializerMixin, Redis_):
     async def execute(self, command, *args, **kwargs):
         try:
             return await super().execute(command, *args, **kwargs)
-        except (RedisError, socket.gaierror, OSError):
-            logger.exception("Redis down on command %s", command)
+        except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError):
+            logger.error("Redis down on command %s", command)
             return None
 
 
@@ -80,6 +80,9 @@ class Redis(ProxyBackend):
             pexpire = int(expire * 1000)
             expire = None
         return self._target.set(key, value, expire=expire, pexpire=pexpire, exist=exist)
+
+    def get_expire(self, key: str) -> int:
+        return self._target.ttl(key)
 
     def clear(self):
         return self._target.flushdb()

@@ -11,6 +11,7 @@ async def main(cache):
     @cache.cache(ttl=1000)
     async def test(key):
         return await cache.incr(key), Decimal(10), b"d"
+
     detect = CacheDetect()
     assert not detect.get()
     print(await cache.incr("key"), "== 1")
@@ -34,8 +35,7 @@ async def main(cache):
     await cache.unlock("key", "value")  # -> bool
 
 
-
 if __name__ == "__main__":
     # cache.setup("mem://", hooks=[prefix])
-    cache.setup("redis://0.0.0.0/0?hash_key=s3243fedg", middlewares=(add_prefix("test:"), ))
+    cache.setup("redis://0.0.0.0/0?hash_key=s3243fedg", middlewares=(add_prefix("test:"),))
     asyncio.run(main(cache))

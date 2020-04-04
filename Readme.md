@@ -28,10 +28,10 @@ There are a few advance techniques with cache and async programming that can hel
 - [simple cache](#simple-cache)
 - [fail cache](#fail-cache)
 - [hit-rate cache](#hit-cache)
-- [perf-rate cache](#performance-downgrade-cache)
+- [perf-rate cache](#performance-downgrade-detection)
 - [rate-limit](#rate-limit)
 - [cache with early expiration/rebuilding](#early)
-- [locked cache](#locked) 
+- [lock](#locked) 
 - [api for key storage/backend](#basic-api)
 - [auto invalidation](#invalidation)
 
@@ -207,9 +207,9 @@ Example
         ...
         
         
-### Performance downgrade cache
-Trace time execution of target and enable cache if it downgrade to given condition
-
+### Performance downgrade detection
+Trace time execution of target and throw exception if it downgrade to given condition
+  
 :param ttl: duration in seconds or in timedelta object or a callable object to store a result
 
 :param func_args: [see simple cache params](#simple-cache)
@@ -233,18 +233,15 @@ Trace time execution of target and enable cache if it downgrade to given conditi
  
 
 ### Locked
-Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
-Lock following function calls till it be cached
-Can guarantee one function call for given ttl
+Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
+Lock following function calls till first one will be finished
+Can guarantee that one function call for given ttl, if ttl is None
 
-:param ttl: duration in seconds or in timedelta object or a callable object to store a result
+:param ttl: duration to lock wrapped function call
 
 :param func_args: [see simple cache params](#simple-cache)
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param lock_ttl: seconds in int or timedelta object to lock wrapped function call
-        (should be more than function execution time)
 
 :param prefix: custom prefix for key, default 'early'
 
@@ -310,6 +307,7 @@ There are 11 basic methods to work with key-storage::
     await cache.incr("key") # -> int
     await cache.delete("key")
     await cache.expire("key", timeout=10)
+    await cache.get_expire("key")  # -> int seconds to expire
     await cache.ping(message=None)  # -> bytes
     await cache.clear()
     await cache.is_locked("key", wait=60)  # -> bool

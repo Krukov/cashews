@@ -4,50 +4,42 @@ from typing import Optional, Union
 from ..backends.interface import Backend, LockedException
 from ..key import get_cache_key
 from ..typing import FuncArgsType
-from .defaults import CacheDetect, context_cache_detect
 
 __all__ = ("locked",)
 
 
 def locked(
     backend: Backend,
-    ttl: int,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    lock_ttl: int = 1,
+    ttl: Optional[int] = None,
+    max_lock_ttl: int = 10,
     step: Union[float, int] = 0.1,
     prefix: str = "lock",
 ):
     """
-    Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
-    Lock following function calls till it be cached
-    Can guarantee one function call for given ttl
+    Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
+    Lock following function calls till first one will be finished
+    Can guarantee that one function call for given ttl, if ttl is None
 
     :param backend: cache backend
-    :param ttl: duration in seconds to store a result
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
-    :param lock_ttl: duration in seconds to lock wrapped function call
-            (should be more than function execution time)
+    :param ttl: duration to lock wrapped function call
     :param prefix: custom prefix for key, default 'early'
     """
 
     def _decor(func):
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
-            cached = await backend.get(_cache_key)
-            if cached:
-                _from_cache.set(_cache_key)
-                return cached
+        async def _wrap(*args, **kwargs):
+            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key) + ":lock"
             try:
-                async with backend.lock(_cache_key + ":lock", lock_ttl):
-                    result = await func(*args, **kwargs)
-                    await backend.set(_cache_key, result, expire=ttl)
+                async with backend.lock(_cache_key, ttl or max_lock_ttl):
+                    return await func(*args, **kwargs)
             except LockedException:
-                await backend.is_locked(_cache_key + ":lock", wait=lock_ttl, step=step)
-                result = await backend.get(_cache_key)
-            return result
+                if not await backend.is_locked(_cache_key, wait=ttl, step=step):
+                    return await func(*args, **kwargs)
+                raise
 
         return _wrap
 

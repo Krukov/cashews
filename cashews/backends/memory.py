@@ -63,6 +63,9 @@ class Memory(Backend):
             return
         self._set(key=key, value=value, expire=timeout)
 
+    async def get_expire(self, key: str) -> int:
+        return -1
+
     async def ping(self, message: Optional[str] = None):
         return b"PONG" if message is None else message
 
@@ -126,3 +129,8 @@ class MemoryInterval(Memory):
 
         if expire is not None and expire > 0.0:
             self._meta[key] = datetime.datetime.utcnow() + datetime.timedelta(seconds=expire)
+
+    async def get_expire(self, key: str) -> int:
+        if key in self._meta:
+            return abs(int((datetime.datetime.utcnow() - self._meta[key]).total_seconds()))
+        return -1

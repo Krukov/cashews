@@ -23,5 +23,5 @@ invalidate = cache.invalidate
 
 mem = Cache()
 mem.setup(
-    "mem://?check_interval=1", size=1_000_000, middlewares=(add_prefix("mem"),),
+    "mem://?check_interval=1", size=1_000_000, middlewares=(add_prefix("mem:"),),
 )  # 1_000_000 * 248(size of small dict) == 31 mb

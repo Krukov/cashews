@@ -40,6 +40,9 @@ class Backend:
     async def expire(self, key: str, timeout: Union[float, int]):
         ...
 
+    async def get_expire(self, key: str) -> int:
+        ...
+
     async def ping(self, message: Optional[str] = None) -> str:
         ...
 
@@ -58,8 +61,8 @@ class Backend:
     @asynccontextmanager
     async def lock(self, key, expire):
         identifier = str(uuid.uuid4())
-        seted = await self.set_lock(key, identifier, expire=expire)
-        if not seted:
+        lock = await self.set_lock(key, identifier, expire=expire)
+        if not lock and await self.ping(b"TEST") == b"TEST":
             raise LockedException(f"Key {key} already locked")
         try:
             yield
@@ -93,6 +96,9 @@ class ProxyBackend(Backend):
 
     async def expire(self, key: str, timeout: Union[int, float]):
         return await self._target.expire(key, timeout)
+
+    async def get_expire(self, key: str) -> int:
+        return await self._target.get_expire(key)
 
     async def ping(self, message: Optional[str] = None) -> str:
         if message is not None:

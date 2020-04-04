@@ -2,7 +2,7 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
-from cashews.backends.memory import Memory
+from cashews.backends.memory import Backend, Memory
 from cashews.cache_utils.circuit_braker import CircuitBreakerOpen, circuit_breaker
 from cashews.cache_utils.defaults import context_cache_detect
 from cashews.cache_utils.early import early as early_cache
@@ -126,7 +126,6 @@ async def test_early_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
-@pytest.mark.skip
 async def test_early_cache_parallel(backend):
 
     mock = Mock()
@@ -157,23 +156,32 @@ async def test_early_cache_parallel(backend):
 async def test_lock_cache_parallel(backend):
     mock = Mock()
 
-    @lock_cache(backend, ttl=0.1, key="key", step=0.01)
+    @lock_cache(backend, key="key", step=0.01)
     async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
         mock(resp)
         return resp
 
     for _ in range(4):
+        await asyncio.gather(*[func() for _ in range(10)], return_exceptions=True)
+
+    assert mock.call_count == 4
+
+
+async def test_lock_cache_broken_backend():
+    backend = Mock(wraps=Backend())
+    mock = Mock()
+
+    @lock_cache(backend, key="key", step=0.01)
+    async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
+        mock(resp)
+        return resp
+
+    for _ in range(4):
         await asyncio.gather(*[func() for _ in range(10)])
 
-    assert mock.call_count == 1
-
-    for _ in range(10):
-        await asyncio.sleep(0.01)
-        await asyncio.gather(*[func() for _ in range(10)])
-
-    assert mock.call_count == 2
+    assert mock.call_count == 40
 
 
 async def test_hit_cache(backend):
@@ -229,12 +237,12 @@ async def test_context_cache_detect_simple(backend):
 
     context_cache_detect.start()
     assert await func() == b"ok"
-    assert context_cache_detect.get() == []
+    assert context_cache_detect.get() == {}
 
     await asyncio.sleep(0)
     assert await func(b"notok") == b"ok"
     assert len(context_cache_detect.get()) == 1
-    assert context_cache_detect.get() == [
+    assert list(context_cache_detect.get().keys()) == [
         "key",
     ]
 
@@ -257,7 +265,7 @@ async def test_context_cache_detect_deap(backend):
 
     context_cache_detect.start()
     await func()
-    assert context_cache_detect.get() == []
+    assert context_cache_detect.get() == {}
 
     await asyncio.sleep(0)
     await func()
@@ -281,7 +289,7 @@ async def test_context_cache_detect_context(backend):
         assert len(context_cache_detect.get()) == 0
         await t_func()
         assert len(context_cache_detect.get()) == 1
-        assert context_cache_detect.get() == [
+        assert list(context_cache_detect.get().keys()) == [
             t_func._key_template,
         ]
 

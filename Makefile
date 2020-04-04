@@ -23,7 +23,7 @@ isort:
 .PHONY: black
 black:
 	@echo -n "Run black"
-	black -l $(LENGTH) cashews tests
+	black -l $(LENGTH) cashews tests examples
 
 .PHONY: check-isort
 check-isort:

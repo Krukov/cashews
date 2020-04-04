@@ -36,7 +36,7 @@ def fail(
             except exceptions as exc:
                 cached = await backend.get(_cache_key)
                 if cached:
-                    _from_cache.set(_cache_key)
+                    _from_cache.set(_cache_key, ttl=ttl)
                     return cached
                 raise exc
             else:
