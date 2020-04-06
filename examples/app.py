@@ -20,7 +20,6 @@ from cashews import (
     mem,
     CircuitBreakerOpen,
     RateLimitException,
-    PerfDegradationException,
     context_cache_detect,
     check_speed,
     LockedException,
@@ -123,8 +122,10 @@ async def add_from_cache_headers(request: Request, call_next):
         expire = await mem.get_expire(key)
         if expire == -1:
             expire = await cache.get_expire(key)
-        response.headers["X-Expire-In-Seconds"] = str(expire)
-        response.headers["X-From-Cache-Date"] = str(keys[key])
+        response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
+        response.headers["X-From-Cache-TTL"] = str(keys[key]["ttl"].total_seconds())
+        if "exc" in keys[key]:
+            response.headers["X-From-Cache-Exc"] = str(type(keys[key]["exc"]))
     return response
 
 
@@ -183,7 +184,7 @@ class RedisDownException(Exception):
     func_args=("accept_language"),
 )
 @cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
-@mem.circuit_breaker(errors_rate=5, period=timedelta(minutes=1), ttl=timedelta(minutes=3), func_args=())
+@mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
 @cache.early(ttl=timedelta(minutes=1), func_args=("accept_language"))
 @cache.locked(func_args=("accept_language"))
 async def get_rang(accept_language: str = Header("en"), user_agent: str = Header("No")):
@@ -214,7 +215,7 @@ async def create_data():
 if __name__ == "__main__":
     engine = sqlalchemy.create_engine(str(database.url))
     metadata.create_all(engine)
-    asyncio.run(create_data())
+    # asyncio.run(create_data())
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

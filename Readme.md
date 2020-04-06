@@ -32,8 +32,10 @@ There are a few advance techniques with cache and async programming that can hel
 - [rate-limit](#rate-limit)
 - [cache with early expiration/rebuilding](#early)
 - [lock](#locked) 
+- [circuit](#circuit-breaker) 
 - [api for key storage/backend](#basic-api)
 - [auto invalidation](#invalidation)
+- [detect cache usage](#detect-source-of-a-result)
 
 Usage
 -----
@@ -122,37 +124,10 @@ But what if we want to user argument define a cache key or want to hide token fr
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call (like 'key_{token}/{arg}\{user}')
 
-:param disable: callable object that determines whether cache will use:
-
-    def by_argument(arg):
-        def _func(args):
-            return args[arg]
-    return _func
-
-    @cache(ttl=100, disable=by_argument("nocache"))
-    async def long_running_function(arg, nocache=False):
-        ...
-
 :param store: callable object that determines whether the result will be saved or not
 
 :param prefix: custom prefix for key
 
-In some case you may would like to know source of returned value, Is it from cache or from function execute.
-Cashews have api to detect it :
-
-    @cache.cache(ttl=10)
-    async def test(key):
-        return ...
-    
-    detect = CacheDetect()
-    
-    await test("key", _from_cache=detect)
-    assert not detect.get()
-    await asyncio.sleep(0) # we need to sleep because cachews send  deferred task to set cache value 
-    
-    await test("key", _from_cache=detect)
-    asert detect.get() 
-     
 
 ### Fail cache
 Return cache result (at list 1 call of function call should be succeed) if call raised one of the given exceptions,
@@ -190,8 +165,6 @@ Cache call results and drop cache after given numbers of call 'cache_hits'
 :param func_args: [see simple cache params](#simple-cache)
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param disable: callable object that determines whether cache will use
 
 :param store: callable object that determines whether the result will be saved or not
 
@@ -264,12 +237,16 @@ Warning! Not good at cold cache
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
 
-:param disable: callable object that determines whether cache will use
-
 :param store: callable object that determines whether the result will be saved or not
 
 :param prefix: custom prefix for key, default 'early'
 
+    from cashews import cache  # or from cashews import early
+    
+    @cache.early(ttl=timedelta(minutes=10))
+    async def get(name):
+        value = await api_call()
+        return {"status": value}
 
 ### Rate limit 
 Rate limit for function call. Do not call function if rate limit is reached, and call given action
@@ -292,6 +269,30 @@ Rate limit for function call. Do not call function if rate limit is reached, and
     @cache.rate_limit(limit=10, period=timedelta(minutes=1) ttl=timedelta(minutes=10))
     async def get(name):
         return {"status": value}
+    
+### Circuit breaker
+Circuit breaker
+
+:param errors_rate: Errors rate in percents
+
+:param period: Period
+
+:param ttl: seconds in int or as timedelta to keep circuit breaker switched
+
+:param func_args: arguments that will be used in key
+
+:param exceptions: exceptions at which returned cache result
+
+:param key: custom cache key, may contain alias to args or kwargs passed to a call
+
+:param prefix: custom prefix for key, default "circuit_breaker"
+
+    from cashews import cache  # or from cashews import rate_limit
+    
+
+    @cache.circuit_breaker(errors_rate=10, period=timedelta(minutes=1) ttl=timedelta(minutes=5))
+    async def get(name):
+        ...
     
 
 ### Basic api
@@ -381,3 +382,44 @@ So you can you use your own datacontainer with defined `__repr__` method that ri
     @cache(ttl=timedelta(days=1), prefix="v2")
     asunc def get_user(user_id):
         return User("Dima", "Krykov")
+        
+ ##Detect source of a result
+ Decorators give to us very simple api but it makes difficult to understand what led to this result - cache or direct call
+ To solve this problem cashews have a simple API:
+ 
+    from cashews import context_cache_detect
+    
+    context_cache_detect.start()
+    response = await decorated_function()
+    keys = context_cache_detect.get()
+    print(keys)
+    # >>> {"key": {"ttl": 10}, "fail_key": {"ttl": timedelta(hours=10), "exc": RateLimit}}
+    
+    # OR
+    from cashews import CacheDetect
+    
+    cache_detect = CacheDetect()
+    await func(_from_cache=cache_detect)
+    assert cache_detect.get() == {}
+
+    await func(_from_cache=cache_detect)
+    assert len(cache_detect.get()) == 1
+
+You can use it in your web app:
+    
+    app.middleware("http")
+    async def add_from_cache_headers(request: Request, call_next):
+        context_cache_detect.start()
+        response = await call_next(request)
+        keys = context_cache_detect.get()
+        if keys:
+            key = list(keys.keys())[0]
+            response.headers["X-From-Cache"] = key
+            expire = await mem.get_expire(key)
+            if expire == -1:
+                expire = await cache.get_expire(key)
+            response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
+            response.headers["X-From-Cache-TTL"] = str(keys[key]["ttl"].total_seconds())
+            if "exc" in keys[key]:
+                response.headers["X-From-Cache-Exc"] = str(keys[key]["exc"])
+        return response

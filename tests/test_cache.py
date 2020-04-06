@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import pytest
 from cashews.backends.memory import Backend, Memory
 from cashews.cache_utils.circuit_braker import CircuitBreakerOpen, circuit_breaker
-from cashews.cache_utils.defaults import context_cache_detect
+from cashews.cache_utils.defaults import context_cache_detect, CacheDetect
 from cashews.cache_utils.early import early as early_cache
 from cashews.cache_utils.fail import fail
 from cashews.cache_utils.locked import locked as lock_cache
@@ -43,7 +43,7 @@ async def test_fail_cache_simple(backend):
 
 
 async def test_circuit_breaker_simple(backend):
-    @circuit_breaker(backend, ttl=EXPIRE * 10, errors_rate=0.1, period=1, func_args=())
+    @circuit_breaker(backend, ttl=EXPIRE * 10, errors_rate=5, period=1, func_args=())
     async def func(fail=False):
         if fail:
             raise CustomError()
@@ -75,19 +75,6 @@ async def test_cache_simple(backend):
 
     await asyncio.sleep(EXPIRE)
     assert await func(b"notok") == b"notok"
-
-
-async def test_cache_simple_enable(backend):
-    @cache(backend, ttl=1, key="key", disable=lambda args: args["no_cache"])
-    async def func(resp=b"ok", no_cache=False):
-        return resp
-
-    assert await func() == b"ok"
-
-    await asyncio.sleep(0)
-    assert await func(b"notok") == b"ok"
-
-    assert await func(b"notok", no_cache=True) == b"notok"
 
 
 async def test_cache_simple_cond(backend):
@@ -202,6 +189,25 @@ async def test_hit_cache(backend):
     assert mock.call_count == 2
 
 
+async def test_hit_cache_early(backend):
+    mock = Mock()
+
+    @hit(backend, ttl=10, cache_hits=1, key="test", update_before=0)
+    async def func(resp=b"ok"):
+        mock(resp)
+        return resp
+
+    assert await func(b"1") == b"1"  # cache
+    assert mock.call_count == 1
+
+    assert await func(b"2") == b"1"  # cache
+    assert mock.call_count == 1
+
+    await asyncio.sleep(0)
+    assert await func(b"3") == b"2"  # cache
+    assert mock.call_count == 2
+
+
 async def test_perf_cache(backend):
     mock = Mock()
 
@@ -230,6 +236,23 @@ async def test_perf_cache(backend):
     assert mock.call_count == 12
 
 
+async def test_cache_detect_simple(backend):
+    @cache(backend, ttl=EXPIRE, key="key")
+    async def func(resp=b"ok"):
+        return resp
+
+    cache_detect = CacheDetect()
+    assert await func(_from_cache=cache_detect) == b"ok"
+    assert cache_detect.get() == {}
+
+    await asyncio.sleep(0)
+    assert await func(b"notok", _from_cache=cache_detect) == b"ok"
+    assert len(cache_detect.get()) == 1
+    assert list(cache_detect.get().keys()) == [
+        "key",
+    ]
+
+
 async def test_context_cache_detect_simple(backend):
     @cache(backend, ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
@@ -251,7 +274,7 @@ async def test_context_cache_detect_simple(backend):
     assert len(context_cache_detect.get()) == 1
 
 
-async def test_context_cache_detect_deap(backend):
+async def test_context_cache_detect_deep(backend):
     @cache(backend, ttl=EXPIRE, key="key1")
     async def func1():
         return 1

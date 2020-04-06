@@ -4,12 +4,12 @@ import time
 from collections import deque
 from functools import wraps
 from statistics import mean
-from typing import Any, Callable, Dict, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from ..backends.interface import Backend
-from ..key import get_cache_key, get_call_values
+from ..key import get_cache_key
 from ..typing import FuncArgsType
-from .defaults import CacheDetect, _default_disable_condition, _default_store_condition, context_cache_detect
+from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
 __all__ = ("hit", "perf", "rate_limit", "RateLimitException", "PerfDegradationException")
 
@@ -21,10 +21,9 @@ def hit(
     backend: Backend,
     ttl: int,
     cache_hits: int,
-    update_before: int = 0,
+    update_before: Optional[int] = None,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    disable: Optional[Callable[[Dict[str, Any]], bool]] = None,
     store: Optional[Callable[[Any], bool]] = None,
     prefix: str = "hit",
 ):
@@ -41,36 +40,29 @@ def hit(
     :param prefix: custom prefix for key, default 'hit'
     """
     store = _default_store_condition if store is None else store
-    disable = _default_disable_condition if disable is None else disable
 
     def _decor(func):
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            if disable(get_call_values(func, args, kwargs, func_args=None)):
-                return await func(*args, **kwargs)
-
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             result = await backend.get(_cache_key)
             hits = await backend.incr(_cache_key + ":counter")
             if result and hits <= cache_hits:
                 _from_cache.set(_cache_key, ttl=ttl, cache_hits=cache_hits)
-                if update_before and cache_hits - hits == update_before:
-                    asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl))
+                if update_before is not None and cache_hits - hits == update_before:
+                    asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, store))
                 return result
-            result = await func(*args, **kwargs)
-            if store(result):
-                await backend.delete(_cache_key + ":counter")
-                await backend.set(_cache_key, result, expire=ttl)
-            return result
-
+            return await _get_and_save(func, args, kwargs, backend, _cache_key, ttl, store)
         return _wrap
-
     return _decor
 
 
-async def _get_and_save(func, args, kwargs, backend, key, ttl):
+async def _get_and_save(func, args, kwargs, backend, key, ttl, store):
     result = await func(*args, **kwargs)
-    await backend.set(key, result, expire=ttl)
+    if store(result):
+        await backend.delete(key + ":counter")
+        await backend.set(key, result, expire=ttl)
+
     return result
 
 

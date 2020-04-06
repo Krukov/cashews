@@ -159,7 +159,6 @@ class Cache(ProxyBackend):
         ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        disable: Optional[Callable[[FuncArgsType], bool]] = None,
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "",
     ):
@@ -167,7 +166,7 @@ class Cache(ProxyBackend):
             return _not_decorator
 
         return cache_utils.cache(
-            self, ttl=ttl, func_args=func_args, key=key, disable=disable, store=store, prefix=prefix
+            self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix
         )
 
     cache = __call__
@@ -219,7 +218,6 @@ class Cache(ProxyBackend):
         ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        disable: Optional[Callable[[FuncArgsType], bool]] = None,
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "early",
     ):
@@ -227,7 +225,7 @@ class Cache(ProxyBackend):
             return _not_decorator
 
         return cache_utils.early(
-            self, ttl=ttl, func_args=func_args, key=key, disable=disable, store=store, prefix=prefix
+            self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix
         )
 
     def hit(
@@ -237,7 +235,6 @@ class Cache(ProxyBackend):
         update_before: int = 0,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        disable: Optional[Callable[[FuncArgsType], bool]] = None,
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "hit",
     ):
@@ -251,7 +248,27 @@ class Cache(ProxyBackend):
             update_before=update_before,
             func_args=func_args,
             key=key,
-            disable=disable,
+            store=store,
+            prefix=prefix,
+        )
+
+    def dynamic(
+        self,
+        func_args: FuncArgsType = None,
+        key: Optional[str] = None,
+        store: Optional[Callable[[Any], bool]] = None,
+        prefix: str = "dynamic",
+    ):
+        if self.is_disable("decorators", "dynamic"):
+            return _not_decorator
+
+        return cache_utils.hit(
+            self,
+            ttl=1,
+            cache_hits=1,
+            update_before=0,
+            func_args=func_args,
+            key=key,
             store=store,
             prefix=prefix,
         )

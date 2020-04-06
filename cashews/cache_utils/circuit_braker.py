@@ -26,8 +26,7 @@ def circuit_breaker(
     """
     Circuit breaker
     :param backend: cache backend
-    :param ttl: seconds in int or as timedelta to breaker work
-    :param errors_rate: errors_rate
+    :param errors_rate: Errors rate in percents
     :param period: Period
     :param ttl: seconds in int or as timedelta to keep circuit breaker switched
     :param func_args: arguments that will be used in key
@@ -35,6 +34,7 @@ def circuit_breaker(
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param prefix: custom prefix for key, default "circuit_breaker"
     """
+    assert 0 < errors_rate < 100
 
     def _decor(func):
         @wraps(func)
@@ -54,7 +54,7 @@ def circuit_breaker(
             except exceptions as exc:
                 fails = await backend.incr(_cache_key + ":fails")
                 total = total_in_bucket + await _get_buckets_values(backend, segments=100, except_number=bucket)
-                if fails / total >= errors_rate:
+                if fails * 100 / total >= errors_rate:
                     await backend.set_lock(_cache_key + ":open", True, expire=ttl)
                 raise exc
 
