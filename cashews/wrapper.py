@@ -165,9 +165,7 @@ class Cache(ProxyBackend):
         if self.is_disable("decorators", "cache"):
             return _not_decorator
 
-        return cache_utils.cache(
-            self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix
-        )
+        return cache_utils.cache(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix)
 
     cache = __call__
 
@@ -224,9 +222,7 @@ class Cache(ProxyBackend):
         if self.is_disable("decorators", "early"):
             return _not_decorator
 
-        return cache_utils.early(
-            self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix
-        )
+        return cache_utils.early(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix)
 
     def hit(
         self,
@@ -263,14 +259,7 @@ class Cache(ProxyBackend):
             return _not_decorator
 
         return cache_utils.hit(
-            self,
-            ttl=1,
-            cache_hits=1,
-            update_before=0,
-            func_args=func_args,
-            key=key,
-            store=store,
-            prefix=prefix,
+            self, ttl=1, cache_hits=1, update_before=0, func_args=func_args, key=key, store=store, prefix=prefix,
         )
 
     def perf(

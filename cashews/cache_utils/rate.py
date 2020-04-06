@@ -53,7 +53,9 @@ def hit(
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, store))
                 return result
             return await _get_and_save(func, args, kwargs, backend, _cache_key, ttl, store)
+
         return _wrap
+
     return _decor
 
 
