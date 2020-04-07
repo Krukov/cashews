@@ -1,13 +1,13 @@
 import asyncio
 from datetime import timedelta
-from functools import partial
+from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
 from . import cache_utils
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
-from .helpers import _auto_init, _is_disable_middleware, _not_decorator
+from .helpers import _auto_init, _is_disable_middleware
 from .typing import TTL, FuncArgsType
 
 #  pylint: disable=too-many-public-methods
@@ -43,7 +43,6 @@ class Cache(ProxyBackend):
         if self._disable is False:
             self._disable = []
         self._disable.extend(cmds)
-        return self._disable is True
 
     def enable(self, *cmds: str):
         if self._disable is True:
@@ -54,7 +53,10 @@ class Cache(ProxyBackend):
         for cmd in cmds:
             if cmd in self._disable:
                 self._disable.remove(cmd)
-        return self._disable is True
+
+    @property
+    def disable_info(self):
+        return self._disable
 
     def setup(self, settings_url: str, middlewares: Tuple = (), **kwargs):
         self.middlewares = tuple(middlewares) + self.middlewares
@@ -91,44 +93,44 @@ class Cache(ProxyBackend):
             call = partial(middleware, call, cmd=cmd, backend=self)
         return call
 
-    def set(self, key: str, value: Any, expire: Union[float, None, TTL] = None, exist: Optional[bool] = None) -> bool:
+    def set(self, key: str, value: Any, expire: Union[float, None, TTL] = None, exist: Optional[bool] = None):
         expire = expire() if expire and callable(expire) else expire
         expire = expire.total_seconds() if expire and isinstance(expire, timedelta) else expire
-        return self._with_middlewares("set", self._target.set)(key, value, expire=expire, exist=exist)
+        return self._with_middlewares("set", self._target.set)(key=key, value=value, expire=expire, exist=exist)
 
     def get(self, key: str) -> Any:
-        return self._with_middlewares("get", self._target.get)(key)
+        return self._with_middlewares("get", self._target.get)(key=key)
 
     def get_many(self, *keys: str):
         return self._with_middlewares("get_many", self._target.get_many)(*keys)
 
     def incr(self, key: str) -> int:
-        return self._with_middlewares("incr", self._target.incr)(key)
+        return self._with_middlewares("incr", self._target.incr)(key=key)
 
     def delete(self, key: str):
-        return self._with_middlewares("delete", self._target.delete)(key)
+        return self._with_middlewares("delete", self._target.delete)(key=key)
 
     def delete_match(self, pattern: str):
-        return self._with_middlewares("delete_match", self._target.delete_match)(pattern)
+        return self._with_middlewares("delete_match", self._target.delete_match)(pattern=pattern)
 
     def expire(self, key: str, timeout: TTL):
         timeout = timeout() if callable(timeout) else timeout
         timeout = timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
-        return self._with_middlewares("expire", self._target.expire)(key, timeout)
+        return self._with_middlewares("expire", self._target.expire)(key=key, timeout=timeout)
 
     def get_expire(self, key: str) -> int:
-        return self._with_middlewares("get_expire", self._target.get_expire)(key)
+        return self._with_middlewares("get_expire", self._target.get_expire)(key=key)
 
     def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
         expire = expire() if callable(expire) else expire
         expire = expire.total_seconds() if isinstance(expire, timedelta) else expire
-        return self._with_middlewares("lock", self._target.set_lock)(key, value, expire=expire)
+        return self._with_middlewares("lock", self._target.set_lock)(key=key, value=value, expire=expire)
 
     def unlock(self, key: str, value: str) -> bool:
-        return self._with_middlewares("unlock", self._target.unlock)(key, value)
+        return self._with_middlewares("unlock", self._target.unlock)(key=key, value=value)
 
     def ping(self, message: Optional[str] = None) -> str:
-        return self._with_middlewares("ping", self._target.ping)(message)
+        return self._with_middlewares("ping", self._target.ping)(message=message)
 
     def clear(self):
         return self._with_middlewares("clear", self._target.clear)()
@@ -136,7 +138,22 @@ class Cache(ProxyBackend):
     def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
         wait = wait() if wait and callable(wait) else wait
         wait = wait.total_seconds() if wait and isinstance(wait, timedelta) else wait
-        return self._with_middlewares("is_locked", self._target.is_locked)(key, wait=wait, step=step)
+        return self._with_middlewares("is_locked", self._target.is_locked)(key=key, wait=wait, step=step)
+
+    def _wrap_on_enable(self, name, decorator):
+        def _decorator(func):
+            @wraps(func)
+            def _call(*args, **kwargs):
+                if self.is_disable("decorators", name):
+                    return func(*args, **kwargs)
+                result = decorator(func)(*args, **kwargs)
+                if getattr(func, "_key_template", None):
+                    _call._key_template = func._key_template
+                return result
+
+            return _call
+
+        return _decorator
 
     # DecoratorS
     def rate_limit(
@@ -148,10 +165,11 @@ class Cache(ProxyBackend):
         action: Optional[Callable] = None,
         prefix="rate_limit",
     ):  # pylint: disable=too-many-arguments
-        if self.is_disable("decorators", "rate_limit"):
-            return _not_decorator
-        return cache_utils.rate_limit(
-            self, limit=limit, period=period, ttl=ttl, func_args=func_args, action=action, prefix=prefix
+        return self._wrap_on_enable(
+            "rate_limit",
+            cache_utils.rate_limit(
+                self, limit=limit, period=period, ttl=ttl, func_args=func_args, action=action, prefix=prefix
+            ),
         )
 
     def __call__(
@@ -162,17 +180,17 @@ class Cache(ProxyBackend):
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "",
     ):
-        if self.is_disable("decorators", "cache"):
-            return _not_decorator
-
-        return cache_utils.cache(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix)
+        return self._wrap_on_enable(
+            prefix or "cache",
+            cache_utils.cache(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix),
+        )
 
     cache = __call__
 
     def invalidate(self, target, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
-        if self.is_disable("decorators", "cache"):
-            return _not_decorator
-        return cache_utils.invalidate(self, target=target, args_map=args_map, defaults=defaults)
+        return self._wrap_on_enable(
+            "cache", cache_utils.invalidate(self, target=target, args_map=args_map, defaults=defaults)
+        )
 
     def fail(
         self,
@@ -182,10 +200,9 @@ class Cache(ProxyBackend):
         func_args: FuncArgsType = None,
         prefix: str = "fail",
     ):
-        if self.is_disable("decorators", "fail"):
-            return _not_decorator
-
-        return cache_utils.fail(self, ttl=ttl, exceptions=exceptions, key=key, func_args=func_args, prefix=prefix)
+        return self._wrap_on_enable(
+            prefix, cache_utils.fail(self, ttl=ttl, exceptions=exceptions, key=key, func_args=func_args, prefix=prefix)
+        )
 
     def circuit_breaker(
         self,
@@ -197,18 +214,19 @@ class Cache(ProxyBackend):
         func_args: FuncArgsType = None,
         prefix: str = "circuit_breaker",
     ):
-        if self.is_disable("decorators", "circuit_breaker"):
-            return _not_decorator
 
-        return cache_utils.circuit_breaker(
-            self,
-            errors_rate=errors_rate,
-            period=period,
-            ttl=ttl,
-            exceptions=exceptions,
-            key=key,
-            func_args=func_args,
-            prefix=prefix,
+        return self._wrap_on_enable(
+            prefix,
+            cache_utils.circuit_breaker(
+                self,
+                errors_rate=errors_rate,
+                period=period,
+                ttl=ttl,
+                exceptions=exceptions,
+                key=key,
+                func_args=func_args,
+                prefix=prefix,
+            ),
         )
 
     def early(
@@ -219,10 +237,9 @@ class Cache(ProxyBackend):
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "early",
     ):
-        if self.is_disable("decorators", "early"):
-            return _not_decorator
-
-        return cache_utils.early(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix)
+        return self._wrap_on_enable(
+            prefix, cache_utils.early(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix)
+        )
 
     def hit(
         self,
@@ -234,18 +251,18 @@ class Cache(ProxyBackend):
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "hit",
     ):
-        if self.is_disable("decorators", "hit"):
-            return _not_decorator
-
-        return cache_utils.hit(
-            self,
-            ttl=ttl,
-            cache_hits=cache_hits,
-            update_before=update_before,
-            func_args=func_args,
-            key=key,
-            store=store,
-            prefix=prefix,
+        return self._wrap_on_enable(
+            prefix,
+            cache_utils.hit(
+                self,
+                ttl=ttl,
+                cache_hits=cache_hits,
+                update_before=update_before,
+                func_args=func_args,
+                key=key,
+                store=store,
+                prefix=prefix,
+            ),
         )
 
     def dynamic(
@@ -255,11 +272,18 @@ class Cache(ProxyBackend):
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "dynamic",
     ):
-        if self.is_disable("decorators", "dynamic"):
-            return _not_decorator
-
-        return cache_utils.hit(
-            self, ttl=1, cache_hits=1, update_before=0, func_args=func_args, key=key, store=store, prefix=prefix,
+        return self._wrap_on_enable(
+            prefix,
+            cache_utils.hit(
+                self,
+                ttl=60 * 60 * 24,
+                cache_hits=1,
+                update_before=0,
+                func_args=func_args,
+                key=key,
+                store=store,
+                prefix=prefix,
+            ),
         )
 
     def perf(
@@ -271,17 +295,17 @@ class Cache(ProxyBackend):
         perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
         prefix: str = "perf",
     ):
-        if self.is_disable("decorators", "perf"):
-            return _not_decorator
-
-        return cache_utils.perf(
-            self,
-            ttl=ttl,
-            func_args=func_args,
-            key=key,
-            trace_size=trace_size,
-            perf_condition=perf_condition,
-            prefix=prefix,
+        return self._wrap_on_enable(
+            prefix,
+            cache_utils.perf(
+                self,
+                ttl=ttl,
+                func_args=func_args,
+                key=key,
+                trace_size=trace_size,
+                perf_condition=perf_condition,
+                prefix=prefix,
+            ),
         )
 
     def locked(
@@ -290,11 +314,11 @@ class Cache(ProxyBackend):
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
         step: Union[int, float] = 0.1,
-        prefix: str = "lock",
+        prefix: str = "locked",
     ):
-        if self.is_disable("decorators", "locked"):
-            return _not_decorator
-        return cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, step=step, prefix=prefix)
+        return self._wrap_on_enable(
+            prefix, cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, step=step, prefix=prefix)
+        )
 
 
 def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:

@@ -127,7 +127,7 @@ async def test_early_cache_parallel(backend):
 
     assert mock.call_count == 1
 
-    for _ in range(5):  # 0.01 (first) + 4 * 0.01 = 0.06 + 0.01(executing) 0.8 will execute
+    for _ in range(4):  # 0.01 (first) + 4 * 0.01 = 0.06 + 0.01(executing) 0.8 will execute
         await asyncio.sleep(0.01)
         await asyncio.gather(*[func() for _ in range(10)])
 
