@@ -28,6 +28,10 @@ class DummyCache:
     async def get(self, key: str, *args, **kwargs):
         return self.store.get(key, None)
 
+    async def delete(self, *keys):
+        for key in keys:
+            del self.store[key]
+
     async def get_many(self, *keys):
         return [self.store.get(key, None) for key in keys]
 
@@ -106,10 +110,12 @@ async def test_unsecure_value(cache):
     cache.store["key"] = b"cos\nsystem\n(S'echo hello world'\ntR."
     with pytest.raises(UnSecureDataError):
         await cache.get("key")
+    assert "key" not in cache.store
 
     cache.store["key"] = b"_cos\nsystem\n(S'echo hello world'\ntR."
     with pytest.raises(UnSecureDataError):
         await cache.get("key")
+    assert "key" not in cache.store
 
 
 async def test_no_value(cache):
@@ -122,11 +128,13 @@ async def test_replace_values(cache):
 
     with pytest.raises(UnSecureDataError):
         await cache.get("replace")
+    assert "replace" not in cache.store
 
 
 async def test_pickle_error_value(cache):
-    cache.store["key"] = cache.get_sign("key", b"no_pickle_data") + b"_" + b"no_pickle_data"
+    cache.store["key"] = cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data"
     assert await cache.get("key") is None
+    assert "key" not in cache.store
 
 
 async def test_set_no_ser(cache):

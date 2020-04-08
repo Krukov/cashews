@@ -44,11 +44,16 @@ class _Redis(PickleSerializerMixin, Redis_):
 
 
 class Redis(ProxyBackend):
-    def __init__(self, address, hash_key, safe=False, **kwargs):
+    def __init__(self, address, hash_key, digestmod="md5", safe=False, **kwargs):
         self._safe = safe
         if isinstance(hash_key, str):
             hash_key = hash_key.encode()
+
         self._hash_key = hash_key
+        if isinstance(digestmod, str):
+            digestmod = digestmod.encode()
+        self._digestmod = digestmod
+
         self._address = address
         self._kwargs = kwargs
         super().__init__()
@@ -65,7 +70,7 @@ class Redis(ProxyBackend):
                 await pool.wait_closed()
                 raise
 
-        self._target = _target_class(pool, hash_key=self._hash_key)
+        self._target = _target_class(pool, hash_key=self._hash_key, digestmod=self._digestmod)
 
     def get_many(self, *keys: str):
         return self._target.mget(keys[0], *keys[1:])
