@@ -143,10 +143,10 @@ class Cache(ProxyBackend):
     def _wrap_on_enable(self, name, decorator):
         def _decorator(func):
             @wraps(func)
-            def _call(*args, **kwargs):
+            async def _call(*args, **kwargs):
                 if self.is_disable("decorators", name):
-                    return func(*args, **kwargs)
-                result = decorator(func)(*args, **kwargs)
+                    return await func(*args, **kwargs)
+                result = await decorator(func)(*args, **kwargs)
                 if getattr(func, "_key_template", None):
                     _call._key_template = func._key_template
                 return result

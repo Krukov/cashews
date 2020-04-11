@@ -216,6 +216,7 @@ if __name__ == "__main__":
     engine = sqlalchemy.create_engine(str(database.url))
     metadata.create_all(engine)
     # asyncio.run(create_data())
+    # asyncio.run(get_rang("en"))
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

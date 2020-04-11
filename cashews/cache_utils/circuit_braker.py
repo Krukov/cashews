@@ -68,6 +68,5 @@ def _get_bucket_number(period: Union[int, timedelta], segments: int) -> int:
 
 
 async def _get_buckets_values(backend: Backend, segments: int, except_number: int) -> int:
-    keys = list(range(segments))
-    keys.remove(except_number)
+    keys = [str(key) for key in range(segments) if key != except_number]
     return sum([v for v in await backend.get_many(*keys) if v])

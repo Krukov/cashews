@@ -43,7 +43,7 @@ def early(
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             cached = await backend.get(_cache_key)
-            if cached:
+            if cached is not None:
                 _from_cache.set(_cache_key, ttl=ttl)
                 expire_at, delta, result = cached
                 if expire_at <= datetime.utcnow() and await backend.set(
