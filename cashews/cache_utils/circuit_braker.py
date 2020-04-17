@@ -4,7 +4,7 @@ from typing import Optional, Tuple, Type, Union
 
 from ..backends.interface import Backend
 from ..key import get_cache_key
-from ..typing import TTL, FuncArgsType
+from ..typing import FuncArgsType
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
 
@@ -16,7 +16,7 @@ class CircuitBreakerOpen(Exception):
 def circuit_breaker(
     backend: Backend,
     errors_rate: int,
-    period: TTL,
+    period: int,
     ttl: int,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
@@ -39,16 +39,14 @@ def circuit_breaker(
     def _decor(func):
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _period = period() if callable(period) else period
-            _period = _period.total_seconds() if isinstance(_period, timedelta) else _period
             _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
             if await backend.is_locked(_cache_key + ":open"):
                 raise CircuitBreakerOpen()
-            bucket = _get_bucket_number(_period, segments=100)
+            bucket = _get_bucket_number(period, segments=100)
             total_in_bucket = await backend.incr(_cache_key + f":total:{bucket}")
             if total_in_bucket == 1:
-                await backend.expire(key=_cache_key + f":total:{bucket}", timeout=_period)
-                await backend.set(key=_cache_key + ":fails", value=0, expire=_period)
+                await backend.expire(key=_cache_key + f":total:{bucket}", timeout=period)
+                await backend.set(key=_cache_key + ":fails", value=0, expire=period)
             try:
                 return await func(*args, **kwargs)
             except exceptions as exc:

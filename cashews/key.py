@@ -1,8 +1,14 @@
 import inspect
+from datetime import timedelta
 from itertools import chain
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
-from .typing import FuncArgsType
+from .typing import FuncArgsType, TTL
+
+
+def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
+    timeout = ttl() if callable(ttl) else ttl
+    return timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
 
 
 def get_cache_key(

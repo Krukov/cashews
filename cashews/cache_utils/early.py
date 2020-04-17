@@ -7,7 +7,7 @@ from typing import Any, Callable, Optional
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template
-from ..typing import TTL, FuncArgsType
+from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
 __all__ = ("early",)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def early(
     backend: Backend,
-    ttl: TTL,
+    ttl: int,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
     store: Optional[Callable[[Any], bool]] = None,
@@ -60,12 +60,10 @@ def early(
     return _decor
 
 
-async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: TTL, condition: Callable[[Any], bool]):
+async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: int, condition: Callable[[Any], bool]):
     start = time.perf_counter()
     result = await func(*args, **kwargs)
     if condition(result):
-        ttl = ttl() if callable(ttl) else ttl
-        ttl = ttl.total_seconds() if isinstance(ttl, timedelta) else ttl
         delta = timedelta(seconds=max([ttl - (time.perf_counter() - start) * 3, 0]))
         await backend.set(key, [datetime.utcnow() + delta, delta, result], expire=ttl)
     return result

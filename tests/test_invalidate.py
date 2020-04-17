@@ -60,8 +60,8 @@ async def test_invalidate_decor(cache: Cache):
 
 
 async def test_invalidate_decor_complicate(cache: Cache):
-    @cache(ttl=1)
-    async def func(arg, key=b"test", flag=True):
+    @cache(ttl=1, func_args=("arg", "key", "flag", "name"))
+    async def func(arg, key=b"test", flag=True, **kwargs):
         return random.random()
 
     @cache.invalidate(func, args_map={"arg": "a"}, defaults={"flag": True})

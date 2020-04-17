@@ -1,5 +1,4 @@
 import asyncio
-from datetime import timedelta
 from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
@@ -9,6 +8,7 @@ from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
 from .helpers import _auto_init, _is_disable_middleware
 from .typing import TTL, FuncArgsType
+from .key import ttl_to_seconds
 
 #  pylint: disable=too-many-public-methods
 
@@ -94,9 +94,7 @@ class Cache(ProxyBackend):
         return call
 
     def set(self, key: str, value: Any, expire: Union[float, None, TTL] = None, exist: Optional[bool] = None):
-        expire = expire() if expire and callable(expire) else expire
-        expire = expire.total_seconds() if expire and isinstance(expire, timedelta) else expire
-        return self._with_middlewares("set", self._target.set)(key=key, value=value, expire=expire, exist=exist)
+        return self._with_middlewares("set", self._target.set)(key=key, value=value, expire=ttl_to_seconds(expire), exist=exist)
 
     def get(self, key: str) -> Any:
         return self._with_middlewares("get", self._target.get)(key=key)
@@ -114,17 +112,13 @@ class Cache(ProxyBackend):
         return self._with_middlewares("delete_match", self._target.delete_match)(pattern=pattern)
 
     def expire(self, key: str, timeout: TTL):
-        timeout = timeout() if callable(timeout) else timeout
-        timeout = timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
-        return self._with_middlewares("expire", self._target.expire)(key=key, timeout=timeout)
+        return self._with_middlewares("expire", self._target.expire)(key=key, timeout=ttl_to_seconds(timeout))
 
     def get_expire(self, key: str) -> int:
         return self._with_middlewares("get_expire", self._target.get_expire)(key=key)
 
     def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
-        expire = expire() if callable(expire) else expire
-        expire = expire.total_seconds() if isinstance(expire, timedelta) else expire
-        return self._with_middlewares("lock", self._target.set_lock)(key=key, value=value, expire=expire)
+        return self._with_middlewares("lock", self._target.set_lock)(key=key, value=value, expire=ttl_to_seconds(expire))
 
     def unlock(self, key: str, value: str) -> bool:
         return self._with_middlewares("unlock", self._target.unlock)(key=key, value=value)
@@ -136,9 +130,7 @@ class Cache(ProxyBackend):
         return self._with_middlewares("clear", self._target.clear)()
 
     def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
-        wait = wait() if wait and callable(wait) else wait
-        wait = wait.total_seconds() if wait and isinstance(wait, timedelta) else wait
-        return self._with_middlewares("is_locked", self._target.is_locked)(key=key, wait=wait, step=step)
+        return self._with_middlewares("is_locked", self._target.is_locked)(key=key, wait=ttl_to_seconds(wait), step=step)
 
     def _wrap_on_enable(self, name, decorator):
         def _decorator(func):
@@ -229,7 +221,7 @@ class Cache(ProxyBackend):
             ),
         )
 
-    def early(
+    def     early(
         self,
         ttl: TTL,
         func_args: FuncArgsType = None,
@@ -238,7 +230,7 @@ class Cache(ProxyBackend):
         prefix: str = "early",
     ):
         return self._wrap_on_enable(
-            prefix, cache_utils.early(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix)
+            prefix, cache_utils.early(self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, store=store, prefix=prefix)
         )
 
     def hit(

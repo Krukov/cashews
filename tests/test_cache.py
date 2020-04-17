@@ -77,6 +77,21 @@ async def test_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
+async def test_cache_simple(backend):
+
+    @cache(backend, ttl=EXPIRE, key="key")
+    async def func(resp=b"ok"):
+        return resp
+
+    assert await func() == b"ok"
+
+    await asyncio.sleep(0)
+    assert await func(b"notok") == b"ok"
+
+    await asyncio.sleep(EXPIRE)
+    assert await func(b"notok") == b"notok"
+
+
 async def test_cache_simple_cond(backend):
     mock = Mock()
 
@@ -93,7 +108,6 @@ async def test_cache_simple_cond(backend):
     assert mock.call_count == 2
 
     await func(b"hit")
-    await asyncio.sleep(0)  # allow to set cache coroutine work
     assert mock.call_count == 3
     await func(b"hit")
     assert mock.call_count == 3

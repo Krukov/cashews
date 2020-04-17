@@ -1,22 +1,22 @@
-import asyncio
+from datetime import timedelta
+
 import pytest
-pytestmark = pytest.mark.asyncio
-
 from aiohttp import web
-
 from cashews import mem
 
+pytestmark = pytest.mark.asyncio
 pytest_plugins = ["aiohttp.pytest_plugin"]
 
 
 def json(func):
     async def _handler(request):
         return web.json_response(data=await func(request))
+
     return _handler
 
 
 @json
-@mem.cache(ttl=1, func_args={"request": lambda r:  r.query.get("q", "q")})
+@mem.cache(ttl=timedelta(seconds=1), func_args={"request": lambda r: r.query.get("q", "q")})
 async def handle(request: web.Request):
     name = request.headers.get("X-Name", "test")
     return {"name": name, "q": request.query.get("q", "q")}
@@ -25,13 +25,13 @@ async def handle(request: web.Request):
 @pytest.fixture(name="app")
 def _app():
     app = web.Application()
-    app.add_routes([web.get('/', handle)])
+    app.add_routes([web.get("/", handle)])
     return app
 
 
 @pytest.fixture
 def loop(event_loop):
-   return event_loop
+    return event_loop
 
 
 @pytest.fixture(name="cli")
