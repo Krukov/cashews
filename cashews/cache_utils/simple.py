@@ -1,4 +1,5 @@
 import asyncio
+from string import Formatter
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -8,6 +9,17 @@ from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
 __all__ = ("cache", "invalidate")
+
+
+class _Star(Formatter):
+
+    def get_value(self, key, args, kwds):
+        try:
+            return kwds[key]
+        except KeyError:
+            return "*"
+
+_star = _Star()
 
 
 def cache(
@@ -56,7 +68,8 @@ async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None)
         return None
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
     values = {k: str(v) if v is not None else "" for k, v in values.items()}
-    return await backend.delete_match(key_template.format(**values).lower())
+    del_template = _star.format(key_template, **values).lower()
+    return await backend.delete_match(del_template)
 
 
 def invalidate(

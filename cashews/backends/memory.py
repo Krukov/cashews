@@ -51,7 +51,7 @@ class Memory(Backend):
         return False
 
     async def delete_match(self, pattern: str):
-        pattern = pattern.replace("*", "[^:]+")
+        pattern = pattern.replace("*", "[^:]*")
         regexp = re.compile(pattern)
         for key in dict(self.store):
             if regexp.fullmatch(key):

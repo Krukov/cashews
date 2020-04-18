@@ -74,7 +74,7 @@ def get_call_values(func: Callable, args, kwargs, func_args: FuncArgsType) -> Di
     :param kwargs: call keyword arguments
     :param func_args: arguments that will be included in results (transformation function for values if passed as dict)
     """
-    key_values = {}
+    key_values = {key: "" for key in func_args or []}
     for _key, _value in _get_call_values(func, args, kwargs).items():
         if func_args is None or _key in func_args:
             key_values[_key] = _value
