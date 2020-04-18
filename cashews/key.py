@@ -3,7 +3,7 @@ from datetime import timedelta
 from itertools import chain
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
-from .typing import FuncArgsType, TTL
+from .typing import TTL, FuncArgsType
 
 
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
@@ -12,11 +12,7 @@ def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
 
 
 def get_cache_key(
-    func: Callable,
-    args: Tuple[Any] = (),
-    kwargs: Optional[Dict] = None,
-    func_args: FuncArgsType = None,
-    key: Optional[str] = None,
+    func: Callable, args: Tuple[Any] = (), kwargs: Optional[Dict] = None, func_args: FuncArgsType = None,
 ) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs
@@ -26,15 +22,16 @@ def get_cache_key(
     :param args: call positional arguments
     :param kwargs: call keyword arguments
     :param func_args: arguments that will be used in key
-    :param key: template for key, may contain alias to args or kwargs passed to a call
     :return: cache key for call
     """
     kwargs = kwargs or {}
     key_values = get_call_values(func, args, kwargs, func_args)
-    if key is None:
-        key_values = {k: str(v) if v is not None else "" for k, v in key_values.items()}
-        return ":".join([func.__module__, func.__name__, *chain(*key_values.items())]).lower()
-    return key.format(**key_values).lower()
+    key_values = {k: str(v) if v is not None else "" for k, v in key_values.items()}
+    if not getattr(func, "_key_template", None):
+        _key_template = get_cache_key_template(func, func_args)
+    else:
+        _key_template = func._key_template
+    return _key_template.format(**key_values).lower()
 
 
 def get_func_params(func):

@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
 from ..backends.interface import Backend
-from ..key import get_cache_key
+from ..key import get_cache_key, get_cache_key_template
 from ..typing import FuncArgsType
 from .defaults import CacheDetect, context_cache_detect
 
@@ -28,9 +28,14 @@ def fail(
     """
 
     def _decor(func):
+        _key_template = key
+        if key is None:
+            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
+        func._key_template = _key_template
+
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
+            _cache_key = get_cache_key(func, args, kwargs, func_args)
             try:
                 result = await func(*args, **kwargs)
             except exceptions as exc:

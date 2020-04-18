@@ -7,7 +7,7 @@ from statistics import mean
 from typing import Any, Callable, Iterable, Optional
 
 from ..backends.interface import Backend
-from ..key import get_cache_key
+from ..key import get_cache_key, get_cache_key_template
 from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
@@ -42,9 +42,14 @@ def hit(
     store = _default_store_condition if store is None else store
 
     def _decor(func):
+        _key_template = key
+        if key is None:
+            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
+        func._key_template = _key_template
+
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
+            _cache_key = get_cache_key(func, args, kwargs, func_args)
             result = await backend.get(_cache_key)
             hits = await backend.incr(_cache_key + ":counter")
             if result and hits <= cache_hits:
@@ -101,9 +106,14 @@ def perf(
     call_results = deque([], maxlen=trace_size)
 
     def _decor(func):
+        _key_template = key
+        if key is None:
+            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
+        func._key_template = _key_template
+
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
+            _cache_key = get_cache_key(func, args, kwargs, func_args)
             if await backend.is_locked(_cache_key + ":lock"):
                 raise PerfDegradationException()
             start = time.perf_counter()

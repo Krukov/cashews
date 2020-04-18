@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Optional, Union
 
 from ..backends.interface import Backend, LockedException
-from ..key import get_cache_key
+from ..key import get_cache_key, get_cache_key_template
 from ..typing import FuncArgsType
 
 __all__ = ("locked",)
@@ -26,13 +26,19 @@ def locked(
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param ttl: duration to lock wrapped function call
-    :param prefix: custom prefix for key, default 'early'
+    :param prefix: custom prefix for key, default 'lock'
     """
 
     def _decor(func):
+
+        _key_template = key
+        if key is None:
+            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
+        func._key_template = _key_template
+
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key) + ":lock"
+            _cache_key = get_cache_key(func, args, kwargs, func_args)
             try:
                 async with backend.lock(_cache_key, ttl or max_lock_ttl):
                     return await func(*args, **kwargs)

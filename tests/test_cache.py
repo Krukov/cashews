@@ -77,19 +77,22 @@ async def test_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
-async def test_cache_simple(backend):
+async def test_cache_simple_key(backend):
+    @cache(backend, ttl=EXPIRE, func_args=("some",))
+    async def func(resp=b"ok", some="err"):
+        return resp
 
-    @cache(backend, ttl=EXPIRE, key="key")
-    async def func(resp=b"ok"):
+    @cache(backend, ttl=1, func_args=("some",))
+    async def func2(resp=b"ok", some="err"):
         return resp
 
     assert await func() == b"ok"
+    assert await func(b"notok", some="test") == b"notok"
 
     await asyncio.sleep(0)
     assert await func(b"notok") == b"ok"
 
-    await asyncio.sleep(EXPIRE)
-    assert await func(b"notok") == b"notok"
+    assert await func2(b"notok") == b"notok"
 
 
 async def test_cache_simple_cond(backend):

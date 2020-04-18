@@ -37,11 +37,14 @@ def early(
     store = _default_store_condition if store is None else store
 
     def _decor(func):
-        func._key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key)
+        _key_template = key
+        if key is None:
+            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
+        func._key_template = _key_template
 
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args, key)
+            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args)
             cached = await backend.get(_cache_key)
             if cached is not None:
                 _from_cache.set(_cache_key, ttl=ttl)

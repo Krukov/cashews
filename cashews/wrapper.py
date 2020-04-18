@@ -7,8 +7,8 @@ from . import cache_utils
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
 from .helpers import _auto_init, _is_disable_middleware
-from .typing import TTL, FuncArgsType
 from .key import ttl_to_seconds
+from .typing import TTL, FuncArgsType
 
 #  pylint: disable=too-many-public-methods
 
@@ -94,7 +94,9 @@ class Cache(ProxyBackend):
         return call
 
     def set(self, key: str, value: Any, expire: Union[float, None, TTL] = None, exist: Optional[bool] = None):
-        return self._with_middlewares("set", self._target.set)(key=key, value=value, expire=ttl_to_seconds(expire), exist=exist)
+        return self._with_middlewares("set", self._target.set)(
+            key=key, value=value, expire=ttl_to_seconds(expire), exist=exist
+        )
 
     def get(self, key: str) -> Any:
         return self._with_middlewares("get", self._target.get)(key=key)
@@ -118,7 +120,9 @@ class Cache(ProxyBackend):
         return self._with_middlewares("get_expire", self._target.get_expire)(key=key)
 
     def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
-        return self._with_middlewares("lock", self._target.set_lock)(key=key, value=value, expire=ttl_to_seconds(expire))
+        return self._with_middlewares("lock", self._target.set_lock)(
+            key=key, value=value, expire=ttl_to_seconds(expire)
+        )
 
     def unlock(self, key: str, value: str) -> bool:
         return self._with_middlewares("unlock", self._target.unlock)(key=key, value=value)
@@ -130,7 +134,9 @@ class Cache(ProxyBackend):
         return self._with_middlewares("clear", self._target.clear)()
 
     def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
-        return self._with_middlewares("is_locked", self._target.is_locked)(key=key, wait=ttl_to_seconds(wait), step=step)
+        return self._with_middlewares("is_locked", self._target.is_locked)(
+            key=key, wait=ttl_to_seconds(wait), step=step
+        )
 
     def _wrap_on_enable(self, name, decorator):
         def _decorator(func):
@@ -221,7 +227,7 @@ class Cache(ProxyBackend):
             ),
         )
 
-    def     early(
+    def early(
         self,
         ttl: TTL,
         func_args: FuncArgsType = None,
@@ -230,7 +236,8 @@ class Cache(ProxyBackend):
         prefix: str = "early",
     ):
         return self._wrap_on_enable(
-            prefix, cache_utils.early(self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, store=store, prefix=prefix)
+            prefix,
+            cache_utils.early(self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, store=store, prefix=prefix),
         )
 
     def hit(
