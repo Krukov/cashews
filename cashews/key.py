@@ -1,6 +1,7 @@
 import inspect
 from datetime import timedelta
 from itertools import chain
+from string import Formatter
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 from .typing import TTL, FuncArgsType
@@ -95,3 +96,15 @@ def _get_call_values(func, args, kwargs):
         else:
             result[_name] = _value
     return result
+
+
+class _Star(Formatter):
+    def get_value(self, key, args, kwds):
+        try:
+            return kwds[key]
+        except KeyError:
+            return "*"
+
+
+def template_to_pattern(template, **values):
+    return _Star().format(template, **values).lower()

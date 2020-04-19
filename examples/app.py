@@ -21,7 +21,7 @@ from cashews import (
     CircuitBreakerOpen,
     RateLimitException,
     context_cache_detect,
-    check_speed,
+    utils,
     LockedException,
 )
 
@@ -136,7 +136,7 @@ async def rate_limit_handler(request, exc: RateLimitException):
 
 @app.get("/")
 async def _check():
-    result = await check_speed.run(cache, 500)
+    result = await utils.run(cache, 500)
     result["mem"] = mem._target.store
     result["tasks"] = len(asyncio.all_tasks())
     return result

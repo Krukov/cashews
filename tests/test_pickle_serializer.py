@@ -32,7 +32,7 @@ class DummyCache:
         for key in keys:
             del self.store[key]
 
-    async def get_many(self, *keys):
+    async def mget(self, *keys):
         return [self.store.get(key, None) for key in keys]
 
 
@@ -68,9 +68,7 @@ def _cache():
 async def test_serialize_simple_value(value, cache):
     await cache.set("key", value)
     assert await cache.get("key") == value
-    assert await cache.get_many("key") == [
-        value,
-    ]
+    assert await cache.mget("key") == (value,)
 
 
 @pytest.mark.parametrize("value", (NT(name="test", test="lol"), NT()))

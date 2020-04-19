@@ -1,6 +1,8 @@
 import asyncio
 import datetime
+import gc
 import re
+import sys
 from typing import Any, Optional, Tuple, Union
 
 from .interface import Backend
@@ -33,6 +35,13 @@ class Memory(Backend):
     async def get_many(self, *keys: str) -> Tuple:
         return tuple([self._get(key) for key in keys])
 
+    async def keys_match(self, pattern: str):
+        pattern = pattern.replace("*", ".*")
+        regexp = re.compile(pattern)
+        for key in dict(self.store):
+            if regexp.fullmatch(key):
+                yield key
+
     async def incr(self, key: str):
         value = int(self._get(key) or 0) + 1
         self._set(key=key, value=value)
@@ -51,11 +60,8 @@ class Memory(Backend):
         return False
 
     async def delete_match(self, pattern: str):
-        pattern = pattern.replace("*", "[^:]*")
-        regexp = re.compile(pattern)
-        for key in dict(self.store):
-            if regexp.fullmatch(key):
-                await self.delete(key)
+        async for key in self.keys_match(pattern):
+            await self.delete(key)
 
     async def expire(self, key: str, timeout: float):
         value = self._get(key)
@@ -100,6 +106,16 @@ class Memory(Backend):
     async def unlock(self, key, value) -> bool:
         return self._delete(key)
 
+    async def get_size(self, key: str) -> int:
+        if key in self.store:
+            return _get_obj_size(self.store[key])
+        return 0
+
+    # async def get_size_match(self, pattern: str) -> int:
+    #     if pattern == "*":
+    #         return _get_obj_size(self.store)
+    #     return await super().get_size_match(pattern)
+
 
 class MemoryInterval(Memory):
     def __init__(self, size: int = 1000, check_interval: float = 1.0):
@@ -134,3 +150,28 @@ class MemoryInterval(Memory):
         if key in self._meta:
             return abs(int((datetime.datetime.utcnow() - self._meta[key]).total_seconds()))
         return -1
+
+
+def _get_obj_size(obj) -> int:
+    marked = {id(obj)}
+    obj_q = [obj]
+    sz = 0
+
+    while obj_q:
+        sz += sum(map(sys.getsizeof, obj_q))
+
+        # Lookup all the object referred to by the object in obj_q.
+        # See: https://docs.python.org/3.7/library/gc.html#gc.get_referents
+        all_refr = ((id(o), o) for o in gc.get_referents(*obj_q))
+
+        # Filter object that are already marked.
+        # Using dict notation will prevent repeated objects.
+        new_refr = {o_id: o for o_id, o in all_refr if o_id not in marked and not isinstance(o, type)}
+
+        # The new obj_q will be the ones that were not marked,
+        # and we will update marked with their ids so we will
+        # not traverse them again.
+        obj_q = new_refr.values()
+        marked.update(new_refr.keys())
+
+    return sz

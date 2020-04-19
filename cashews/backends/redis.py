@@ -111,12 +111,21 @@ class Redis(ProxyBackend):
     def delete(self, key: str):
         return self._target.unlink(key)
 
-    async def delete_match(self, pattern: str):
+    async def keys_match(self, pattern: str):
         cursor = b"0"
         while cursor:
-            cursor, keys = await self._target.scan(cursor, match=pattern)
-            if keys:
-                await self._target.unlink(*keys)
+            cursor, keys = await self._target.scan(cursor, match=pattern, count=100)
+            for key in keys:
+                yield key
+
+    async def delete_match(self, pattern: str):
+        keys = []
+        async for key in self.keys_match(pattern):
+            keys.append(key)
+        await self._target.unlink(*keys)
+
+    async def get_size(self, key: str) -> int:
+        return int(await self._target.execute("MEMORY", "USAGE", key))
 
     async def close(self):
         if self._target:

@@ -1,25 +1,13 @@
 import asyncio
 from functools import wraps
-from string import Formatter
 from typing import Any, Callable, Dict, Optional, Union
 
 from ..backends.interface import Backend
-from ..key import get_cache_key, get_cache_key_template, get_call_values, get_func_params
+from ..key import get_cache_key, get_cache_key_template, get_call_values, get_func_params, template_to_pattern
 from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
 __all__ = ("cache", "invalidate")
-
-
-class _Star(Formatter):
-    def get_value(self, key, args, kwds):
-        try:
-            return kwds[key]
-        except KeyError:
-            return "*"
-
-
-_star = _Star()
 
 
 def cache(
@@ -71,7 +59,7 @@ async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None)
         return None
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
     values = {k: str(v) if v is not None else "" for k, v in values.items()}
-    del_template = _star.format(key_template, **values).lower()
+    del_template = template_to_pattern(key_template, **values)
     return await backend.delete_match(del_template)
 
 

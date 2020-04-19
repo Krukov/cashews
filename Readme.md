@@ -442,6 +442,5 @@ async def add_from_cache_headers(request: Request, call_next):
 
 
 Scope
-TTL invalidation
 Scopes [user/method/account]
-Info by key template    
+Info by key template

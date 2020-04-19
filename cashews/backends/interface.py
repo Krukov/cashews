@@ -1,6 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, Optional, Tuple, Union
+from typing import Any, AsyncIterator, Optional, Tuple, Union
 
 
 class LockedException(Exception):
@@ -28,6 +28,9 @@ class Backend:
     async def get_many(self, *keys: str) -> Tuple[Any]:
         ...
 
+    async def keys_match(self, pattern: str):
+        ...
+
     async def incr(self, key: str) -> int:
         ...
 
@@ -42,6 +45,24 @@ class Backend:
 
     async def get_expire(self, key: str) -> int:
         ...
+
+    async def get_size(self, key: str) -> int:
+        """
+        Return size in bites that allocated by a value for given key
+        """
+        ...
+
+    async def get_size_match(self, pattern: str) -> int:
+        size = 0
+        async for key in self.keys_match(pattern):
+            size += await self.get_size(key)
+        return size
+
+    async def listen_get_set(self, key_template: str):
+        """
+        Pass
+        """
+        pass
 
     async def ping(self, message: Optional[str] = None) -> str:
         ...

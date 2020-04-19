@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from unittest.mock import Mock
 
 import pytest
@@ -97,3 +98,15 @@ async def test_delete_match(cache: Backend):
 
     assert await cache.get("ppref:test:test") is not None
     assert await cache.get("pref:test:tests") is not None
+
+
+async def test_get_size(cache: Backend):
+    await cache.set("test", b"1")
+    assert await cache.get_size("test") == sys.getsizeof(b"1")
+
+
+async def test_get_size_pattern(cache: Backend):
+    await cache.set("target:test", b"1")
+    await cache.set("no:test", b"1")
+    assert await cache.get_size_match("target:*") == sys.getsizeof(b"1")
+    assert await cache.get_size_match("*") == sys.getsizeof(b"1") * 2

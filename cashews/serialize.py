@@ -29,9 +29,11 @@ class PickleSerializerMixin:
             await super().delete(key)
             return None
 
-    def _process(self, value, key):
+    def _process(self, value: bytes, key):
         if not value:
             return value
+        if value.isdigit():
+            return int(value)
         try:
             sign, value = value.split(b"_", 1)
         except ValueError:
@@ -44,8 +46,18 @@ class PickleSerializerMixin:
         repr(value)
         return value
 
-    async def get_many(self, *keys):
-        return [self._process(value, key) for key, value in zip(keys, await super().get_many(*keys))]
+    async def mget(self, *keys):
+        values = []
+        for key, value in zip(keys, await super().mget(*keys)):
+            try:
+                values.append(self._process(value, key))
+            except UnSecureDataError:
+                await super().delete(key)
+                raise
+            except (pickle.PickleError, AttributeError):
+                await super().delete(key)
+                values.append(None)
+        return tuple(values)
 
     def get_sign(self, key: str, value: bytes, digestmod: bytes) -> bytes:
         if self._hash_key is None:
