@@ -1,9 +1,13 @@
+import asyncio
+import re
 import time
 import uuid
+from collections import Counter, defaultdict
 from statistics import mean
+from string import Formatter
 
 from .backends.interface import Backend
-from .key import template_to_pattern
+from .key import get_templates_for, template_to_pattern
 
 
 async def _get_latency(func, **kwargs) -> float:
@@ -36,11 +40,64 @@ async def check_speed(backend: Backend, iters: int = 100):
 
 
 async def get_size_of(backend: Backend, func):
-    template = getattr(func, "_key_template", None)
-    if template is None:
-        raise Exception()
-    return backend.get_size_match(template_to_pattern(template))
+    coros = []
+    templates = get_templates_for(func)
+    for template in templates:
+        coros.append(backend.get_size_match(template_to_pattern(template)))
+    return zip(templates, await asyncio.gather(*coros))
 
 
-# async def usage(backend: Backend, func):
-#     pass
+class _ReFormatter(Formatter):
+    def get_value(self, key, args, kwds):
+        try:
+            return kwds[key]
+        except KeyError:
+            return f"(P?<{key}>.*)"
+
+
+class _NonKeyFormatter(Formatter):
+    def get_value(self, key, args, kwds):
+        try:
+            return kwds[key]
+        except KeyError:
+            return f"{{{key}}}"
+
+
+non_key_formatter = _NonKeyFormatter()
+
+
+def _create_reader(template: str, max_events):
+    pattern = re.compile(_ReFormatter().format(template).encode())
+    get_counter = defaultdict(Counter)
+    set_counter = defaultdict(Counter)
+
+    def reader(cmd: bytes, key: bytes):
+        counter = get_counter if cmd == b"get" else set_counter
+        reader._max_events -= 1
+        match = pattern.match(key)
+        if match:
+            for name, value in match.groupdict().items():
+                counter[name][value] += 1
+        if reader._max_events < 0:
+            raise StopIteration()
+
+    reader._max_events = max_events
+    return reader, (get_counter, set_counter)
+
+
+async def usage(backend: Backend, func, max_events=10, **values):
+    templates = get_templates_for(func)
+    if not templates:
+        raise ValueError("Function have no associate cache key")
+    coros = []
+    counters = []
+    for template in templates:
+        pattern = template_to_pattern(template, **values)
+        reader_template = non_key_formatter.format(template, **values)
+        reader, counter = _create_reader(reader_template, max_events=max_events)
+        coros.append(backend.listen(pattern, "get", "set", reader=reader))
+        # await backend.listen(pattern, "get", "set", reader=reader)
+        counters.append(counter)
+    if coros:
+        await asyncio.gather(*coros, return_exceptions=True)
+        return counters

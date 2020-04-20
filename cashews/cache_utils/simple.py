@@ -1,13 +1,12 @@
-import asyncio
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Optional
 
 from ..backends.interface import Backend
-from ..key import get_cache_key, get_cache_key_template, get_call_values, get_func_params, template_to_pattern
+from ..key import get_cache_key, get_cache_key_template, register_template
 from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
-__all__ = ("cache", "invalidate")
+__all__ = ("cache",)
 
 
 def cache(
@@ -33,12 +32,12 @@ def cache(
     def _decor(func):
         _key_template = key
         if key is None:
-            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
-        func._key_template = _key_template
+            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}:{ttl}"
+        register_template(func, _key_template)
 
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = get_cache_key(func, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
             cached = await backend.get(_cache_key)
             if cached is not None:
                 _from_cache.set(_cache_key, ttl=ttl)
@@ -46,49 +45,6 @@ def cache(
             result = await func(*args, **kwargs)
             if store(result):
                 await backend.set(_cache_key, result, expire=ttl)
-            return result
-
-        return _wrap
-
-    return _decor
-
-
-async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None):
-    key_template = getattr(func, "_key_template", None)
-    if not key_template:
-        return None
-    values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
-    values = {k: str(v) if v is not None else "" for k, v in values.items()}
-    del_template = template_to_pattern(key_template, **values)
-    return await backend.delete_match(del_template)
-
-
-def invalidate(
-    backend: Backend,
-    target: Union[str, Callable],
-    args_map: Optional[Dict[str, str]] = None,
-    defaults: Optional[Dict[str, Any]] = None,
-):
-    args_map = args_map or {}
-    defaults = defaults or {}
-
-    def _decor(func):
-        @wraps(func)
-        async def _wrap(*args, **kwargs):
-            result = await func(*args, **kwargs)
-            _args = get_call_values(func, args, kwargs, func_args=None)
-            _args.update(defaults)
-            for source, dest in args_map.items():
-                if dest in _args:
-                    _args[source] = _args.pop(dest)
-                if callable(dest):
-                    _args[source] = dest(*args, **kwargs)
-            if callable(target):
-                asyncio.create_task(invalidate_func(backend, target, _args))
-            else:
-                asyncio.create_task(
-                    backend.delete_match(target.format({k: str(v) if v is not None else "" for k, v in _args.items()}))
-                )
             return result
 
         return _wrap

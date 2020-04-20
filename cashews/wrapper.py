@@ -127,6 +127,9 @@ class Cache(ProxyBackend):
     def unlock(self, key: str, value: str) -> bool:
         return self._with_middlewares("unlock", self._target.unlock)(key=key, value=value)
 
+    def listen(self, pattern: str, *cmds, reader=None):
+        return self._with_middlewares("listen", self._target.listen)(pattern, *cmds, reader=reader)
+
     def ping(self, message: Optional[str] = None) -> str:
         return self._with_middlewares("ping", self._target.ping)(message=message)
 
@@ -140,14 +143,13 @@ class Cache(ProxyBackend):
 
     def _wrap_on_enable(self, name, decorator):
         def _decorator(func):
+            decorator(func)  # to register cache templates
+
             @wraps(func)
             async def _call(*args, **kwargs):
                 if self.is_disable("decorators", name):
                     return await func(*args, **kwargs)
-                result = await decorator(func)(*args, **kwargs)
-                if getattr(func, "_key_template", None):
-                    _call._key_template = func._key_template
-                return result
+                return await decorator(func)(*args, **kwargs)
 
             return _call
 
@@ -166,7 +168,13 @@ class Cache(ProxyBackend):
         return self._wrap_on_enable(
             "rate_limit",
             cache_utils.rate_limit(
-                self, limit=limit, period=period, ttl=ttl, func_args=func_args, action=action, prefix=prefix
+                self,
+                limit=limit,
+                period=ttl_to_seconds(period),
+                ttl=ttl_to_seconds(ttl),
+                func_args=func_args,
+                action=action,
+                prefix=prefix,
             ),
         )
 
@@ -180,7 +188,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix or "cache",
-            cache_utils.cache(self, ttl=ttl, func_args=func_args, key=key, store=store, prefix=prefix),
+            cache_utils.cache(self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, store=store, prefix=prefix),
         )
 
     cache = __call__
@@ -199,7 +207,10 @@ class Cache(ProxyBackend):
         prefix: str = "fail",
     ):
         return self._wrap_on_enable(
-            prefix, cache_utils.fail(self, ttl=ttl, exceptions=exceptions, key=key, func_args=func_args, prefix=prefix)
+            prefix,
+            cache_utils.fail(
+                self, ttl=ttl_to_seconds(ttl), exceptions=exceptions, key=key, func_args=func_args, prefix=prefix
+            ),
         )
 
     def circuit_breaker(
@@ -218,8 +229,8 @@ class Cache(ProxyBackend):
             cache_utils.circuit_breaker(
                 self,
                 errors_rate=errors_rate,
-                period=period,
-                ttl=ttl,
+                period=ttl_to_seconds(period),
+                ttl=ttl_to_seconds(ttl),
                 exceptions=exceptions,
                 key=key,
                 func_args=func_args,
@@ -254,7 +265,7 @@ class Cache(ProxyBackend):
             prefix,
             cache_utils.hit(
                 self,
-                ttl=ttl,
+                ttl=ttl_to_seconds(ttl),
                 cache_hits=cache_hits,
                 update_before=update_before,
                 func_args=func_args,
@@ -267,6 +278,7 @@ class Cache(ProxyBackend):
     def dynamic(
         self,
         func_args: FuncArgsType = None,
+        ttl: TTL = 60 * 60 * 24,
         key: Optional[str] = None,
         store: Optional[Callable[[Any], bool]] = None,
         prefix: str = "dynamic",
@@ -274,14 +286,7 @@ class Cache(ProxyBackend):
         return self._wrap_on_enable(
             prefix,
             cache_utils.hit(
-                self,
-                ttl=60 * 60 * 24,
-                cache_hits=1,
-                update_before=0,
-                func_args=func_args,
-                key=key,
-                store=store,
-                prefix=prefix,
+                self, ttl=ttl, cache_hits=3, update_before=2, func_args=func_args, key=key, store=store, prefix=prefix,
             ),
         )
 

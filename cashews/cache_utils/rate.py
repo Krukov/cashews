@@ -7,7 +7,7 @@ from statistics import mean
 from typing import Any, Callable, Iterable, Optional
 
 from ..backends.interface import Backend
-from ..key import get_cache_key, get_cache_key_template
+from ..key import get_cache_key, get_cache_key_template, register_template
 from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
@@ -44,17 +44,17 @@ def hit(
     def _decor(func):
         _key_template = key
         if key is None:
-            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
-        func._key_template = _key_template
+            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}:{ttl}"
+        register_template(func, _key_template)
 
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = get_cache_key(func, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
             result = await backend.get(_cache_key)
             hits = await backend.incr(_cache_key + ":counter")
             if result and hits <= cache_hits:
                 _from_cache.set(_cache_key, ttl=ttl, cache_hits=cache_hits)
-                if update_before is not None and cache_hits - hits == update_before:
+                if update_before is not None and cache_hits - hits <= update_before:
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, store))
                 return result
             return await _get_and_save(func, args, kwargs, backend, _cache_key, ttl, store)
@@ -108,12 +108,11 @@ def perf(
     def _decor(func):
         _key_template = key
         if key is None:
-            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
-        func._key_template = _key_template
+            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}:{ttl}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
             if await backend.is_locked(_cache_key + ":lock"):
                 raise PerfDegradationException()
             start = time.perf_counter()
@@ -162,9 +161,12 @@ def rate_limit(
     action = _default_action if action is None else action
 
     def decorator(func):
+        _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args)}"
+        register_template(func, _key_template)
+
         @wraps(func)
         async def wrapped_func(*args, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
 
             requests_count = await backend.incr(key=_cache_key)  # set 1 if not exists
             if requests_count and requests_count > limit:

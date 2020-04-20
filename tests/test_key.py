@@ -25,12 +25,12 @@ def test_cache_func_key_dict():
             ("arg1", "kwarg1", "kwarg3"),
             "tests.test_key:func:arg1:a1:kwarg1:k1:kwarg3:k3",
         ),
-        (
-            ("a1", "a2", "a3"),
-            {"kwarg1": "k1", "kwarg3": "k3"},
-            None,
-            "tests.test_key:func:arg1:a1:arg2:a2:kwarg1:k1:kwarg2:true:kwarg3:k3",
-        ),
+        # (
+        #     ("a1", "a2", "a3"),
+        #     {"kwarg1": "k1", "kwarg3": "k3"},
+        #     None,
+        #     "tests.test_key:func:arg1:a1:arg2:a2:kwarg1:k1:kwarg2:true:kwarg3:k3",
+        # ),
         (("a1", "a2", "a3"), None, ("arg1", "kwarg1", "kwarg3"), "tests.test_key:func:arg1:a1:kwarg1::kwarg3:"),
         (
             ("a1",),

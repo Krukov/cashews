@@ -346,8 +346,8 @@ asunc def user_items(user_id, fresh=False):
 async def items(page=1):
     ...
 
-@cache.invalidate("module:items:page:*")  # the same as @cache.invalidate(items)
-@cache.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh"; True})
+@cashews.cache_utils.invalidate.invalidate("module:items:page:*")  # the same as @cache.invalidate(items)
+@cashews.cache_utils.invalidate.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh"; True})
 async def create_item(user):
    ...
 ```
@@ -441,6 +441,5 @@ async def add_from_cache_headers(request: Request, call_next):
 ```
 
 
-Scope
 Scopes [user/method/account]
 Info by key template

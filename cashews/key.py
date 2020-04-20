@@ -13,7 +13,11 @@ def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
 
 
 def get_cache_key(
-    func: Callable, args: Tuple[Any] = (), kwargs: Optional[Dict] = None, func_args: FuncArgsType = None,
+    func: Callable,
+    template: str = None,
+    args: Tuple[Any] = (),
+    kwargs: Optional[Dict] = None,
+    func_args: FuncArgsType = None,
 ) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs
@@ -28,10 +32,7 @@ def get_cache_key(
     kwargs = kwargs or {}
     key_values = get_call_values(func, args, kwargs, func_args)
     key_values = {k: str(v) if v is not None else "" for k, v in key_values.items()}
-    if not getattr(func, "_key_template", None):
-        _key_template = get_cache_key_template(func, func_args)
-    else:
-        _key_template = func._key_template
+    _key_template = template or get_cache_key_template(func, func_args)
     return _key_template.format(**key_values).lower()
 
 
@@ -106,5 +107,16 @@ class _Star(Formatter):
             return "*"
 
 
-def template_to_pattern(template, **values):
-    return _Star().format(template, **values).lower()
+def template_to_pattern(template, _formatter=_Star(), **values):
+    return _formatter.format(template, **values).lower()
+
+
+_REGIRSTER = {}
+
+
+def register_template(func, template):
+    _REGIRSTER.setdefault((func.__module__, func.__name__), set()).add(template)
+
+
+def get_templates_for(func):
+    return _REGIRSTER.get((func.__module__, func.__name__), set())

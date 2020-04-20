@@ -16,7 +16,7 @@ def json(func):
 
 
 @json
-@mem.cache(ttl=timedelta(seconds=1), func_args={"request": lambda r: r.query.get("q", "q")})
+@mem(ttl=timedelta(seconds=1), func_args={"request": lambda r: r.query.get("q", "q")})
 async def handle(request: web.Request):
     name = request.headers.get("X-Name", "test")
     return {"name": name, "q": request.query.get("q", "q")}

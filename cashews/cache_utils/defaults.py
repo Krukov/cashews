@@ -1,6 +1,4 @@
 from contextvars import ContextVar
-from datetime import datetime
-from typing import Any, Dict
 
 
 def _default_store_condition(result) -> bool:
@@ -23,15 +21,18 @@ _var.set(None)
 
 
 class _ContextCacheDetect:
-    def start(self):
+    @staticmethod
+    def start():
         _var.set(CacheDetect())
 
-    def set(self, key: str, **kwargs):
+    @staticmethod
+    def set(key: str, **kwargs):
         var = _var.get()
         if var is not None:
             var.set(key, **kwargs)
 
-    def get(self):
+    @staticmethod
+    def get():
         var = _var.get()
         if var is not None:
             return var.get()

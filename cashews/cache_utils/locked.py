@@ -33,12 +33,11 @@ def locked(
 
         _key_template = key
         if key is None:
-            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
-        func._key_template = _key_template
+            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
             try:
                 async with backend.lock(_cache_key, ttl or max_lock_ttl):
                     return await func(*args, **kwargs)

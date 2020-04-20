@@ -6,7 +6,7 @@ from functools import wraps
 from typing import Any, Callable, Optional
 
 from ..backends.interface import Backend
-from ..key import get_cache_key, get_cache_key_template
+from ..key import get_cache_key, get_cache_key_template, register_template
 from ..typing import FuncArgsType
 from .defaults import CacheDetect, _default_store_condition, context_cache_detect
 
@@ -39,12 +39,12 @@ def early(
     def _decor(func):
         _key_template = key
         if key is None:
-            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
-        func._key_template = _key_template
+            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}:{ttl}"
+        register_template(func, _key_template)
 
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = prefix + ":" + get_cache_key(func, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
             cached = await backend.get(_cache_key)
             if cached is not None:
                 _from_cache.set(_cache_key, ttl=ttl)
@@ -54,7 +54,7 @@ def early(
                 ):
                     logger.info("Recalculate cache for %s (exp_at %s)", _cache_key, expire_at)
                     asyncio.create_task(_get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store))
-                    await asyncio.sleep(0)
+                    # await asyncio.sleep(0)  # let loop switch to upadete cache
                 return result
             return await _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store)
 

@@ -16,6 +16,7 @@ fail = cache.fail
 circuit_breaker = cache.circuit_breaker
 early = cache.early
 hit = cache.hit
+dynamic = cache.dynamic
 perf = cache.perf
 locked = cache.locked
 invalidate = cache.invalidate

@@ -3,7 +3,7 @@ import random
 
 import pytest
 from cashews import Cache
-from cashews.cache_utils.simple import invalidate_func
+from cashews.cache_utils.invalidate import invalidate_func
 
 pytestmark = pytest.mark.asyncio
 

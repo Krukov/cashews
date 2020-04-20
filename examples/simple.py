@@ -20,7 +20,7 @@ async def main(cache):
     print(detect.get())
     print(await test("key", _from_cache=detect), "== 2")
     print(detect.get())
-    return
+    # return
     async with cache.lock("lock", expire=10):
         await cache.clear()
         await cache.set("key", value={"any": True}, expire=timedelta(minutes=1))  # -> bool

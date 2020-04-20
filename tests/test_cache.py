@@ -329,9 +329,6 @@ async def test_context_cache_detect_context(backend):
         assert len(context_cache_detect.get()) == 0
         await t_func()
         assert len(context_cache_detect.get()) == 1
-        assert list(context_cache_detect.get().keys()) == [
-            t_func._key_template,
-        ]
 
     await backend.set("key1", "test")
     await backend.set("key2", "test")

@@ -123,7 +123,7 @@ async def add_from_cache_headers(request: Request, call_next):
         if expire == -1:
             expire = await cache.get_expire(key)
         response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
-        response.headers["X-From-Cache-TTL"] = str(keys[key]["ttl"].total_seconds())
+        response.headers["X-From-Cache-TTL"] = str(keys[key]["ttl"])
         if "exc" in keys[key]:
             response.headers["X-From-Cache-Exc"] = str(type(keys[key]["exc"]))
     return response
@@ -136,10 +136,17 @@ async def rate_limit_handler(request, exc: RateLimitException):
 
 @app.get("/")
 async def _check():
-    result = await utils.run(cache, 500)
+    result = await utils.check_speed(cache, 500)
     result["mem"] = mem._target.store
     result["tasks"] = len(asyncio.all_tasks())
+    # result["tasks"] = len(asyncio.all_tasks())
+    result["size"] = await utils.get_size_of(cache, get_rang)
     return result
+
+
+@app.get("/u")
+async def _usage():
+    return await utils.usage(cache, get_rang, max_events=1)
 
 
 @app.post("/token")
@@ -173,20 +180,20 @@ class RedisDownException(Exception):
 
 
 @app.get("/rank")
-@cache.fail(
-    ttl=timedelta(minutes=10),
-    exceptions=(CircuitBreakerOpen, RateLimitException, LockedException),
-    func_args=("accept_language"),
-)
-@mem.fail(
-    ttl=timedelta(minutes=5),
-    exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
-    func_args=("accept_language"),
-)
-@cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
-@mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
-@cache.early(ttl=timedelta(minutes=1), func_args=("accept_language"))
-@cache.locked(func_args=("accept_language"))
+# @cache.fail(
+#     ttl=timedelta(minutes=10),
+#     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException),
+#     func_args=("accept_language", ),
+# )
+# @mem.fail(
+#     ttl=timedelta(minutes=5),
+#     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
+#     func_args=("accept_language", ),
+# )
+# @cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
+# @mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
+@cache.early(ttl=timedelta(minutes=1), func_args=("accept_language",))
+# @cache.locked(func_args=("accept_language", ))
 async def get_rang(accept_language: str = Header("en"), user_agent: str = Header("No")):
     if await cache.ping() is None:
         raise RedisDownException()
@@ -215,8 +222,6 @@ async def create_data():
 if __name__ == "__main__":
     engine = sqlalchemy.create_engine(str(database.url))
     metadata.create_all(engine)
-    # asyncio.run(create_data())
-    # asyncio.run(get_rang("en"))
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

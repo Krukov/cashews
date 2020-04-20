@@ -19,6 +19,9 @@ else
     return 0
 end
 """
+_KEY_SPACE = "__keyspace@{db}__:{pattern}"
+_KEY_SPACE_NOTIFY = "notify-keyspace-events"
+_NOTIFY_CONFIG = "KA"
 
 
 # pylint: disable=arguments-differ
@@ -123,6 +126,21 @@ class Redis(ProxyBackend):
         async for key in self.keys_match(pattern):
             keys.append(key)
         await self._target.unlink(*keys)
+
+    async def listen(self, pattern: str, *cmds, reader=None):
+        old = await self._target.config_get(_KEY_SPACE_NOTIFY)
+        if old != _NOTIFY_CONFIG:
+            await self._target.config_set(_KEY_SPACE_NOTIFY, _NOTIFY_CONFIG)
+        (channel,) = await self._target.psubscribe(_KEY_SPACE.format(pattern=pattern, db=self._target.db))
+        try:
+            async for _channel, cmd in channel.iter():
+                if cmd.decode() not in cmds:
+                    continue
+                reader(cmd, _channel.split(b":", 1)[1])
+        finally:
+            await self._target.punsubscribe(_KEY_SPACE.format(pattern=pattern, db=self._target.db))
+            # if old != _NOTIFY_CONFIG:
+            #     await self._target.config_set(_KEY_SPACE_NOTIFY, old)
 
     async def get_size(self, key: str) -> int:
         return int(await self._target.execute("MEMORY", "USAGE", key))

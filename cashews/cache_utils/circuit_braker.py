@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
@@ -39,12 +39,11 @@ def circuit_breaker(
     def _decor(func):
         _key_template = key
         if key is None:
-            _key_template = prefix + get_cache_key_template(func, func_args=func_args, key=key) + ":" + str(ttl)
-        func._key_template = _key_template
+            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
             if await backend.is_locked(_cache_key + ":open"):
                 raise CircuitBreakerOpen()
             bucket = _get_bucket_number(period, segments=100)
@@ -66,7 +65,7 @@ def circuit_breaker(
     return _decor
 
 
-def _get_bucket_number(period: Union[int, timedelta], segments: int) -> int:
+def _get_bucket_number(period: int, segments: int) -> int:
     return int((datetime.utcnow().timestamp() % period) / segments)
 
 

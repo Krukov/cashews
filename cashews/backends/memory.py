@@ -13,6 +13,7 @@ __all__ = ("Memory", "MemoryInterval")
 class Memory(Backend):
     def __init__(self, size: int = 1000):
         self.store = {}
+        self._chans = []
         self.size = size
         self._meta = {}
         self._lock = asyncio.Lock()
@@ -53,6 +54,7 @@ class Memory(Backend):
 
     def _delete(self, key: str) -> bool:
         if key in self.store:
+            self._notify("delete", key)
             del self.store[key]
             if key in self._meta:
                 del self._meta[key]
@@ -73,11 +75,13 @@ class Memory(Backend):
         return -1
 
     async def ping(self, message: Optional[str] = None):
+        self._notify("ping", message)
         return b"PONG" if message is None else message
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None):
         if len(self.store) > self.size:
             return
+        self._notify("set", key)
         self.store[key] = value
 
         if expire is not None and expire > 0.0:
@@ -88,6 +92,7 @@ class Memory(Backend):
             self._meta[key] = loop.call_later(expire, self._delete, key)
 
     def _get(self, key: str) -> Optional[Any]:
+        self._notify("get", key)
         return self.store.get(key, None)
 
     async def set_lock(self, key: str, value, expire):
@@ -111,10 +116,22 @@ class Memory(Backend):
             return _get_obj_size(self.store[key])
         return 0
 
-    # async def get_size_match(self, pattern: str) -> int:
-    #     if pattern == "*":
-    #         return _get_obj_size(self.store)
-    #     return await super().get_size_match(pattern)
+    def _notify(self, cmd, key):
+        for queue in self._chans:
+            queue.put_nowait((cmd, key))
+
+    async def listen(self, pattern: str, *cmds, reader=None):
+        queue = asyncio.Queue(maxsize=0)
+        pattern = pattern.replace("*", ".*")
+        regexp = re.compile(pattern)
+        self._chans.append(queue)
+        try:
+            while True:
+                cmd, key = await queue.get()
+                if cmd in cmds and regexp.fullmatch(key):
+                    reader(cmd, key)
+        finally:
+            self._chans.remove(queue)
 
 
 class MemoryInterval(Memory):
@@ -137,10 +154,11 @@ class MemoryInterval(Memory):
         if expiration and datetime.datetime.utcnow() > expiration:
             await self.delete(key)
             return None
-
+        self._notify("get", key)
         return self.store.get(key, None)
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None) -> None:
+        self._notify("set", key)
         self.store[key] = value
 
         if expire is not None and expire > 0.0:
@@ -155,10 +173,10 @@ class MemoryInterval(Memory):
 def _get_obj_size(obj) -> int:
     marked = {id(obj)}
     obj_q = [obj]
-    sz = 0
+    size = 0
 
     while obj_q:
-        sz += sum(map(sys.getsizeof, obj_q))
+        size += sum(map(sys.getsizeof, obj_q))
 
         # Lookup all the object referred to by the object in obj_q.
         # See: https://docs.python.org/3.7/library/gc.html#gc.get_referents
@@ -174,4 +192,4 @@ def _get_obj_size(obj) -> int:
         obj_q = new_refr.values()
         marked.update(new_refr.keys())
 
-    return sz
+    return size

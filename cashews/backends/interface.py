@@ -58,11 +58,8 @@ class Backend:
             size += await self.get_size(key)
         return size
 
-    async def listen_get_set(self, key_template: str):
-        """
-        Pass
-        """
-        pass
+    async def listen(self, pattern: str, *cmds, reader=None):
+        ...
 
     async def ping(self, message: Optional[str] = None) -> str:
         ...
@@ -94,49 +91,57 @@ class Backend:
 class ProxyBackend(Backend):
     def __init__(self, target=None):
         self._target = target
+        super().__init__()
 
-    async def set(
-        self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None
-    ) -> bool:
-        return await self._target.set(key, value, expire=expire, exist=exist)
+    def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None) -> bool:
+        return self._target.set(key, value, expire=expire, exist=exist)
 
-    async def get(self, key: str) -> Any:
-        return await self._target.get(key)
+    def get(self, key: str) -> Any:
+        return self._target.get(key)
 
-    async def get_many(self, *keys: str) -> Tuple[Any]:
-        return await self._target.get_many(keys)
+    def get_many(self, *keys: str) -> Tuple[Any]:
+        return self._target.get_many(keys)
 
-    async def incr(self, key: str) -> int:
-        return await self._target.incr(key)
+    def incr(self, key: str) -> int:
+        return self._target.incr(key)
 
-    async def delete(self, key: str):
-        return await self._target.delete(key)
+    def delete(self, key: str):
+        return self._target.delete(key)
 
-    async def delete_match(self, pattern: str):
-        return await self._target.delete_match(pattern)
+    def delete_match(self, pattern: str):
+        return self._target.delete_match(pattern)
 
-    async def expire(self, key: str, timeout: Union[int, float]):
-        return await self._target.expire(key, timeout)
+    def expire(self, key: str, timeout: Union[int, float]):
+        return self._target.expire(key, timeout)
 
-    async def get_expire(self, key: str) -> int:
-        return await self._target.get_expire(key)
+    def get_expire(self, key: str) -> int:
+        return self._target.get_expire(key)
 
-    async def ping(self, message: Optional[str] = None) -> str:
+    def ping(self, message: Optional[str] = None) -> str:
         if message is not None:
-            return await self._target.ping(message)
-        return await self._target.ping()
+            return self._target.ping(message)
+        return self._target.ping()
 
-    async def clear(self):
-        return await self._target.clear()
+    def clear(self):
+        return self._target.clear()
 
-    async def close(self):
-        return await self._target.close()
+    def close(self):
+        return self._target.close()
 
-    async def set_lock(self, key: str, value: Any, expire: Union[float, int]) -> bool:
-        return await self._target.set_lock(key, value, expire)
+    def set_lock(self, key: str, value: Any, expire: Union[float, int]) -> bool:
+        return self._target.set_lock(key, value, expire)
 
-    async def is_locked(self, key: str, wait: Union[int, float, None] = None, step: Union[int, float] = 0.1) -> bool:
-        return await self._target.is_locked(key, wait=wait, step=step)
+    def is_locked(self, key: str, wait: Union[int, float, None] = None, step: Union[int, float] = 0.1) -> bool:
+        return self._target.is_locked(key, wait=wait, step=step)
 
-    async def unlock(self, key: str, value: str) -> bool:
-        return await self._target.unlock(key, value)
+    def unlock(self, key: str, value: str) -> bool:
+        return self._target.unlock(key, value)
+
+    def keys_match(self, pattern: str):
+        return self._target.keys_match(pattern)
+
+    def get_size(self, key):
+        return self._target.get_size(key)
+
+    def listen(self, pattern: str, *cmds, reader=None):
+        return self._target.listen(pattern, *cmds, reader=reader)
