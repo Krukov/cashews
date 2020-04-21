@@ -180,23 +180,21 @@ class RedisDownException(Exception):
 
 
 @app.get("/rank")
-# @cache.fail(
-#     ttl=timedelta(minutes=10),
-#     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException),
-#     func_args=("accept_language", ),
-# )
-# @mem.fail(
-#     ttl=timedelta(minutes=5),
-#     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
-#     func_args=("accept_language", ),
-# )
-# @cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
-# @mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
+@cache.fail(
+    ttl=timedelta(minutes=10),
+    exceptions=(CircuitBreakerOpen, RateLimitException, LockedException),
+    func_args=("accept_language",),
+)
+@mem.fail(
+    ttl=timedelta(minutes=5),
+    exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
+    func_args=("accept_language",),
+)
+@cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
+@mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
 @cache.early(ttl=timedelta(minutes=1), func_args=("accept_language",))
-# @cache.locked(func_args=("accept_language", ))
+@cache.locked(func_args=("accept_language",))
 async def get_rang(accept_language: str = Header("en"), user_agent: str = Header("No")):
-    if await cache.ping() is None:
-        raise RedisDownException()
     rank = 0
     for user in await User.objects.filter(language=accept_language).all():
         for relation in await UserRelations.objects.filter(owner=user).all():

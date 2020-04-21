@@ -19,7 +19,7 @@ def early(
     ttl: int,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    store: Optional[Callable[[Any], bool]] = None,
+    store: Optional[Callable[[Any, Any, Any], bool]] = None,
     prefix: str = "early",
 ):
     """
@@ -63,10 +63,10 @@ def early(
     return _decor
 
 
-async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: int, condition: Callable[[Any], bool]):
+async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: int, condition):
     start = time.perf_counter()
     result = await func(*args, **kwargs)
-    if condition(result):
+    if condition(result, args, kwargs):
         delta = timedelta(seconds=max([ttl - (time.perf_counter() - start) * 3, 0]))
         await backend.set(key, [datetime.utcnow() + delta, delta, result], expire=ttl)
     return result

@@ -43,7 +43,7 @@ def cache(
                 _from_cache.set(_cache_key, ttl=ttl)
                 return cached
             result = await func(*args, **kwargs)
-            if store(result):
+            if store(result, args, kwargs):
                 await backend.set(_cache_key, result, expire=ttl)
             return result
 

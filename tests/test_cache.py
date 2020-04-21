@@ -98,7 +98,7 @@ async def test_cache_simple_key(backend):
 async def test_cache_simple_cond(backend):
     mock = Mock()
 
-    @cache(backend, ttl=EXPIRE, key="key", store=lambda x: x == b"hit")
+    @cache(backend, ttl=EXPIRE, key="key", store=lambda x, *args, **kwargs: x == b"hit")
     async def func(resp=b"ok"):
         mock()
         return resp

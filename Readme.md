@@ -441,5 +441,4 @@ async def add_from_cache_headers(request: Request, call_next):
 ```
 
 
-Scopes [user/method/account]
 Info by key template

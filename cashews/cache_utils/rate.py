@@ -66,7 +66,7 @@ def hit(
 
 async def _get_and_save(func, args, kwargs, backend, key, ttl, store):
     result = await func(*args, **kwargs)
-    if store(result):
+    if store(result, args, kwargs):
         await backend.delete(key + ":counter")
         await backend.set(key, result, expire=ttl)
 
