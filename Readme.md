@@ -440,7 +440,5 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-Check Incr - make memory like redis if value not int 
-Refactor 'store' parameter
-Test cache decorator with redis down  
+Refactor 'store' parameter 
 Info by key template

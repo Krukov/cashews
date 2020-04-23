@@ -1,5 +1,6 @@
 import asyncio
 import sys
+import os
 from unittest.mock import Mock
 
 import pytest
@@ -12,6 +13,11 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(name="cache")
 async def _cache():
+    if os.environ.get("USE_REDIS"):
+        redis = Redis("redis://", hash_key=None)
+        await redis.init()
+        await redis.clear()
+        return redis
     return Memory()
 
 
@@ -42,6 +48,13 @@ async def test_incr(cache):
     assert await cache.incr("incr") == 1
     assert await cache.incr("incr") == 2
     assert await cache.get("incr") == 2
+
+
+async def test_incr_setted(cache):
+    await cache.set("incr", "test")
+    with pytest.raises(Exception):
+        assert await cache.incr("incr") == 1
+    assert await cache.get("incr") == "test"
 
 
 async def test_ping(cache):
@@ -126,26 +139,3 @@ async def test_listen(cache: Backend):
     await asyncio.sleep(0)
 
     m.assert_called_with("get", "test:10")
-
-
-async def test_safe_redis():
-    redis = Redis(safe=True, address="redis://localhost:9223", hash_key=None)
-    await redis.init()
-    assert await redis.clear() is False
-    assert await redis.set("test", "test") is False
-
-    assert await redis.set_lock("test", "test", 1) is False
-    assert await redis.unlock("test", "test") is None
-    assert await redis.is_locked("test") is None
-
-    assert await redis.get("test", default="no") == "no"
-    assert await redis.get("test") is None
-    assert await redis.get_many("test", "test2") == (None, None)
-
-    assert await redis.get_expire("test") is None
-    assert await redis.incr("test") is None
-    assert await redis.get_size("test") == 0
-    async for i in redis.keys_match("*"):
-        assert False
-
-    assert await redis.delete("test") == 0
