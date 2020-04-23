@@ -19,7 +19,6 @@ else
     return 0
 end
 """
-_KEY_SPACE = "__keyspace@{db}__:{pattern}"
 _KEY_SPACE_NOTIFY = "notify-keyspace-events"
 _NOTIFY_CONFIG = "KA"
 
@@ -39,6 +38,10 @@ class _SafeRedis(PickleSerializerMixin, Redis_):
             return await super().execute(command, *args, **kwargs)
         except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError):
             logger.error("Redis down on command %s", command)
+            if command.lower() in [b"unlink", b"del", b"memory"]:
+                return 0
+            if command.lower() == b"scan":
+                return [0, []]
             return None
 
 
@@ -128,22 +131,10 @@ class Redis(ProxyBackend):
         await self._target.unlink(*keys)
 
     async def listen(self, pattern: str, *cmds, reader=None):
-        old = await self._target.config_get(_KEY_SPACE_NOTIFY)
-        if old != _NOTIFY_CONFIG:
-            await self._target.config_set(_KEY_SPACE_NOTIFY, _NOTIFY_CONFIG)
-        (channel,) = await self._target.psubscribe(_KEY_SPACE.format(pattern=pattern, db=self._target.db))
-        try:
-            async for _channel, cmd in channel.iter():
-                if cmd.decode() not in cmds:
-                    continue
-                reader(cmd, _channel.split(b":", 1)[1])
-        finally:
-            await self._target.punsubscribe(_KEY_SPACE.format(pattern=pattern, db=self._target.db))
-            # if old != _NOTIFY_CONFIG:
-            #     await self._target.config_set(_KEY_SPACE_NOTIFY, old)
+        pass
 
     async def get_size(self, key: str) -> int:
-        return int(await self._target.execute("MEMORY", "USAGE", key))
+        return int(await self._target.execute(b"MEMORY", b"USAGE", key))
 
     async def close(self):
         if self._target:

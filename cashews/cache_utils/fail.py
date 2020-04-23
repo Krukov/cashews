@@ -4,7 +4,7 @@ from typing import Optional, Tuple, Type, Union
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template, register_template
 from ..typing import FuncArgsType
-from .defaults import CacheDetect, context_cache_detect
+from .defaults import CacheDetect, _empty, context_cache_detect
 
 __all__ = ("fail",)
 
@@ -39,8 +39,8 @@ def fail(
             try:
                 result = await func(*args, **kwargs)
             except exceptions as exc:
-                cached = await backend.get(_cache_key)
-                if cached is not None:
+                cached = await backend.get(_cache_key, default=_empty)
+                if cached is not _empty:
                     _from_cache.set(_cache_key, ttl=ttl, exc=exc)
                     return cached
                 raise exc

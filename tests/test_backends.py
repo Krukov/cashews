@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 from cashews.backends.interface import Backend, ProxyBackend
 from cashews.backends.memory import Memory
+from cashews.backends.redis import Redis
 
 pytestmark = pytest.mark.asyncio
 
@@ -57,7 +58,7 @@ async def test_expire(cache):
 @pytest.mark.parametrize(
     ("method", "args", "defaults"),
     (
-        ("get", ("key",), None),
+        ("get", ("key",), {"default": None}),
         ("set", ("key", "value"), {"exist": None, "expire": None}),
         ("incr", ("key",), None),
         ("delete", ("key",), None),
@@ -125,3 +126,26 @@ async def test_listen(cache: Backend):
     await asyncio.sleep(0)
 
     m.assert_called_with("get", "test:10")
+
+
+async def test_safe_redis():
+    redis = Redis(safe=True, address="redis://localhost:9223", hash_key=None)
+    await redis.init()
+    assert await redis.clear() is False
+    assert await redis.set("test", "test") is False
+
+    assert await redis.set_lock("test", "test", 1) is False
+    assert await redis.unlock("test", "test") is None
+    assert await redis.is_locked("test") is None
+
+    assert await redis.get("test", default="no") == "no"
+    assert await redis.get("test") is None
+    assert await redis.get_many("test", "test2") == (None, None)
+
+    assert await redis.get_expire("test") is None
+    assert await redis.incr("test") is None
+    assert await redis.get_size("test") == 0
+    async for i in redis.keys_match("*"):
+        assert False
+
+    assert await redis.delete("test") == 0

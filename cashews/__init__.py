@@ -20,6 +20,7 @@ dynamic = cache.dynamic
 perf = cache.perf
 locked = cache.locked
 invalidate = cache.invalidate
+invalidate_func = cache.invalidate_func
 
 
 mem = Cache()

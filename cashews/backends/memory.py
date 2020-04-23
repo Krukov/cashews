@@ -30,8 +30,8 @@ class Memory(Backend):
             self._set(key, value, expire)
         return True
 
-    async def get(self, key: str) -> Any:
-        return self._get(key)
+    async def get(self, key: str, default: Optional[Any] = None) -> Any:
+        return self._get(key, default=default)
 
     async def get_many(self, *keys: str) -> Tuple:
         return tuple([self._get(key) for key in keys])
@@ -74,7 +74,7 @@ class Memory(Backend):
     async def get_expire(self, key: str) -> int:
         return -1
 
-    async def ping(self, message: Optional[str] = None):
+    async def ping(self, message: Optional[bytes] = None):
         self._notify("ping", message)
         return b"PONG" if message is None else message
 
@@ -91,9 +91,9 @@ class Memory(Backend):
                 handler.cancel()
             self._meta[key] = loop.call_later(expire, self._delete, key)
 
-    def _get(self, key: str) -> Optional[Any]:
+    def _get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
         self._notify("get", key)
-        return self.store.get(key, None)
+        return self.store.get(key, default)
 
     async def set_lock(self, key: str, value, expire):
         return await self.set(key, value, expire=expire, exist=False)
@@ -149,13 +149,13 @@ class MemoryInterval(Memory):
                 await self.get(key)
             await asyncio.sleep(self._check_interval)
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
+        self._notify("get", key)
         expiration = self._meta.get(key)
         if expiration and datetime.datetime.utcnow() > expiration:
             await self.delete(key)
-            return None
-        self._notify("get", key)
-        return self.store.get(key, None)
+            return default
+        return self.store.get(key, default)
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None) -> None:
         self._notify("set", key)

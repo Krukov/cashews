@@ -77,6 +77,21 @@ async def test_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
+async def test_cache_simple_none(backend):
+    mock = Mock()
+
+    @cache(backend, ttl=EXPIRE, key="key", store=lambda *args, **kwargs: True)
+    async def func():
+        mock()
+        return None
+
+    assert await func() is None
+    assert mock.call_count == 1
+
+    assert await func() is None
+    assert mock.call_count == 1
+
+
 async def test_cache_simple_key(backend):
     @cache(backend, ttl=EXPIRE, func_args=("some",))
     async def func(resp=b"ok", some="err"):

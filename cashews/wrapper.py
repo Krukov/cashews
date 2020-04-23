@@ -98,8 +98,8 @@ class Cache(ProxyBackend):
             key=key, value=value, expire=ttl_to_seconds(expire), exist=exist
         )
 
-    def get(self, key: str) -> Any:
-        return self._with_middlewares("get", self._target.get)(key=key)
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
+        return self._with_middlewares("get", self._target.get)(key=key, default=default)
 
     def get_many(self, *keys: str):
         return self._with_middlewares("get_many", self._target.get_many)(*keys)
@@ -130,7 +130,7 @@ class Cache(ProxyBackend):
     def listen(self, pattern: str, *cmds, reader=None):
         return self._with_middlewares("listen", self._target.listen)(pattern, *cmds, reader=reader)
 
-    def ping(self, message: Optional[str] = None) -> str:
+    def ping(self, message: Optional[bytes] = None) -> str:
         return self._with_middlewares("ping", self._target.ping)(message=message)
 
     def clear(self):
@@ -197,6 +197,8 @@ class Cache(ProxyBackend):
         return self._wrap_on_enable(
             "cache", cache_utils.invalidate(self, target=target, args_map=args_map, defaults=defaults)
         )
+
+    invalidate_func = cache_utils.invalidate_func
 
     def fail(
         self,

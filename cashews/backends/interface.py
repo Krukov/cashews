@@ -1,6 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 
 class LockedException(Exception):
@@ -22,7 +22,7 @@ class Backend:
     ) -> bool:
         ...
 
-    async def get(self, key: str) -> Any:
+    async def get(self, key: str, default: Optional[Any] = None) -> Any:
         ...
 
     async def get_many(self, *keys: str) -> Tuple[Any]:
@@ -61,7 +61,7 @@ class Backend:
     async def listen(self, pattern: str, *cmds, reader=None):
         ...
 
-    async def ping(self, message: Optional[str] = None) -> str:
+    async def ping(self, message: Optional[bytes] = None) -> str:
         ...
 
     async def clear(self):
@@ -96,8 +96,8 @@ class ProxyBackend(Backend):
     def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None) -> bool:
         return self._target.set(key, value, expire=expire, exist=exist)
 
-    def get(self, key: str) -> Any:
-        return self._target.get(key)
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
+        return self._target.get(key, default=default)
 
     def get_many(self, *keys: str) -> Tuple[Any]:
         return self._target.get_many(keys)
@@ -117,7 +117,7 @@ class ProxyBackend(Backend):
     def get_expire(self, key: str) -> int:
         return self._target.get_expire(key)
 
-    def ping(self, message: Optional[str] = None) -> str:
+    def ping(self, message: Optional[bytes] = None) -> str:
         if message is not None:
             return self._target.ping(message)
         return self._target.ping()

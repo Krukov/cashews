@@ -25,8 +25,8 @@ class DummyCache:
     async def set(self, key: str, value, *args, **kwargs) -> None:
         self.store[key] = value
 
-    async def get(self, key: str, *args, **kwargs):
-        return self.store.get(key, None)
+    async def get(self, key: str, default=None, **kwargs):
+        return self.store.get(key, default)
 
     async def delete(self, *keys):
         for key in keys:

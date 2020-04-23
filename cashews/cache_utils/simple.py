@@ -4,7 +4,7 @@ from typing import Any, Callable, Optional
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template, register_template
 from ..typing import FuncArgsType
-from .defaults import CacheDetect, _default_store_condition, context_cache_detect
+from .defaults import CacheDetect, _default_store_condition, _empty, context_cache_detect
 
 __all__ = ("cache",)
 
@@ -38,8 +38,8 @@ def cache(
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
-            cached = await backend.get(_cache_key)
-            if cached is not None:
+            cached = await backend.get(_cache_key, default=_empty)
+            if cached is not _empty:
                 _from_cache.set(_cache_key, ttl=ttl)
                 return cached
             result = await func(*args, **kwargs)

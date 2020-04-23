@@ -96,7 +96,6 @@ async def usage(backend: Backend, func, max_events=10, **values):
         reader_template = non_key_formatter.format(template, **values)
         reader, counter = _create_reader(reader_template, max_events=max_events)
         coros.append(backend.listen(pattern, "get", "set", reader=reader))
-        # await backend.listen(pattern, "get", "set", reader=reader)
         counters.append(counter)
     if coros:
         await asyncio.gather(*coros, return_exceptions=True)

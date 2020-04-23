@@ -1,5 +1,7 @@
 from contextvars import ContextVar
 
+_empty = object()
+
 
 def _default_store_condition(result, args, kwargs) -> bool:
     return result is not None
