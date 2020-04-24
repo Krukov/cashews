@@ -2,9 +2,9 @@ from datetime import datetime
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from ..backends.interface import Backend
-from ..key import get_cache_key, get_cache_key_template
-from ..typing import FuncArgsType
+from cashews.backends.interface import Backend
+from cashews.key import get_cache_key, get_cache_key_template
+from cashews.typing import FuncArgsType
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
 

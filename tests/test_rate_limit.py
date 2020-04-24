@@ -6,8 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 from cashews.backends.memory import Memory
-from cashews.cache_utils.rate import RateLimitException
-from cashews.cache_utils.rate import rate_limit as _rate_limit
+from cashews.decorators.rate import RateLimitException, rate_limit as _rate_limit
 
 pytestmark = pytest.mark.asyncio
 

@@ -205,9 +205,10 @@ Trace time execution of target and throw exception if it downgrade to given cond
 :param prefix: custom prefix for key, default 'perf'
 
 ```python
+import cashews.decorators.perf
 from cashews import cache   # or from cashews import perf
 
-@cache.perf(ttl=timedelta(hours=2))
+@cashews.decorators.perf.perf(ttl=timedelta(hours=2))
 async def get(name):
     value = await api_call()
     return {"status": value}
@@ -274,10 +275,11 @@ Rate limit for function call. Do not call function if rate limit is reached, and
 
 :param prefix: custom prefix for key, default 'rate_limit'
 ```python
+import cashews.decorators.rate
 from cashews import cache  # or from cashews import rate_limit
 
 # no more then 10 calls per minute or ban for 10 minutes
-@cache.rate_limit(limit=10, period=timedelta(minutes=1) ttl=timedelta(minutes=10))
+@cashews.decorators.rate.rate_limit(limit=10, period=timedelta(minutes=1) ttl=timedelta(minutes=10))
 async def get(name):
     return {"status": value}
 ```
@@ -440,5 +442,5 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-Refactor cache_utils structure
+
 Info by key template

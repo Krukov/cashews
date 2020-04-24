@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse
 from starlette.status import HTTP_403_FORBIDDEN
 from pydantic import BaseModel
 
+import cashews.decorators.rate
 from cashews import (
     cache,
     mem,
@@ -190,7 +191,7 @@ class RedisDownException(Exception):
     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
     func_args=("accept_language",),
 )
-@cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
+@cashews.decorators.rate.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
 @mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
 @cache.early(ttl=timedelta(minutes=1), func_args=("accept_language",))
 @cache.locked(func_args=("accept_language",))

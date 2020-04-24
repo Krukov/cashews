@@ -3,7 +3,8 @@ from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
-from . import cache_utils, validation
+import cashews.decorators.perf
+from . import decorators, validation
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
 from .helpers import _auto_init, _is_disable_middleware
@@ -167,7 +168,7 @@ class Cache(ProxyBackend):
     ):  # pylint: disable=too-many-arguments
         return self._wrap_on_enable(
             "rate_limit",
-            cache_utils.rate_limit(
+            decorators.rate_limit(
                 self,
                 limit=limit,
                 period=ttl_to_seconds(period),
@@ -188,7 +189,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix or "cache",
-            cache_utils.cache(
+            decorators.cache(
                 self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, condition=condition, prefix=prefix
             ),
         )
@@ -213,7 +214,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            cache_utils.fail(
+            decorators.fail(
                 self,
                 ttl=ttl_to_seconds(ttl),
                 exceptions=exceptions,
@@ -237,7 +238,7 @@ class Cache(ProxyBackend):
 
         return self._wrap_on_enable(
             prefix,
-            cache_utils.circuit_breaker(
+            decorators.circuit_breaker(
                 self,
                 errors_rate=errors_rate,
                 period=ttl_to_seconds(period),
@@ -259,7 +260,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            cache_utils.early(
+            decorators.early(
                 self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, condition=condition, prefix=prefix
             ),
         )
@@ -276,7 +277,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            cache_utils.hit(
+            decorators.hit(
                 self,
                 ttl=ttl_to_seconds(ttl),
                 cache_hits=cache_hits,
@@ -298,7 +299,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            cache_utils.hit(
+            decorators.hit(
                 self,
                 ttl=ttl,
                 cache_hits=3,
@@ -321,7 +322,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            cache_utils.perf(
+            cashews.decorators.perf(
                 self,
                 ttl=ttl,
                 func_args=func_args,
@@ -341,7 +342,7 @@ class Cache(ProxyBackend):
         prefix: str = "locked",
     ):
         return self._wrap_on_enable(
-            prefix, cache_utils.locked(self, ttl=ttl, func_args=func_args, key=key, step=step, prefix=prefix)
+            prefix, decorators.locked(self, ttl=ttl, func_args=func_args, key=key, step=step, prefix=prefix)
         )
 
 

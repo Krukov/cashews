@@ -1,5 +1,5 @@
 from .backends.interface import LockedException
-from .cache_utils import (  # noqa
+from .decorators import (  # noqa
     CacheDetect,
     CircuitBreakerOpen,
     PerfDegradationException,
