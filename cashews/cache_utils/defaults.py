@@ -1,10 +1,25 @@
 from contextvars import ContextVar
+from typing import Any
+
+from ..typing import CacheCondition
 
 _empty = object()
 
 
 def _default_store_condition(result, args, kwargs) -> bool:
     return result is not None
+
+
+def _store_all(result, args, kwargs) -> bool:
+    return True
+
+
+def _get_cache_condition(condition: CacheCondition):
+    if condition is None:
+        return _default_store_condition
+    if condition in [Any, "all", any, "any"]:
+        return _store_all
+    return condition
 
 
 class CacheDetect:

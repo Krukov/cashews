@@ -8,7 +8,7 @@ from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
 from .helpers import _auto_init, _is_disable_middleware
 from .key import ttl_to_seconds
-from .typing import TTL, FuncArgsType
+from .typing import TTL, CacheCondition, FuncArgsType
 
 #  pylint: disable=too-many-public-methods
 
@@ -183,12 +183,14 @@ class Cache(ProxyBackend):
         ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        store: Optional[Callable[[Any], bool]] = None,
+        condition: CacheCondition = None,
         prefix: str = "",
     ):
         return self._wrap_on_enable(
             prefix or "cache",
-            cache_utils.cache(self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, store=store, prefix=prefix),
+            cache_utils.cache(
+                self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, condition=condition, prefix=prefix
+            ),
         )
 
     cache = __call__
@@ -206,12 +208,19 @@ class Cache(ProxyBackend):
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         key: Optional[str] = None,
         func_args: FuncArgsType = None,
+        condition: CacheCondition = None,
         prefix: str = "fail",
     ):
         return self._wrap_on_enable(
             prefix,
             cache_utils.fail(
-                self, ttl=ttl_to_seconds(ttl), exceptions=exceptions, key=key, func_args=func_args, prefix=prefix
+                self,
+                ttl=ttl_to_seconds(ttl),
+                exceptions=exceptions,
+                key=key,
+                func_args=func_args,
+                condition=condition,
+                prefix=prefix,
             ),
         )
 
@@ -245,12 +254,14 @@ class Cache(ProxyBackend):
         ttl: TTL,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        store: Optional[Callable[[Any], bool]] = None,
+        condition: CacheCondition = None,
         prefix: str = "early",
     ):
         return self._wrap_on_enable(
             prefix,
-            cache_utils.early(self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, store=store, prefix=prefix),
+            cache_utils.early(
+                self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, condition=condition, prefix=prefix
+            ),
         )
 
     def hit(
@@ -260,7 +271,7 @@ class Cache(ProxyBackend):
         update_before: int = 0,
         func_args: FuncArgsType = None,
         key: Optional[str] = None,
-        store: Optional[Callable[[Any], bool]] = None,
+        condition: CacheCondition = None,
         prefix: str = "hit",
     ):
         return self._wrap_on_enable(
@@ -272,7 +283,7 @@ class Cache(ProxyBackend):
                 update_before=update_before,
                 func_args=func_args,
                 key=key,
-                store=store,
+                condition=condition,
                 prefix=prefix,
             ),
         )
@@ -282,13 +293,20 @@ class Cache(ProxyBackend):
         func_args: FuncArgsType = None,
         ttl: TTL = 60 * 60 * 24,
         key: Optional[str] = None,
-        store: Optional[Callable[[Any], bool]] = None,
+        condition: CacheCondition = None,
         prefix: str = "dynamic",
     ):
         return self._wrap_on_enable(
             prefix,
             cache_utils.hit(
-                self, ttl=ttl, cache_hits=3, update_before=2, func_args=func_args, key=key, store=store, prefix=prefix,
+                self,
+                ttl=ttl,
+                cache_hits=3,
+                update_before=2,
+                func_args=func_args,
+                key=key,
+                condition=condition,
+                prefix=prefix,
             ),
         )
 

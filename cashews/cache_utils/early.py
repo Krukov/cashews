@@ -3,12 +3,12 @@ import logging
 import time
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Optional
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template, register_template
-from ..typing import FuncArgsType
-from .defaults import CacheDetect, _default_store_condition, _empty, context_cache_detect
+from ..typing import CacheCondition, FuncArgsType
+from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
 __all__ = ("early",)
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ def early(
     ttl: int,
     func_args: FuncArgsType = None,
     key: Optional[str] = None,
-    store: Optional[Callable[[Any, Any, Any], bool]] = None,
+    condition: CacheCondition = None,
     prefix: str = "early",
 ):
     """
@@ -31,10 +31,10 @@ def early(
     :param ttl: duration in seconds to store a result
     :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
-    :param store: callable object that determines whether the result will be saved or not
+    :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
-    store = _default_store_condition if store is None else store
+    store = _get_cache_condition(condition)
 
     def _decor(func):
         _key_template = key

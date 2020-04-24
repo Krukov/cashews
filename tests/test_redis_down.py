@@ -1,8 +1,8 @@
-import pytest
-from cashews.wrapper import Cache
-from cashews.backends.redis import Redis
 from unittest.mock import Mock
 
+import pytest
+from cashews.backends.redis import Redis
+from cashews.wrapper import Cache
 
 pytestmark = pytest.mark.asyncio
 

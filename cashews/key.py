@@ -111,12 +111,12 @@ def template_to_pattern(template, _formatter=_Star(), **values):
     return _formatter.format(template, **values).lower()
 
 
-_REGIRSTER = {}
+_REGISTER = {}
 
 
 def register_template(func, template):
-    _REGIRSTER.setdefault((func.__module__, func.__name__), set()).add(template)
+    _REGISTER.setdefault((func.__module__, func.__name__), set()).add(template)
 
 
 def get_templates_for(func):
-    return _REGIRSTER.get((func.__module__, func.__name__), set())
+    return _REGISTER.get((func.__module__, func.__name__), set())

@@ -1,6 +1,6 @@
 import asyncio
-import sys
 import os
+import sys
 from unittest.mock import Mock
 
 import pytest

@@ -3,8 +3,8 @@ from typing import Optional, Tuple, Type, Union
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template, register_template
-from ..typing import FuncArgsType
-from .defaults import CacheDetect, _empty, context_cache_detect
+from ..typing import CacheCondition, FuncArgsType
+from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
 __all__ = ("fail",)
 
@@ -15,6 +15,7 @@ def fail(
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
     func_args: FuncArgsType = None,
+    condition: CacheCondition = None,
     prefix: str = "fail",
 ):
     """
@@ -22,10 +23,12 @@ def fail(
     :param backend: cache backend
     :param ttl: duration in seconds to store a result
     :param func_args: arguments that will be used in key
+    :param condition: callable object that determines whether the result will be saved or not
     :param exceptions: exceptions at which returned cache result
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param prefix: custom prefix for key, default "fail"
     """
+    condition = _get_cache_condition(condition)
 
     def _decor(func):
         _key_template = key
@@ -45,7 +48,8 @@ def fail(
                     return cached
                 raise exc
             else:
-                await backend.set(_cache_key, result, expire=ttl)
+                if condition(result, args, kwargs):
+                    await backend.set(_cache_key, result, expire=ttl)
                 return result
 
         return _wrap

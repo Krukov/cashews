@@ -132,7 +132,7 @@ await long_running_function("name", user=user, token="qdfrevt")  # key will be l
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call (like 'key_{token}/{arg}\{user}')
 
-:param store: callable object that determines whether the result will be saved or not
+:param condition: callable object that determines whether the result will be saved or not
 
 :param prefix: custom prefix for key
 
@@ -174,7 +174,7 @@ Cache call results and drop cache after given numbers of call 'cache_hits'
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
 
-:param store: callable object that determines whether the result will be saved or not
+:param condition: callable object that determines whether the result will be saved or not
 
 :param prefix: custom prefix for key, default "hit"
 
@@ -247,7 +247,7 @@ Warning! Not good at cold cache
 
 :param key: custom cache key, may contain alias to args or kwargs passed to a call
 
-:param store: callable object that determines whether the result will be saved or not
+:param condition: callable object that determines whether the result will be saved or not
 
 :param prefix: custom prefix for key, default 'early'
 ```python
@@ -339,7 +339,7 @@ from cashews import cache
 from datetime import timedelta
 
 @cache(ttl=timedelta(days=1))
-asunc def user_items(user_id, fresh=False):
+async def user_items(user_id, fresh=False):
     ...
 
 @cache(ttl=timedelta(hours=3))
@@ -356,7 +356,7 @@ Also you may face problem with invalid cache arising on code changing. For examp
 ```python
 
 @cache(ttl=timedelta(days=1))
-asunc def get_user(user_id):
+async def get_user(user_id):
     return {"name": "Dmitry", "surname": "Krykov"}
 ```
 Than we did changes
@@ -369,7 +369,7 @@ There is no way simple way to automatically detect that kind of cache invalidity
 Сertainly we can add prefix for this cache:
 ```python
 @cache(ttl=timedelta(days=1), prefix="v2")
-asunc def get_user(user_id):
+async def get_user(user_id):
     return {"full_name": "Dmitry Krykov"}
 ```
 but usually we forget to do it...
@@ -394,7 +394,7 @@ class User:
 
 # Will detect changes of structure
 @cache(ttl=timedelta(days=1), prefix="v2")
-asunc def get_user(user_id):
+async def get_user(user_id):
     return User("Dima", "Krykov")
 ```
 
@@ -440,5 +440,5 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-Refactor 'store' parameter 
+Refactor cache_utils structure
 Info by key template
