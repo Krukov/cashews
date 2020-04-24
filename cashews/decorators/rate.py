@@ -3,8 +3,9 @@ from functools import wraps
 from typing import Callable, Optional
 
 from cashews.backends.interface import Backend
-from cashews.key import get_cache_key, get_cache_key_template, register_template
-from cashews.typing import FuncArgsType
+
+from ..key import get_cache_key, get_cache_key_template, register_template
+from ..typing import FuncArgsType
 
 logger = logging.getLogger(__name__)
 

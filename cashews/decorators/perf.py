@@ -4,9 +4,9 @@ from functools import wraps
 from statistics import mean
 from typing import Callable, Iterable, Optional
 
-from cashews.backends.interface import Backend
-from cashews.key import get_cache_key, get_cache_key_template
-from cashews.typing import FuncArgsType
+from ..backends.interface import Backend
+from ..key import get_cache_key, get_cache_key_template
+from ..typing import FuncArgsType
 
 
 def _default_perf_condition(current: float, previous: Iterable[float]) -> bool:

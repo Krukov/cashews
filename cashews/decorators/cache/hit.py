@@ -2,10 +2,9 @@ import asyncio
 from functools import wraps
 from typing import Optional
 
-from cashews.backends.interface import Backend
-from cashews.key import get_cache_key, get_cache_key_template, register_template
-from cashews.typing import CacheCondition, FuncArgsType
-
+from ...backends.interface import Backend
+from ...key import get_cache_key, get_cache_key_template, register_template
+from ...typing import CacheCondition, FuncArgsType
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
 __all__ = ("hit",)

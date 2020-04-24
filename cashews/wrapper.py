@@ -3,8 +3,6 @@ from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
-import cashews.decorators.perf
-
 from . import decorators, validation
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
@@ -323,7 +321,7 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            cashews.decorators.perf(
+            decorators.perf(
                 self,
                 ttl=ttl,
                 func_args=func_args,

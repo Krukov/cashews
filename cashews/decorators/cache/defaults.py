@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 from typing import Any
 
-from cashews.typing import CacheCondition
+from ...typing import CacheCondition
 
 _empty = object()
 
