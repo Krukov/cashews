@@ -2,8 +2,8 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
-from cashews.backends.memory import Backend, Memory
 from cashews import decorators
+from cashews.backends.memory import Backend, Memory
 
 pytestmark = pytest.mark.asyncio
 EXPIRE = 0.01

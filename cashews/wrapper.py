@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, U
 from urllib.parse import parse_qsl, urlparse
 
 import cashews.decorators.perf
+
 from . import decorators, validation
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval

@@ -2,10 +2,10 @@ import time
 from collections import deque
 from functools import wraps
 from statistics import mean
-from typing import Iterable, Optional, Callable
+from typing import Callable, Iterable, Optional
 
 from cashews.backends.interface import Backend
-from cashews.key import get_cache_key_template, get_cache_key
+from cashews.key import get_cache_key, get_cache_key_template
 from cashews.typing import FuncArgsType
 
 
