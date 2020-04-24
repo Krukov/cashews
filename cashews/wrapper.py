@@ -3,7 +3,7 @@ from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
-from . import cache_utils
+from . import cache_utils, validation
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
 from .helpers import _auto_init, _is_disable_middleware
@@ -197,10 +197,10 @@ class Cache(ProxyBackend):
 
     def invalidate(self, target, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
         return self._wrap_on_enable(
-            "cache", cache_utils.invalidate(self, target=target, args_map=args_map, defaults=defaults)
+            "cache", validation.invalidate(self, target=target, args_map=args_map, defaults=defaults)
         )
 
-    invalidate_func = cache_utils.invalidate_func
+    invalidate_func = validation.invalidate_func
 
     def fail(
         self,
