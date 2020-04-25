@@ -48,17 +48,17 @@ async def get_size_of(backend: Backend, func):
 
 
 class _ReFormatter(Formatter):
-    def get_value(self, key, args, kwds):
+    def get_value(self, key, args, kwargs):
         try:
-            return kwds[key]
+            return kwargs[key]
         except KeyError:
             return f"(P?<{key}>.*)"
 
 
 class _NonKeyFormatter(Formatter):
-    def get_value(self, key, args, kwds):
+    def get_value(self, key, args, kwargs):
         try:
-            return kwds[key]
+            return kwargs[key]
         except KeyError:
             return f"{{{key}}}"
 

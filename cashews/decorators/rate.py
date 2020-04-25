@@ -2,8 +2,7 @@ import logging
 from functools import wraps
 from typing import Callable, Optional
 
-from cashews.backends.interface import Backend
-
+from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template, register_template
 from ..typing import FuncArgsType
 

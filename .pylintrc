@@ -65,6 +65,7 @@ disable=missing-docstring,
         bad-continuation,
         protected-access,
         duplicate-code,
+        invalid-name,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -470,7 +471,7 @@ max-locals=10
 max-parents=7
 
 # Maximum number of public methods for a class (see R0904).
-max-public-methods=15
+max-public-methods=20
 
 # Maximum number of return / yield for function / method body.
 max-returns=4

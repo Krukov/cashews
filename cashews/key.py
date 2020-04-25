@@ -100,9 +100,9 @@ def _get_call_values(func, args, kwargs):
 
 
 class _Star(Formatter):
-    def get_value(self, key, args, kwds):
+    def get_value(self, key, args, kwargs):
         try:
-            return kwds[key]
+            return kwargs[key]
         except KeyError:
             return "*"
 
