@@ -442,5 +442,9 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-
+Fail cache - disable next set to avoide update cache by wrong values
 Info by key template
+Hit rate + https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
+
+Invalidate without scan (may be separate keys by db )
+Client side cache for redis backend

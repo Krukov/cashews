@@ -125,10 +125,13 @@ class Redis(ProxyBackend):
                 yield key
 
     async def delete_match(self, pattern: str):
+        if "*" not in pattern:
+            return await self._target.unlink(pattern)
         keys = []
         async for key in self.keys_match(pattern):
             keys.append(key)
-        await self._target.unlink(*keys)
+        if keys:
+            return await self._target.unlink(*keys)
 
     async def listen(self, pattern: str, *cmds, reader=None):
         pass

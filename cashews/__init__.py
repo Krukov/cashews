@@ -7,6 +7,7 @@ from .decorators import (  # noqa
     context_cache_detect,
 )
 from .helpers import add_prefix, at  # noqa
+from .validation import set_invalidate_further  # noqa
 from .wrapper import Cache  # noqa
 
 # pylint: disable=invalid-name

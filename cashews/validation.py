@@ -1,4 +1,5 @@
 import asyncio
+from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
@@ -45,3 +46,20 @@ def invalidate(
         return _wrap
 
     return _decor
+
+
+_INVALIDATE_FURTHER = ContextVar("invalidate")
+_INVALIDATE_FURTHER.set(False)
+
+
+def set_invalidate_further():
+    _INVALIDATE_FURTHER.set(True)
+
+
+async def _invalidate_middleware(call, *args, key=None, backend=None, cmd=None, **kwargs):
+    if _INVALIDATE_FURTHER.get() and key is not None and cmd != "delete":
+        await backend.delete(key)
+        return None
+    if key is None:
+        return await call(*args, **kwargs)
+    return await call(*args, key=key, **kwargs)

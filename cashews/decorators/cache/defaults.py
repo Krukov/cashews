@@ -27,7 +27,7 @@ class CacheDetect:
         self._value = {}
 
     def set(self, key: str, **kwargs):
-        self._value[key] = kwargs
+        self._value.setdefault(key, []).append(kwargs)
 
     def get(self):
         return self._value

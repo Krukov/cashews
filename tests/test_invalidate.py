@@ -3,14 +3,15 @@ import random
 
 import pytest
 from cashews import Cache
-from cashews.validation import invalidate_func
+from cashews.validation import invalidate_func, set_invalidate_further
 
 pytestmark = pytest.mark.asyncio
+
+_cache_ = Cache()
 
 
 @pytest.fixture(name="cache")
 async def _cache():
-    _cache_ = Cache()
     _cache_.setup("mem://")
     return _cache_
 
@@ -101,3 +102,21 @@ async def test_invalidate_decor_complicate(cache: Cache):
     await asyncio.sleep(0)
     assert first_call != await func("test")
     assert not_invalidate == await func("test", flag=False)
+
+
+async def test_invalidate_further(cache):
+    @cache(ttl=10000)
+    async def func():
+        return random.random()
+
+    async def clear():
+        set_invalidate_further()
+        return await func()
+
+    first = await func()
+    assert await func() == first
+
+    assert await asyncio.create_task(clear()) != first  # the key was deleted
+    second = await func()
+    assert second != first
+    assert await func() == second

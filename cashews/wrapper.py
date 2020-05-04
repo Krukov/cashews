@@ -1,4 +1,5 @@
 import asyncio
+from contextvars import ContextVar
 from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
@@ -18,19 +19,32 @@ class Cache(ProxyBackend):
         self.__init = False
         self.__address = None
         self._kwargs = {}
-        self._disable: Union[bool, List] = False
-        self.middlewares = (_is_disable_middleware, _auto_init)
+        self.__disable = ContextVar(str(id(self)))
+        self._set_disable(False)
+        self.middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
         super().__init__()
+
+    @property
+    def _disable(self) -> List:
+        return list(self.__disable.get())
+
+    def _set_disable(self, value):
+        if value is True:
+            value = ["cmds", "decorators"]
+        elif value is False:
+            value = []
+        self.__disable.set(value)
 
     @property
     def is_init(self):
         return self.__init
 
     def is_disable(self, *cmds: str) -> bool:
-        if isinstance(self._disable, bool):
-            return self._disable
+        _disable = self._disable
+        if not cmds and _disable:
+            return True
         for cmd in cmds:
-            if cmd.lower() in [c.lower() for c in self._disable]:
+            if cmd.lower() in [c.lower() for c in _disable]:
                 return True
         return False
 
@@ -38,21 +52,22 @@ class Cache(ProxyBackend):
         return not self.is_disable(*cmds)
 
     def disable(self, *cmds: str):
-        if self._disable is True:
-            self._disable = ["cmds", "decorators"]
+        _disable = self._disable
+        if not cmds:
+            _disable = ["cmds", "decorators"]
         if self._disable is False:
-            self._disable = []
-        self._disable.extend(cmds)
+            _disable = []
+        _disable.extend(cmds)
+        self._set_disable(_disable)
 
     def enable(self, *cmds: str):
-        if self._disable is True:
-            self._disable = ["cmds", "decorators"]
-        if self._disable is False:
-            self._disable = []
-            return
+        _disable = self._disable
+        if not cmds:
+            _disable = []
         for cmd in cmds:
-            if cmd in self._disable:
-                self._disable.remove(cmd)
+            if cmd in _disable:
+                _disable.remove(cmd)
+        self._set_disable(_disable)
 
     @property
     def disable_info(self):
@@ -63,11 +78,9 @@ class Cache(ProxyBackend):
         params = settings_url_parse(settings_url)
         params.update(kwargs)
         if "disable" in params:
-            self._disable = params.pop("disable")
+            self._set_disable(params.pop("disable"))
         else:
-            self._disable = not params.pop("enable", True)
-        if not isinstance(self._disable, bool):
-            self._disable = list(self._disable)
+            self._set_disable(not params.pop("enable", True))
         self._setup_backend(**params)
 
     def _setup_backend(self, backend: Type[Backend], **kwargs):

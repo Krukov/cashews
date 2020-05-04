@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import Mock, patch
 
 import pytest
@@ -15,7 +16,6 @@ def _target():
 @pytest.fixture(name="cache")
 def __cache(target):
     _cache = Cache()
-    _cache._disable = False
     _cache._target = target
     return _cache
 
@@ -51,6 +51,23 @@ async def test_disable_cmd(cache):
 
 
 @pytest.mark.asyncio
+async def test_disable_ctz(cache):
+    await cache.init("mem://localhost")
+    cache.enable("cmds")
+
+    async def test():
+        await cache.set("test", "1")
+        assert await cache.get("test") == "1"
+        cache.disable("cmds")
+        await cache.set("test", "2")
+
+    await asyncio.create_task(test())
+    assert await cache.get("test") == "1"
+    await cache.set("test", "3")
+    assert await cache.get("test") == "3"
+
+
+@pytest.mark.asyncio
 async def test_disable_decorators(cache: Cache, target):
     cache.disable("decorators")
     data = (i for i in range(10))
@@ -76,6 +93,7 @@ async def test_disable_decorators(cache: Cache, target):
     assert await func() == 2
     target.get.assert_called()
     target.set.assert_called()
+    assert await func() == 2
 
 
 @pytest.mark.asyncio
@@ -145,8 +163,8 @@ async def test_smoke_cmds(cache: Cache, target):
     await cache.get_expire(key="key")  # -> int seconds to expire
     target.get_expire.assert_called_once()
 
-    await cache.ping(message="test")  # -> bytes
-    target.ping.assert_called_once_with(message="test")
+    await cache.ping(message=b"test")  # -> bytes
+    target.ping.assert_called_once_with(message=b"test")
 
     await cache.clear()
     target.clear.assert_called_once_with()
