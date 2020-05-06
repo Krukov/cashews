@@ -1,4 +1,5 @@
 import inspect
+import re
 from datetime import timedelta
 from itertools import chain
 from string import Formatter
@@ -99,6 +100,14 @@ def _get_call_values(func, args, kwargs):
     return result
 
 
+class _ReFormatter(Formatter):
+    def get_value(self, key, args, kwargs):
+        try:
+            return kwargs[key]
+        except KeyError:
+            return f"(?P<{key}>.*)"
+
+
 class _Star(Formatter):
     def get_value(self, key, args, kwargs):
         try:
@@ -107,16 +116,25 @@ class _Star(Formatter):
             return "*"
 
 
-def template_to_pattern(template, _formatter=_Star(), **values):
-    return _formatter.format(template, **values).lower()
+def template_to_pattern(template: str, _formatter=_Star(), **values):
+    return _formatter.format(template, **values)
 
 
 _REGISTER = {}
 
 
-def register_template(func, template):
-    _REGISTER.setdefault((func.__module__, func.__name__), set()).add(template)
+def register_template(func, template: str):
+    pattern = template_to_pattern(template, _formatter=_ReFormatter())
+    compile_pattern = re.compile(pattern)
+    _REGISTER.setdefault((func.__module__, func.__name__), set()).add((template, compile_pattern))
 
 
 def get_templates_for(func):
-    return _REGISTER.get((func.__module__, func.__name__), set())
+    return (template for template, _ in _REGISTER.get((func.__module__, func.__name__), set()))
+
+
+def get_template_and_func_for(key: str):
+    for func, templates in _REGISTER.items():
+        for template, compile_pattern in templates:
+            if compile_pattern.match(key):
+                return template_to_pattern(template), func

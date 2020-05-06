@@ -3,18 +3,21 @@ import datetime
 import gc
 import re
 import sys
+from collections import defaultdict
 from typing import Any, Optional, Tuple, Union
 
 from .interface import Backend
+from ..key import get_template_and_func_for
 
 __all__ = ("Memory", "MemoryInterval")
 
 
 class Memory(Backend):
-    def __init__(self, size: int = 1000):
+    def __init__(self, size: int = 1000, count_stat=False):
         self.store = {}
-        self._chans = []
         self.size = size
+        self._count_stat = count_stat
+        self._counters = defaultdict(lambda: {"hit": 0, "miss": 0, "set": 0})
         self._meta = {}
         self._lock = asyncio.Lock()
         super().__init__()
@@ -54,7 +57,6 @@ class Memory(Backend):
 
     def _delete(self, key: str) -> bool:
         if key in self.store:
-            self._notify("delete", key)
             del self.store[key]
             if key in self._meta:
                 del self._meta[key]
@@ -75,13 +77,12 @@ class Memory(Backend):
         return -1
 
     async def ping(self, message: Optional[bytes] = None):
-        self._notify("ping", message)
         return b"PONG" if message is None else message
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None):
         if len(self.store) > self.size:
             return
-        self._notify("set", key)
+        self._count_set(key)
         self.store[key] = value
 
         if expire is not None and expire > 0.0:
@@ -92,7 +93,7 @@ class Memory(Backend):
             self._meta[key] = loop.call_later(expire, self._delete, key)
 
     def _get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
-        self._notify("get", key)
+        self._count_get(key)
         return self.store.get(key, default)
 
     async def set_lock(self, key: str, value, expire):
@@ -116,28 +117,33 @@ class Memory(Backend):
             return _get_obj_size(self.store[key])
         return 0
 
-    def _notify(self, cmd, key):
-        for queue in self._chans:
-            queue.put_nowait((cmd, key))
+    def _count_get(self, key):
+        if not self._count_stat:
+            return
+        template_and_func = get_template_and_func_for(key)
+        if not template_and_func:
+            return
+        template, _ = template_and_func
 
-    async def listen(self, pattern: str, *cmds, reader=None):
-        queue = asyncio.Queue(maxsize=0)
-        pattern = pattern.replace("*", ".*")
-        regexp = re.compile(pattern)
-        self._chans.append(queue)
-        try:
-            while True:
-                cmd, key = await queue.get()
-                if cmd in cmds and regexp.fullmatch(key):
-                    reader(cmd, key)
-        finally:
-            self._chans.remove(queue)
+        if key in self.store:
+            self._counters[key]["hit"] += 1
+        else:
+            self._counters[key]["miss"] += 1
+
+    def _count_set(self, key):
+        if not self._count_stat:
+            return
+        template_and_func = get_template_and_func_for(key)
+        if not template_and_func:
+            return
+        template, _ = template_and_func
+        self._counters[key]["set"] += 1
 
 
 class MemoryInterval(Memory):
-    def __init__(self, size: int = 1000, check_interval: float = 1.0):
+    def __init__(self, size: int = 1000, check_interval: float = 1.0, count_stat=False):
         self._check_interval = check_interval
-        super().__init__(size=size)
+        super().__init__(size=size, count_stat=count_stat)
 
     async def init(self):
         asyncio.create_task(self._remove_expired())
@@ -150,15 +156,14 @@ class MemoryInterval(Memory):
             await asyncio.sleep(self._check_interval)
 
     async def get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
-        self._notify("get", key)
         expiration = self._meta.get(key)
         if expiration and datetime.datetime.utcnow() > expiration:
             await self.delete(key)
-            return default
+        self._count_get(key)
         return self.store.get(key, default)
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None) -> None:
-        self._notify("set", key)
+        self._count_set(key)
         self.store[key] = value
 
         if expire is not None and expire > 0.0:

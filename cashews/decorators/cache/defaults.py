@@ -30,7 +30,10 @@ class CacheDetect:
         self._value.setdefault(key, []).append(kwargs)
 
     def get(self):
-        return self._value
+        return dict(self._value)
+
+    def merge(self, other):
+        self._value.update(other._value)
 
 
 _var = ContextVar("cashews")
@@ -40,7 +43,8 @@ _var.set(None)
 class _ContextCacheDetect:
     @staticmethod
     def start():
-        _var.set(CacheDetect())
+        if _var.get() is None:
+            _var.set(CacheDetect())
 
     @staticmethod
     def set(key: str, **kwargs):
@@ -54,6 +58,12 @@ class _ContextCacheDetect:
         if var is not None:
             return var.get()
         return var
+
+    @staticmethod
+    def merge(self, other: CacheDetect):
+        var = _var.get()
+        if var is not None:
+            var.merge(other)
 
 
 context_cache_detect = _ContextCacheDetect()

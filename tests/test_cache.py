@@ -1,9 +1,11 @@
 import asyncio
+import os
 from unittest.mock import Mock
 
 import pytest
 from cashews import decorators
 from cashews.backends.memory import Backend, Memory
+from cashews.backends.redis import Redis
 
 pytestmark = pytest.mark.asyncio
 EXPIRE = 0.01
@@ -15,6 +17,11 @@ class CustomError(Exception):
 
 @pytest.fixture()
 async def backend():
+    if os.environ.get("USE_REDIS"):
+        redis = Redis("redis://", hash_key=None)
+        await redis.init()
+        await redis.clear()
+        return redis
     _cache = Memory()
     await _cache.init()
     return _cache
@@ -229,7 +236,7 @@ async def test_hit_cache_early(backend):
     assert await func(b"2") == b"1"  # cache
     assert mock.call_count == 1
 
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.01)
     assert await func(b"3") == b"2"  # cache
     assert mock.call_count == 2
 
@@ -237,7 +244,7 @@ async def test_hit_cache_early(backend):
 async def test_perf_cache(backend):
     mock = Mock()
 
-    @decorators.perf(backend, key="test", ttl=0.1)
+    @decorators.perf(backend, key="test", ttl=0.2)
     async def func(s=0.01):
         await asyncio.sleep(s)
         mock()
@@ -256,7 +263,7 @@ async def test_perf_cache(backend):
         await asyncio.gather(*[func() for _ in range(1000)])
 
     assert mock.call_count == 11
-    await asyncio.sleep(0.07)
+    await asyncio.sleep(0.2)
 
     await func(0.009)
     assert mock.call_count == 12

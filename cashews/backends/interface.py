@@ -52,15 +52,6 @@ class Backend:
         """
         ...
 
-    async def get_size_match(self, pattern: str) -> int:
-        size = 0
-        async for key in self.keys_match(pattern):
-            size += await self.get_size(key)
-        return size
-
-    async def listen(self, pattern: str, *cmds, reader=None):
-        ...
-
     async def ping(self, message: Optional[bytes] = None) -> str:
         ...
 
@@ -142,6 +133,3 @@ class ProxyBackend(Backend):
 
     def get_size(self, key):
         return self._target.get_size(key)
-
-    def listen(self, pattern: str, *cmds, reader=None):
-        return self._target.listen(pattern, *cmds, reader=reader)

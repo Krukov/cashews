@@ -1,9 +1,11 @@
 import dataclasses
+import os
 from collections import namedtuple
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from cashews.backends.redis import Redis
 from cashews.serialize import PickleSerializerMixin, UnSecureDataError
 
 pytestmark = pytest.mark.asyncio
@@ -32,7 +34,7 @@ class DummyCache:
         for key in keys:
             del self.store[key]
 
-    async def mget(self, *keys):
+    async def get_many(self, *keys):
         return [self.store.get(key, None) for key in keys]
 
 
@@ -41,7 +43,12 @@ class Cache(PickleSerializerMixin, DummyCache):
 
 
 @pytest.fixture(name="cache")
-def _cache():
+async def _cache():
+    if os.environ.get("USE_REDIS"):
+        redis = Redis("redis://", hash_key=b"test", safe=True)
+        await redis.init()
+        await redis.clear()
+        return redis
     cache = Cache()
     cache._hash_key = b"test"
     return cache
@@ -53,13 +60,14 @@ def _cache():
         "test",
         b"test",
         b"1_1",
+        0,
         1,
+        2,
         1.234,
         Decimal("1.001"),
         True,
         False,
         "",
-        0,
         None,
         {"hi": True},
         TestDC(test="test", _=1),
@@ -68,7 +76,7 @@ def _cache():
 async def test_serialize_simple_value(value, cache):
     await cache.set("key", value)
     assert await cache.get("key") == value
-    assert await cache.mget("key") == (value,)
+    assert await cache.get_many("key") == (value,)
 
 
 @pytest.mark.parametrize("value", (NT(name="test", test="lol"), NT()))
@@ -105,15 +113,10 @@ async def test_serialize_array_diff_value(value, cache):
 
 
 async def test_unsecure_value(cache):
-    cache.store["key"] = b"cos\nsystem\n(S'echo hello world'\ntR."
+    await cache.set_row("key", b"cos\nsystem\n(S'echo hello world'\ntR.")
     with pytest.raises(UnSecureDataError):
         await cache.get("key")
-    assert "key" not in cache.store
-
-    cache.store["key"] = b"_cos\nsystem\n(S'echo hello world'\ntR."
-    with pytest.raises(UnSecureDataError):
-        await cache.get("key")
-    assert "key" not in cache.store
+    assert not await cache.get_row("key")
 
 
 async def test_no_value(cache):
@@ -122,17 +125,17 @@ async def test_no_value(cache):
 
 async def test_replace_values(cache):
     await cache.set("key", "key")
-    cache.store["replace"] = cache.store["key"]
+    await cache.set_row("replace", await cache.get_row("key"))
 
     with pytest.raises(UnSecureDataError):
         await cache.get("replace")
-    assert "replace" not in cache.store
+    assert not await cache.get_row("replace")
 
 
 async def test_pickle_error_value(cache):
-    cache.store["key"] = cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data"
+    await cache.set_row("key", cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data")
     assert await cache.get("key") is None
-    assert "key" not in cache.store
+    assert not await cache.get_row("key")
 
 
 async def test_set_no_ser(cache):

@@ -63,7 +63,7 @@ def circuit_breaker(
                 fails = await backend.incr(_cache_key + ":fails")
                 total = total_in_bucket + await _get_buckets_values(backend, segments=_SEGMENTS, except_number=bucket)
                 if fails * 100 / total >= errors_rate:
-                    await backend.set_lock(_cache_key + ":open", True, expire=ttl)
+                    await backend.set_lock(_cache_key + ":open", "1", expire=ttl)
                 raise
 
         return _wrap

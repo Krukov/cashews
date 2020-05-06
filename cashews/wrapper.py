@@ -168,6 +168,25 @@ class Cache(ProxyBackend):
 
         return _decorator
 
+    def _wrap_on_enable_with_fail_disable(self, name, decorator):
+        def _decorator(func):
+            decorator(func)  # to register cache templates
+
+            @wraps(func)
+            async def _call(*args, **kwargs):
+                if self.is_disable("decorators", name):
+                    return await func(*args, **kwargs)
+                detect = decorators.CacheDetect()
+                result = await decorator(func)(*args, _from_cache=detect, **kwargs)
+                if detect.get():
+                    self.disable("set")
+                    decorators.context_cache_detect.merge(detect)
+                return result
+
+            return _call
+
+        return _decorator
+
     # DecoratorS
     def rate_limit(
         self,
@@ -224,7 +243,7 @@ class Cache(ProxyBackend):
         condition: CacheCondition = None,
         prefix: str = "fail",
     ):
-        return self._wrap_on_enable(
+        return self._wrap_on_enable_with_fail_disable(
             prefix,
             decorators.fail(
                 self,

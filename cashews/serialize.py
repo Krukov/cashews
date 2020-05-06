@@ -20,7 +20,12 @@ class PickleSerializerMixin:
 
     def __init__(self, *args, hash_key=None, digestmod=b"md5", **kwargs):
         super().__init__(*args, **kwargs)
+        if isinstance(hash_key, str):
+            hash_key = hash_key.encode()
+
         self._hash_key = hash_key
+        if isinstance(digestmod, str):
+            digestmod = digestmod.encode()
         self._digestmod = digestmod
 
     async def get(self, key, default=None):
@@ -36,7 +41,7 @@ class PickleSerializerMixin:
     def _process(self, value: bytes, key, default=None):
         if value is None:
             return default
-        if value.isdigit():
+        if isinstance(value, int) or value.isdigit():
             return int(value)
         try:
             sign, value = value.split(b"_", 1)
@@ -52,9 +57,9 @@ class PickleSerializerMixin:
             return None
         return value
 
-    async def mget(self, *keys):
+    async def get_many(self, *keys):
         values = []
-        for key, value in zip(keys, await super().mget(*keys) or [None] * len(keys)):
+        for key, value in zip(keys, await super().get_many(*keys) or [None] * len(keys)):
             try:
                 values.append(self._process(value, key))
             except UnSecureDataError:
@@ -82,6 +87,14 @@ class PickleSerializerMixin:
     async def set(self, key: str, value, *args, **kwargs):
         if value is None:
             value = none
+        if isinstance(value, int) and not isinstance(value, bool):
+            return await super().set(key, value, *args, **kwargs)
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)
         sign = self.get_sign(key, value, self._digestmod)
         return await super().set(key, self._digestmod + b":" + sign + b"_" + value, *args, **kwargs)
+
+    def set_row(self, *args, **kwargs):
+        return super().set(*args, **kwargs)
+
+    def get_row(self, *args, **kwargs):
+        return super().get(*args, **kwargs)

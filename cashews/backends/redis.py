@@ -3,12 +3,13 @@ import logging
 import socket
 from typing import Any, Union
 
-from aioredis import ConnectionsPool
+from aioredis import ConnectionsPool as _ConnectionsPool
 from aioredis import Redis as Redis_
 from aioredis import RedisError, util
 
+from ..key import get_template_and_func_for
 from ..serialize import PickleSerializerMixin
-from .interface import ProxyBackend
+from .interface import Backend
 
 __all__ = "SafeRedis"
 logger = logging.getLogger(__name__)
@@ -19,6 +20,15 @@ else
     return 0
 end
 """
+_GET = """
+local res = redis.call('get',KEYS[1])
+if res then
+    redis.call('incr',ARGV[1]..':hit')
+else 
+    redis.call('incr',ARGV[1]..':miss') 
+end
+return res
+"""
 _KEY_SPACE_NOTIFY = "notify-keyspace-events"
 _NOTIFY_CONFIG = "KA"
 
@@ -27,46 +37,17 @@ _NOTIFY_CONFIG = "KA"
 # pylint: disable=abstract-method
 
 
-class _SafeRedis(PickleSerializerMixin, Redis_):
-    """
-    High-level Redis interface.
-    Don't throw exception anyway.
-    """
-
-    async def execute(self, command, *args, **kwargs):
-        try:
-            return await super().execute(command, *args, **kwargs)
-        except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError):
-            logger.error("Redis down on command %s", command)
-            if command.lower() in [b"unlink", b"del", b"memory"]:
-                return 0
-            if command.lower() == b"scan":
-                return [0, []]
-            return None
-
-
-class _Redis(PickleSerializerMixin, Redis_):
-    pass
-
-
-class Redis(ProxyBackend):
-    def __init__(self, address, hash_key, digestmod="md5", safe=False, **kwargs):
-        self._safe = safe
-        if isinstance(hash_key, str):
-            hash_key = hash_key.encode()
-
-        self._hash_key = hash_key
-        if isinstance(digestmod, str):
-            digestmod = digestmod.encode()
-        self._digestmod = digestmod
-
+class _Redis(Redis_):
+    def __init__(self, address, safe=False, count_stat=False, **kwargs):
         self._address = address
         self._kwargs = kwargs
-        super().__init__()
+        self._pool_or_conn = None
+        self._sha = {}
+        self._safe = safe
+        self._count_stat = count_stat
 
     async def init(self):
         pool = create_pool(address=self._address, **self._kwargs)
-        _target_class = _SafeRedis if self._safe else _Redis
 
         try:
             await pool._fill_free(override_min=False)
@@ -76,12 +57,15 @@ class Redis(ProxyBackend):
                 await pool.wait_closed()
                 raise
 
-        self._target = _target_class(pool, hash_key=self._hash_key, digestmod=self._digestmod)
+        self._pool_or_conn = pool
 
     def get_many(self, *keys: str):
-        return self._target.mget(keys[0], *keys[1:])
+        return self.mget(keys[0], *keys[1:])
 
-    def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist=None):
+    def clear(self):
+        return self.flushdb()
+
+    async def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist=None):
         if exist is True:
             exist = Redis_.SET_IF_EXIST
         elif exist is False:
@@ -90,58 +74,96 @@ class Redis(ProxyBackend):
         if isinstance(expire, float):
             pexpire = int(expire * 1000)
             expire = None
-        return self._target.set(key, value, expire=expire, pexpire=pexpire, exist=exist)
+        if self._count_stat:
+            template_and_func = get_template_and_func_for(key)
+            if template_and_func:
+                template, _ = template_and_func
+
+                return (await asyncio.gather(
+                    super().set(key, value, expire=expire, pexpire=pexpire, exist=exist),
+                    self.incr(template + ":set"),
+                ))[0]
+        return await super().set(key, value, expire=expire, pexpire=pexpire, exist=exist)
 
     def get_expire(self, key: str) -> int:
-        return self._target.ttl(key)
-
-    def clear(self):
-        return self._target.flushdb()
+        return self.ttl(key)
 
     def set_lock(self, key: str, value, expire):
-        return self.set(key, value, expire=expire, exist=False)
+        pexpire = None
+        if isinstance(expire, float):
+            pexpire = int(expire * 1000)
+            expire = None
+        return super().set(key, value, expire=expire, pexpire=pexpire, exist=self.SET_IF_NOT_EXIST)
 
     async def is_locked(self, key: str, wait=None, step=0.1):
         if wait is None:
-            return await self._target.exists(key)
+            return await self.exists(key)
         while wait > 0.0:
-            if not await self._target.exists(key):
+            if not await self.exists(key):
                 return False
             wait -= step
             await asyncio.sleep(step)
         return True
 
     def unlock(self, key, value):
-        return self._target.eval(_UNLOCK, keys=[key], args=[value])
+        return self.eval(_UNLOCK, keys=[key], args=[value])
 
     def delete(self, key: str):
-        return self._target.unlink(key)
+        return self.unlink(key)
 
     async def keys_match(self, pattern: str):
         cursor = b"0"
         while cursor:
-            cursor, keys = await self._target.scan(cursor, match=pattern, count=100)
+            cursor, keys = await self.scan(cursor, match=pattern, count=100)
             for key in keys:
                 yield key
 
     async def delete_match(self, pattern: str):
         if "*" not in pattern:
-            return await self._target.unlink(pattern)
+            return await self.unlink(pattern)
         keys = []
         async for key in self.keys_match(pattern):
             keys.append(key)
         if keys:
-            return await self._target.unlink(*keys)
-
-    async def listen(self, pattern: str, *cmds, reader=None):
-        pass
+            return await self.unlink(*keys)
 
     async def get_size(self, key: str) -> int:
-        return int(await self._target.execute(b"MEMORY", b"USAGE", key))
+        return int(await self.execute(b"MEMORY", b"USAGE", key))
 
-    async def close(self):
-        if self._target:
-            self._target.close()
+    async def get(self, key: str, **kwargs) -> Any:
+        if not self._count_stat:
+            return await super().get(key=key, **kwargs)
+        template_and_func = get_template_and_func_for(key)
+        if template_and_func:
+            template, _ = template_and_func
+            if "GET" not in self._sha:
+                self._sha["GET"] = await self.script_load(_GET.replace("\n", " "))
+            return await self.evalsha(self._sha["GET"], keys=[key], args=[template])
+        return await super().get(key=key, **kwargs)
+
+    async def execute(self, command, *args, **kwargs):
+        try:
+            return await super().execute(command, *args, **kwargs)
+        except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError):
+            if not self._safe:
+                raise
+            logger.error("Redis down on command %s", command)
+            if command.lower() in [b"unlink", b"del", b"memory"]:
+                return 0
+            if command.lower() == b"scan":
+                return [0, []]
+            return None
+
+
+class Redis(PickleSerializerMixin, _Redis, Backend):
+    pass
+
+
+class ConnectionsPool(_ConnectionsPool):
+    async def _create_new_connection(self, address):
+        conn = await super()._create_new_connection(address)
+        await conn.execute(b"CLIENT", b"SETNAME", b"cachews")
+        return conn
 
 
 def create_pool(
