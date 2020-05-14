@@ -4,7 +4,7 @@ CASHEWS 🥔
 Async cache utils with simple api to build fast and reliable applications
 -------------------------------------------------------------------------
 
-    pip install cashews[redis]
+    pip install cashews
 
 
 Why
@@ -18,11 +18,13 @@ There are a few advance techniques with cache and async programming that can hel
 # Features
 - Decorator base api, just decorate and play
 - Cache invalidation by time, 'ttl' is a required parameter to avoid storage overflow and endless cache
-- Support Multi backend ([Memory](#memory), [Redis](#redis), memcache by request)
+- Support Multi backend ([Memory](#memory), [Redis](#redis))
 - Can cache any objects securely with pickle (use [hash key](#redis)). 
 - Simple configuring and API
 - cache invalidation autosystem and API 
 - Cache usage detection API
+- Client Side cache
+- Stats for usage
 
 ## API
 - [simple cache](#simple-cache)
@@ -88,6 +90,7 @@ Store values in a redis key-value storage. Use 'safe' parameter to avoid raising
 This backend use pickle to store values, but the cashes store values with sha1 keyed hash.
 So you should set 'hash_key' parameter to protect your application from security vulnerabilities.
 You can set parameters for [redis pool](https://aioredis.readthedocs.io/en/v1.3.0/api_reference.html#aioredis.create_pool) by backend setup    
+Also if you would like to use [client side cache](https://redis.io/topics/client-side-caching) set `client_side=True` 
 
 ```python
 cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=1&hash_key=my_sicret")
@@ -442,7 +445,6 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-Hit rate + https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
-
-Invalidate without scan (may be separate keys by db )
-Client side cache
+Todo:
+ - Hit rate + https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
+ - Invalidate without scan (index)

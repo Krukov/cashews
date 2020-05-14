@@ -52,6 +52,9 @@ class Backend:
         """
         ...
 
+    async def get_counters(self, template):
+        ...
+
     async def ping(self, message: Optional[bytes] = None) -> str:
         ...
 

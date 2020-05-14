@@ -19,7 +19,7 @@ class Cache(ProxyBackend):
         self.__init = False
         self.__address = None
         self._kwargs = {}
-        self.__disable = ContextVar(str(id(self)))
+        self.__disable = ContextVar(str(id(self)), default=[])
         self._set_disable(False)
         self.middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
         super().__init__()
@@ -81,7 +81,16 @@ class Cache(ProxyBackend):
             self._set_disable(params.pop("disable"))
         else:
             self._set_disable(not params.pop("enable", True))
+        if "client_side" in params:
+            from .backends.client_side import BcastClientSide, UpdateChannelClientSide
+
+            client_side = params.pop("client_side")
+            params["backend"] = BcastClientSide
+            if client_side == "update":
+                params["backend"] = UpdateChannelClientSide
+
         self._setup_backend(**params)
+        return self
 
     def _setup_backend(self, backend: Type[Backend], **kwargs):
         if self._target:
@@ -179,8 +188,8 @@ class Cache(ProxyBackend):
                 detect = decorators.CacheDetect()
                 result = await decorator(func)(*args, _from_cache=detect, **kwargs)
                 if detect.get():
-                    self.disable("set")
                     decorators.context_cache_detect.merge(detect)
+                    self.disable("set")
                 return result
 
             return _call

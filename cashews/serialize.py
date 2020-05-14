@@ -30,7 +30,7 @@ class PickleSerializerMixin:
 
     async def get(self, key, default=None):
         try:
-            return self._process(await super().get(key), key, default=default)
+            return self._process_value(await super().get(key), key, default=default)
         except UnSecureDataError:
             await super().delete(key)
             raise
@@ -38,7 +38,7 @@ class PickleSerializerMixin:
             await super().delete(key)
             return default
 
-    def _process(self, value: bytes, key, default=None):
+    def _process_value(self, value: bytes, key, default=None):
         if value is None:
             return default
         if isinstance(value, int) or value.isdigit():
@@ -61,7 +61,7 @@ class PickleSerializerMixin:
         values = []
         for key, value in zip(keys, await super().get_many(*keys) or [None] * len(keys)):
             try:
-                values.append(self._process(value, key))
+                values.append(self._process_value(value, key))
             except UnSecureDataError:
                 await super().delete(key)
                 raise

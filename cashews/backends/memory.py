@@ -6,8 +6,8 @@ import sys
 from collections import defaultdict
 from typing import Any, Optional, Tuple, Union
 
-from .interface import Backend
 from ..key import get_template_and_func_for
+from .interface import Backend
 
 __all__ = ("Memory", "MemoryInterval")
 
@@ -23,7 +23,11 @@ class Memory(Backend):
         super().__init__()
 
     async def clear(self):
-        self.store = {}
+        async with self._lock:
+            self.store = {}
+            for handler in self._meta.values():
+                handler.cancel()
+            self._meta = {}
 
     async def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist=None) -> bool:
         if exist is not None:
@@ -52,16 +56,16 @@ class Memory(Backend):
         return value
 
     async def delete(self, key: str):
+        if key not in self.store:
+            return False
         async with self._lock:
             self._delete(key)
 
     def _delete(self, key: str) -> bool:
-        if key in self.store:
-            del self.store[key]
-            if key in self._meta:
-                del self._meta[key]
-            return True
-        return False
+        del self.store[key]
+        if key in self._meta:
+            del self._meta[key]
+        return True
 
     async def delete_match(self, pattern: str):
         async for key in self.keys_match(pattern):
@@ -71,7 +75,14 @@ class Memory(Backend):
         value = self._get(key)
         if value is None:
             return
-        self._set(key=key, value=value, expire=timeout)
+        self._set_expire_at(key, datetime.datetime.utcnow() + datetime.timedelta(seconds=timeout))
+
+    def _set_expire_at(self, key, date: datetime.datetime):
+        loop = asyncio.get_event_loop()
+        handler = self._meta.get(key)
+        if handler:
+            handler.cancel()
+        self._meta[key] = loop.call_later((date - datetime.datetime.utcnow()).total_seconds(), self._delete, key)
 
     async def get_expire(self, key: str) -> int:
         return -1
@@ -86,11 +97,7 @@ class Memory(Backend):
         self.store[key] = value
 
         if expire is not None and expire > 0.0:
-            loop = asyncio.get_event_loop()
-            handler = self._meta.get(key)
-            if handler:
-                handler.cancel()
-            self._meta[key] = loop.call_later(expire, self._delete, key)
+            self._set_expire_at(key, datetime.datetime.utcnow() + datetime.timedelta(seconds=expire))
 
     def _get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
         self._count_get(key)
@@ -117,6 +124,11 @@ class Memory(Backend):
             return _get_obj_size(self.store[key])
         return 0
 
+    async def get_counters(self, template):
+        if not self._count_stat:
+            raise Exception("Can't get counters: count stat if off")
+        return self._counters.get(template)
+
     def _count_get(self, key):
         if not self._count_stat:
             return
@@ -126,9 +138,9 @@ class Memory(Backend):
         template, _ = template_and_func
 
         if key in self.store:
-            self._counters[key]["hit"] += 1
+            self._counters[template]["hit"] += 1
         else:
-            self._counters[key]["miss"] += 1
+            self._counters[template]["miss"] += 1
 
     def _count_set(self, key):
         if not self._count_stat:
@@ -137,7 +149,7 @@ class Memory(Backend):
         if not template_and_func:
             return
         template, _ = template_and_func
-        self._counters[key]["set"] += 1
+        self._counters[template]["set"] += 1
 
 
 class MemoryInterval(Memory):
@@ -162,17 +174,25 @@ class MemoryInterval(Memory):
         self._count_get(key)
         return self.store.get(key, default)
 
+    def _set_expire_at(self, key, date: datetime.datetime):
+        self._meta[key] = date
+
     def _set(self, key: str, value: Any, expire: Optional[float] = None) -> None:
         self._count_set(key)
         self.store[key] = value
 
         if expire is not None and expire > 0.0:
-            self._meta[key] = datetime.datetime.utcnow() + datetime.timedelta(seconds=expire)
+            self._set_expire_at(key, datetime.datetime.utcnow() + datetime.timedelta(seconds=expire))
 
     async def get_expire(self, key: str) -> int:
         if key in self._meta:
-            return abs(int((datetime.datetime.utcnow() - self._meta[key]).total_seconds()))
+            return abs(float((datetime.datetime.utcnow() - self._meta[key]).total_seconds()))
         return -1
+
+    async def clear(self):
+        async with self._lock:
+            self.store = {}
+            self._meta = {}
 
 
 def _get_obj_size(obj) -> int:

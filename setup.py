@@ -5,7 +5,7 @@ with open("Readme.md", "rt", encoding="utf8") as f:
     readme = f.read()
 
 PROJECT_NAME = "cashews"
-VERSION = "0.17.0"
+VERSION = "1.0.0"
 
 setup(
     name=PROJECT_NAME,
@@ -37,9 +37,8 @@ setup(
         "License :: OSI Approved :: MIT License",
     ],
     packages=find_packages(),
-    install_requires=None,
+    install_requires=["aioredis>=1.0.0"],
     extras_require={
-        "redis": ["aioredis>=1.0.0"],
         "dev": ["black", "codecov", "coverage", "flake8", "pytest", "isort", "pylint", "pytest-asyncio"],
     },
 )

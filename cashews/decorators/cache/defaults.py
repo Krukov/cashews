@@ -36,8 +36,7 @@ class CacheDetect:
         self._value.update(other._value)
 
 
-_var = ContextVar("cashews")
-_var.set(None)
+_var = ContextVar("cashews", default=None)
 
 
 class _ContextCacheDetect:
@@ -60,7 +59,7 @@ class _ContextCacheDetect:
         return var
 
     @staticmethod
-    def merge(self, other: CacheDetect):
+    def merge(other: CacheDetect):
         var = _var.get()
         if var is not None:
             var.merge(other)

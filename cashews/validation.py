@@ -48,8 +48,7 @@ def invalidate(
     return _decor
 
 
-_INVALIDATE_FURTHER = ContextVar("invalidate")
-_INVALIDATE_FURTHER.set(False)
+_INVALIDATE_FURTHER = ContextVar("invalidate", default=False)
 
 
 def set_invalidate_further():

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import socket
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 from aioredis import ConnectionsPool as _ConnectionsPool
 from aioredis import Redis as Redis_
@@ -20,28 +20,25 @@ else
     return 0
 end
 """
-_GET = """
-local res = redis.call('get',KEYS[1])
-if res then
-    redis.call('incr',ARGV[1]..':hit')
-else 
-    redis.call('incr',ARGV[1]..':miss') 
-end
-return res
-"""
-_KEY_SPACE_NOTIFY = "notify-keyspace-events"
-_NOTIFY_CONFIG = "KA"
-
-
 # pylint: disable=arguments-differ
 # pylint: disable=abstract-method
 
 
 class _Redis(Redis_):
+    _GET_COUNT = """
+        local res = redis.call('get',KEYS[1])
+        if res then
+            redis.call('incr','_counters:'..ARGV[1]..':hit')
+        else
+            redis.call('incr','_counters:'..ARGV[1]..':miss')
+        end
+        return res
+    """
+
     def __init__(self, address, safe=False, count_stat=False, **kwargs):
         self._address = address
         self._kwargs = kwargs
-        self._pool_or_conn = None
+        self._pool_or_conn: Optional[_ConnectionsPool] = None
         self._sha = {}
         self._safe = safe
         self._count_stat = count_stat
@@ -79,10 +76,12 @@ class _Redis(Redis_):
             if template_and_func:
                 template, _ = template_and_func
 
-                return (await asyncio.gather(
-                    super().set(key, value, expire=expire, pexpire=pexpire, exist=exist),
-                    self.incr(template + ":set"),
-                ))[0]
+                return (
+                    await asyncio.gather(
+                        super().set(key, value, expire=expire, pexpire=pexpire, exist=exist),
+                        self.incr(f"_counters:{template}:set"),
+                    )
+                )[0]
         return await super().set(key, value, expire=expire, pexpire=pexpire, exist=exist)
 
     def get_expire(self, key: str) -> int:
@@ -105,10 +104,12 @@ class _Redis(Redis_):
             await asyncio.sleep(step)
         return True
 
-    def unlock(self, key, value):
-        return self.eval(_UNLOCK, keys=[key], args=[value])
+    async def unlock(self, key, value):
+        if "UNLOCK" not in self._sha:
+            self._sha["UNLOCK"] = await self.script_load(_UNLOCK.replace("\n", " "))
+        return await self.evalsha(self._sha["UNLOCK"], keys=[key], args=[value])
 
-    def delete(self, key: str):
+    def delete(self, key):
         return self.unlink(key)
 
     async def keys_match(self, pattern: str):
@@ -137,9 +138,16 @@ class _Redis(Redis_):
         if template_and_func:
             template, _ = template_and_func
             if "GET" not in self._sha:
-                self._sha["GET"] = await self.script_load(_GET.replace("\n", " "))
+                self._sha["GET"] = await self.script_load(self._GET_COUNT.replace("\n", " "))
             return await self.evalsha(self._sha["GET"], keys=[key], args=[template])
         return await super().get(key=key, **kwargs)
+
+    async def get_counters(self, template):
+        get = super().get
+        _hit, _miss, _set = await asyncio.gather(
+            get(f"_counters:{template}:hit"), get(f"_counters:{template}:miss"), get(f"_counters:{template}:set"),
+        )
+        return {"hit": int(_hit or 0), "miss": int(_miss or 0), "set": int(_set or 0)}
 
     async def execute(self, command, *args, **kwargs):
         try:
@@ -159,7 +167,7 @@ class Redis(PickleSerializerMixin, _Redis, Backend):
     pass
 
 
-class ConnectionsPool(_ConnectionsPool):
+class __ConnectionsPool(_ConnectionsPool):
     async def _create_new_connection(self, address):
         conn = await super()._create_new_connection(address)
         await conn.execute(b"CLIENT", b"SETNAME", b"cachews")
@@ -179,12 +187,12 @@ def create_pool(
     loop=None,
     create_connection_timeout=None,
     pool_cls=None,
-    connection_cls=None
+    connection_cls=None,
 ):
     if pool_cls:
         cls = pool_cls
     else:
-        cls = ConnectionsPool
+        cls = __ConnectionsPool
     if isinstance(address, str):
         address, options = util.parse_url(address)
         db = options.setdefault("db", db)

@@ -14,11 +14,11 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture(name="cache")
 async def _cache():
     if os.environ.get("USE_REDIS"):
-        redis = Redis("redis://", hash_key=None)
+        redis = Redis("redis://", hash_key=None, count_stat=True)
         await redis.init()
         await redis.clear()
         return redis
-    return Memory()
+    return Memory(count_stat=True)
 
 
 async def test_set_get(cache):
@@ -117,3 +117,14 @@ async def test_delete_match(cache: Backend):
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
     assert await cache.get_size("test") in (sys.getsizeof(b"1"), 69)  # 69 redis
+
+
+async def test_get_count_stat(cache: Backend):
+    from cashews.key import register_template
+
+    register_template(test_get_count_stat, "my:{val}")
+    await cache.set("my:hit", b"10")
+    await cache.get("my:hit")
+    await cache.get("my:miss")
+
+    assert await cache.get_counters("my:*") == {"hit": 1, "set": 1, "miss": 1}

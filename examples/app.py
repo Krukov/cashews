@@ -36,8 +36,9 @@ metadata = sqlalchemy.MetaData()
 app = FastAPI()
 
 
-cache.setup("redis://?hash_key=test&safe=True&maxsize=20&create_connection_timeout=0.01")
-
+cache.setup(
+    "redis://?hash_key=test&safe=True&maxsize=20&create_connection_timeout=0.01", client_side=True, count_stat=False
+)
 
 SECRET_KEY = "test"
 ALGORITHM = "HS256"
@@ -124,9 +125,6 @@ async def add_from_cache_headers(request: Request, call_next):
         if expire == -1:
             expire = await cache.get_expire(key)
         response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
-        response.headers["X-From-Cache-TTL"] = str(keys[key]["ttl"])
-        if "exc" in keys[key]:
-            response.headers["X-From-Cache-Exc"] = str(type(keys[key]["exc"]))
     return response
 
 
@@ -136,18 +134,18 @@ async def rate_limit_handler(request, exc: RateLimitException):
 
 
 @app.get("/")
+@cache(ttl=timedelta(minutes=1))
+async def root():
+    await asyncio.sleep(1)
+    return "".join([random.choice(string.ascii_letters) for _ in range(10)])
+
+
+@app.get("/check")
 async def _check():
     result = await utils.check_speed(cache, 500)
-    result["mem"] = mem._target.store
+    result["mem"] = cache._target._local_cache.store
     result["tasks"] = len(asyncio.all_tasks())
-    # result["tasks"] = len(asyncio.all_tasks())
-    result["size"] = await utils.get_size_of(cache, get_rang)
     return result
-
-
-@app.get("/u")
-async def _usage():
-    return await utils.usage(cache, get_rang, max_events=1)
 
 
 @app.post("/token")
@@ -191,7 +189,7 @@ class RedisDownException(Exception):
     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
     func_args=("accept_language",),
 )
-@cashews.decorators.rate.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
+@cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
 @mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
 @cache.early(ttl=timedelta(minutes=1), func_args=("accept_language",))
 @cache.locked(func_args=("accept_language",))
