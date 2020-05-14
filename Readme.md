@@ -413,7 +413,7 @@ context_cache_detect.start()
 response = await decorated_function()
 keys = context_cache_detect.get()
 print(keys)
-# >>> {"key": {"ttl": 10}, "fail_key": {"ttl": timedelta(hours=10), "exc": RateLimit}}
+# >>> {"key": [{"ttl": 10}, ], "fail_key": [{"ttl": timedelta(hours=10), "exc": RateLimit}]}
 
 # OR
 from cashews import CacheDetect
@@ -439,7 +439,6 @@ async def add_from_cache_headers(request: Request, call_next):
         if expire == -1:
             expire = await cache.get_expire(key)
         response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
-        response.headers["X-From-Cache-TTL"] = str(keys[key]["ttl"].total_seconds())
         if "exc" in keys[key]:
             response.headers["X-From-Cache-Exc"] = str(keys[key]["exc"])
     return response
