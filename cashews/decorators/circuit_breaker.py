@@ -4,7 +4,6 @@ from typing import Optional, Tuple, Type, Union
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template
-from ..typing import FuncArgsType
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
 
@@ -23,7 +22,6 @@ def circuit_breaker(
     min_calls: int = 10,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
-    func_args: FuncArgsType = None,
     prefix: str = "circuit_breaker",
 ):
     """
@@ -33,7 +31,6 @@ def circuit_breaker(
     :param period: Period
     :param ttl: seconds in int or as timedelta to keep circuit breaker switched
     :param min_calls: numbers of call before circuit breaker can switch
-    :param func_args: arguments that will be used in key
     :param exceptions: exceptions at which returned cache result
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param prefix: custom prefix for key, default "circuit_breaker"
@@ -41,13 +38,12 @@ def circuit_breaker(
     assert 0 < errors_rate < 100
 
     def _decor(func):
-        _key_template = key
-        if key is None:
-            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}"
+        _key = ":".join([func.__module__, func.__name__])
+        _key_template = get_cache_key_template(func, key=key or _key, prefix=prefix)
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs)
             if await backend.is_locked(_cache_key + ":open"):
                 raise CircuitBreakerOpen()
             bucket = _get_bucket_number(period, segments=_SEGMENTS)

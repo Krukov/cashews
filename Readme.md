@@ -87,14 +87,14 @@ cache.setup("mem://?check_interval=10&size=10000") # using strategy with expirat
 #### Redis
 Required aioredis package
 Store values in a redis key-value storage. Use 'safe' parameter to avoid raising any connection errors, command will return None in this case.
-This backend use pickle to store values, but the cashes store values with sha1 keyed hash.
+This backend use pickle to store values, but the cashes can store values with sha1 keyed hash.
 So you should set 'hash_key' parameter to protect your application from security vulnerabilities.
 You can set parameters for [redis pool](https://aioredis.readthedocs.io/en/v1.3.0/api_reference.html#aioredis.create_pool) by backend setup    
 Also if you would like to use [client side cache](https://redis.io/topics/client-side-caching) set `client_side=True` 
 
 ```python
-cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=1&hash_key=my_sicret")
-cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=0, hash_key="my_sicret")
+cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=1&hash_key=my_secret")
+cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=0, hash_key="my_secret", client_side=True)
 ```
 
 ### Simple cache
@@ -111,47 +111,10 @@ async def long_running_function(arg, kward):
     ...
 ```
 
-:param ttl: duration in seconds or in timedelta object or a callable object to store a result
-
-:param func_args: arguments of call that will be used in key, can be tuple or dict with argument name as a key and callable object as a transform function for value of this argument
-
-```python
-
-@cache(ttl=100, func_args=("arg", "token"))
-async def long_running_function(arg, user: User, token: str = "token"):
-    ...
-
-await long_running_function("name", user=user, token="qdfrevt")  # key will be like "long_running_function:arg:name:token:qdfrevt
-```
-But what if we want to user argument define a cache key or want to hide token from cache
-```python
-@cache(ttl=100, func_args={"arg": True, "token": get_md5, "user": attrgetter("uid")})
-async def long_running_function(arg, user: User, token: str = "token"):
-    ...
-
-await long_running_function("name", user=user, token="qdfrevt")  # key will be like "long_running_function:arg:name:token:7ea802f0544ff108aace43e2d3752a28:user:51e6da60-2553-45ec-9e56-d9538b9614c8
-```
-
-
-:param key: custom cache key, may contain alias to args or kwargs passed to a call (like 'key_{token}/{arg}\{user}')
-
-:param condition: callable object that determines whether the result will be saved or not
-
-:param prefix: custom prefix for key
-
 
 ### Fail cache
 Return cache result (at list 1 call of function call should be succeed) if call raised one of the given exceptions,
     
-:param ttl: duration in seconds or in timedelta object or a callable object to store a result
-
-:param exceptions: exceptions at which returned cache result
-
-:param func_args: [see simple cache params](#simple-cache)
-
-:param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param prefix: custom prefix for key, default "fail"
 
 Example
 -------
@@ -167,20 +130,6 @@ async def get(name):
 ### Hit cache
 Cache call results and drop cache after given numbers of call 'cache_hits'
 
-:param ttl: duration in seconds or in timedelta object or a callable object to store a result
-
-:param cache_hits: number of cache hits till cache will dropped
-
-:param update_before: number of cache hits before cache will update
-
-:param func_args: [see simple cache params](#simple-cache)
-
-:param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param condition: callable object that determines whether the result will be saved or not
-
-:param prefix: custom prefix for key, default "hit"
-
 Example
 -------
 ```python
@@ -193,25 +142,12 @@ async def get(name):
 
 ### Performance downgrade detection
 Trace time execution of target and throw exception if it downgrade to given condition
-  
-:param ttl: duration in seconds or in timedelta object or a callable object to store a result
 
-:param func_args: [see simple cache params](#simple-cache)
-
-:param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param trace_size: the number of calls that are involved
-
-:param perf_condition: callable object that determines whether the result will be cached,
-       default if doubled mean value of time execution less then current
-
-:param prefix: custom prefix for key, default 'perf'
 
 ```python
-import cashews.decorators.perf
 from cashews import cache   # or from cashews import perf
 
-@cashews.decorators.perf.perf(ttl=timedelta(hours=2))
+@cache.perf(ttl=timedelta(hours=2))
 async def get(name):
     value = await api_call()
     return {"status": value}
@@ -221,14 +157,6 @@ async def get(name):
 Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
 Lock following function calls till first one will be finished
 Can guarantee that one function call for given ttl, if ttl is None
-
-:param ttl: duration to lock wrapped function call
-
-:param func_args: [see simple cache params](#simple-cache)
-
-:param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param prefix: custom prefix for key, default 'early'
 
 ```python
 
@@ -245,15 +173,6 @@ Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.or
 With a hot cache recalculate a result in background near expiration time
 Warning! Not good at cold cache
 
-:param ttl: seconds in int or as timedelta object to store a result
-
-:param func_args: [see simple cache params](#simple-cache)
-
-:param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param condition: callable object that determines whether the result will be saved or not
-
-:param prefix: custom prefix for key, default 'early'
 ```python
 from cashews import cache  # or from cashews import early
 
@@ -266,23 +185,12 @@ async def get(name):
 ### Rate limit 
 Rate limit for function call. Do not call function if rate limit is reached, and call given action
 
-:param limit: number of calls
 
-:param period: Period
-
-:param ttl: time to ban, default == period
-
-:param func_args: [see simple cache params](#simple-cache)
-
-:param action: call when rate limit reached, default raise RateLimitException
-
-:param prefix: custom prefix for key, default 'rate_limit'
 ```python
-import cashews.decorators.rate
 from cashews import cache  # or from cashews import rate_limit
 
 # no more then 10 calls per minute or ban for 10 minutes
-@cashews.decorators.rate.rate_limit(limit=10, period=timedelta(minutes=1) ttl=timedelta(minutes=10))
+@cache.rate_limit(limit=10, period=timedelta(minutes=1), ttl=timedelta(minutes=10))
 async def get(name):
     return {"status": value}
 ```
@@ -290,30 +198,17 @@ async def get(name):
 ### Circuit breaker
 Circuit breaker
 
-:param errors_rate: Errors rate in percents
-
-:param period: Period
-
-:param ttl: seconds in int or as timedelta to keep circuit breaker switched
-
-:param func_args: arguments that will be used in key
-
-:param exceptions: exceptions at which returned cache result
-
-:param key: custom cache key, may contain alias to args or kwargs passed to a call
-
-:param prefix: custom prefix for key, default "circuit_breaker"
 ```python
 from cashews import cache  # or from cashews import rate_limit
 
-
-@cache.circuit_breaker(errors_rate=10, period=timedelta(minutes=1) ttl=timedelta(minutes=5))
+@cache.circuit_breaker(errors_rate=10, period=timedelta(minutes=1), ttl=timedelta(minutes=5))
 async def get(name):
     ...
 ```    
 
 ### Basic api
-There are 13 basic methods to work with key-storage::```python
+There are 13 basic methods to work with key-storage:
+
 ```python
 from cashews import cache
 
@@ -444,6 +339,5 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-Todo:
- - Hit rate + https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
- - Invalidate without scan (index)
+ https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
+ - Invalidate without scan (index?)

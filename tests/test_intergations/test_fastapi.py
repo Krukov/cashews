@@ -8,7 +8,7 @@ app = FastAPI()
 
 
 @app.get("/")
-@mem.early(ttl=timedelta(seconds=1), func_args=("q",))
+@mem.early(ttl=timedelta(seconds=1), key="root:{q}")
 async def root(q: str = "q", x_name: str = Header("test")):
     return {"name": x_name, "q": q}
 

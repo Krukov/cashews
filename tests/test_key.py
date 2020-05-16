@@ -8,55 +8,35 @@ def test_cache_func_key_dict():
     async def func(user):
         ...
 
-    obj = type("user", (), {"name": b"test", "one": True})()
+    obj = type("user", (), {"name": "test", "one": True})()
 
-    assert get_cache_key(func, args=(obj,), func_args={"user": attrgetter("name")}) == "tests.test_key:func:user:test"
+    assert get_cache_key(func, template="test_key:{user.name}", args=(obj,)) == "test_key:test"
 
-    obj.name = b"new"
-    assert get_cache_key(func, args=(obj,), func_args={"user": attrgetter("name")}) == "tests.test_key:func:user:new"
+    obj.name = "new"
+    assert get_cache_key(func, template="test_key:{user.name}", args=(obj,)) == "test_key:new"
 
 
 @pytest.mark.parametrize(
-    ("args", "kwargs", "func_args", "key"),
+    ("args", "kwargs", "template", "key"),
     (
+        (("a1", "a2", "a3"), {"kwarg1": "k1", "kwarg3": "k3"}, "{arg1}:{kwarg1}-{kwarg3}", "a1:k1-k3",),
         (
             ("a1", "a2", "a3"),
             {"kwarg1": "k1", "kwarg3": "k3"},
-            ("arg1", "kwarg1", "kwarg3"),
-            "tests.test_key:func:arg1:a1:kwarg1:k1:kwarg3:k3",
+            None,
+            "tests.test_key:func:arg1:a1:arg2:a2:kwarg1:k1:kwarg2:true",
         ),
-        # (
-        #     ("a1", "a2", "a3"),
-        #     {"kwarg1": "k1", "kwarg3": "k3"},
-        #     None,
-        #     "tests.test_key:func:arg1:a1:arg2:a2:kwarg1:k1:kwarg2:true:kwarg3:k3",
-        # ),
-        (("a1", "a2", "a3"), None, ("arg1", "kwarg1", "kwarg3"), "tests.test_key:func:arg1:a1:kwarg1::kwarg3:"),
-        (
-            ("a1",),
-            {"arg2": 2, "kwarg1": "k1"},
-            ("arg2", "kwarg1", "kwarg3"),
-            "tests.test_key:func:arg2:2:kwarg1:k1:kwarg3:",
-        ),
-        (
-            ("a1",),
-            {"arg2": 2, "kwarg1": "k1", "kwarg3": "k3"},
-            ("arg2", "kwarg1", "kwarg3"),
-            "tests.test_key:func:arg2:2:kwarg1:k1:kwarg3:k3",
-        ),
-        (
-            ("a1",),
-            {"kwarg1": "k1", "arg2": 2},
-            ("arg2", "kwarg1", "kwarg3"),
-            "tests.test_key:func:arg2:2:kwarg1:k1:kwarg3:",
-        ),
+        (("a1", "a2", "a3"), None, "{arg1}-{kwarg1}-{kwarg3}", "a1--",),
+        (("a1",), {"arg2": 2, "kwarg1": "k1"}, "{arg2}-{kwarg1}-{kwarg3}", "2-k1-",),
+        (("a1",), {"arg2": 2, "kwarg1": "k1", "kwarg3": "k3"}, "{arg2}:{kwarg1}:{kwarg3}", "2:k1:k3",),
+        (("a1",), {"kwarg1": "k1", "arg2": 2}, "{arg2}:{kwarg1}:{kwarg3}", "2:k1:",),
     ),
 )
-def test_cache_key_args_kwargs(args, kwargs, func_args, key):
+def test_cache_key_args_kwargs(args, kwargs, template, key):
     async def func(arg1, arg2, *args, kwarg1=None, kwarg2=b"true", **kwargs):
         ...
 
-    assert get_cache_key(func, args=args, kwargs=kwargs, func_args=func_args) == key
+    assert get_cache_key(func, template, args=args, kwargs=kwargs) == key
 
 
 @pytest.mark.parametrize(
@@ -79,17 +59,12 @@ async def func2(a, k=None, **kwargs):
 
 
 @pytest.mark.parametrize(
-    ("func", "func_args", "key", "template"),
+    ("func", "key", "template"),
     (
-        (func1, None, None, "tests.test_key:func1:a:{a}"),
-        (func2, None, None, "tests.test_key:func2:a:{a}:k:{k}"),
-        (func2, ("a",), None, "tests.test_key:func2:a:{a}"),
-        (func2, ("k",), None, "tests.test_key:func2:k:{k}"),
-        (func2, ("k", "test"), None, "tests.test_key:func2:k:{k}:test:{test}"),
-        (func2, {"k": ""}, None, "tests.test_key:func2:k:{k}"),
-        (func2, ("k1",), None, "tests.test_key:func2:k1:{k1}"),
-        (func2, None, "key", "key"),
+        (func1, None, "tests.test_key:func1:a:{a}"),
+        (func2, None, "tests.test_key:func2:a:{a}:k:{k}"),
+        (func2, "key:{test}", "key:{test}"),
     ),
 )
-def test_get_key_template(func, func_args, key, template):
-    assert get_cache_key_template(func, func_args, key) == template
+def test_get_key_template(func, key, template):
+    assert get_cache_key_template(func, key) == template

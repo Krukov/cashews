@@ -5,7 +5,7 @@ with open("Readme.md", "rt", encoding="utf8") as f:
     readme = f.read()
 
 PROJECT_NAME = "cashews"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 setup(
     name=PROJECT_NAME,

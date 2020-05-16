@@ -4,7 +4,7 @@ from typing import Optional
 
 from ...backends.interface import Backend
 from ...key import get_cache_key, get_cache_key_template, register_template
-from ...typing import CacheCondition, FuncArgsType
+from ...typing import CacheCondition
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
 __all__ = ("hit",)
@@ -15,7 +15,6 @@ def hit(
     ttl: int,
     cache_hits: int,
     update_before: Optional[int] = None,
-    func_args: FuncArgsType = None,
     key: Optional[str] = None,
     condition: CacheCondition = None,
     prefix: str = "hit",
@@ -26,7 +25,6 @@ def hit(
     :param ttl: duration in seconds to store a result
     :param cache_hits: number of cache hits till cache will dropped
     :param update_before: number of cache hits before cache will update
-    :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'hit'
@@ -34,14 +32,12 @@ def hit(
     store = _get_cache_condition(condition)
 
     def _decor(func):
-        _key_template = key
-        if key is None:
-            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}:{ttl}"
+        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix)}:{ttl}"
         register_template(func, _key_template)
 
         @wraps(func)
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
-            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs)
             result = await backend.get(_cache_key, default=_empty)
             hits = await backend.incr(_cache_key + ":counter")
             if result is not _empty and hits and hits <= cache_hits:

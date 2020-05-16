@@ -6,7 +6,6 @@ from typing import Callable, Iterable, Optional
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template
-from ..typing import FuncArgsType
 
 
 def _default_perf_condition(current: float, previous: Iterable[float]) -> bool:
@@ -20,7 +19,6 @@ class PerfDegradationException(Exception):
 def perf(
     backend: Backend,
     ttl: int,
-    func_args: FuncArgsType = None,
     key: Optional[str] = None,
     trace_size: int = 10,
     perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
@@ -30,7 +28,6 @@ def perf(
     Trace time execution of target and throw exception if it downgrade to given condition
     :param backend: cache backend
     :param ttl: duration in seconds to lock
-    :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param trace_size: the number of calls that are involved
     :param perf_condition: callable object that determines whether the result will be cached,
@@ -42,13 +39,11 @@ def perf(
     call_results = deque([], maxlen=trace_size)
 
     def _decor(func):
-        _key_template = key
-        if key is None:
-            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}:{ttl}"
+        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix)}:{ttl}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs)
             if await backend.is_locked(_cache_key + ":lock"):
                 raise PerfDegradationException()
             start = time.perf_counter()

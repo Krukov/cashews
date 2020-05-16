@@ -52,7 +52,7 @@ async def test_rate_limit_ttl(rate_limit):
 
 
 async def test_rate_limit_func_args_list(rate_limit):
-    @rate_limit(limit=1, period=0.01, func_args=("arg1", "kwarg2"), prefix=str(uuid.uuid4()))
+    @rate_limit(limit=1, period=0.01, key="{arg1}:{kwarg2}", prefix=str(uuid.uuid4()))
     async def func(*args, **kwargs):
         return len(args) + len(kwargs)
 
@@ -75,7 +75,7 @@ async def test_rate_limit_func_args_list(rate_limit):
 
 
 async def test_rate_limit_func_args_dict(rate_limit):
-    @rate_limit(limit=1, period=0.1, func_args={"user": attrgetter("name")})
+    @rate_limit(limit=1, period=0.1, key="user:{user.name}")
     async def func(user):
         return user.name
 
@@ -93,7 +93,7 @@ async def test_rate_limit_func_args_dict(rate_limit):
 async def test_rate_limit_action(rate_limit):
     action = Mock()
 
-    @rate_limit(limit=1, period=0.1, action=action, func_args=())
+    @rate_limit(limit=1, period=0.1, action=action, key="key")
     async def func(k=None):
         return 1
 

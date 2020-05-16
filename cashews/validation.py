@@ -28,7 +28,7 @@ def invalidate(
         @wraps(func)
         async def _wrap(*args, **kwargs):
             result = await func(*args, **kwargs)
-            _args = get_call_values(func, args, kwargs, func_args=None)
+            _args = get_call_values(func, args, kwargs)
             _args.update(defaults)
             for source, dest in args_map.items():
                 if dest in _args:

@@ -31,7 +31,7 @@ def add_prefix(prefix: str):
     async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
         if cmd.lower() == "get_many":
             return await call(*[prefix + key for key in args])
-        call_values = get_call_values(call, args, kwargs, func_args=None)
+        call_values = get_call_values(call, args, kwargs)
         as_key = "key"
         if cmd == "delete_match":
             as_key = "pattern"

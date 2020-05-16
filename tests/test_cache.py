@@ -28,7 +28,7 @@ async def backend():
 
 
 async def test_fail_cache_simple(backend):
-    @decorators.fail(backend, ttl=EXPIRE, exceptions=CustomError, func_args=())
+    @decorators.fail(backend, ttl=EXPIRE, exceptions=CustomError, key="fail")
     async def func(fail=False):
         if fail:
             raise CustomError()
@@ -44,7 +44,7 @@ async def test_fail_cache_simple(backend):
 
 
 async def test_circuit_breaker_simple(backend):
-    @decorators.circuit_breaker(backend, ttl=EXPIRE * 10, errors_rate=5, period=1, func_args=())
+    @decorators.circuit_breaker(backend, ttl=EXPIRE * 10, errors_rate=5, period=1, key="test")
     async def func(fail=False):
         if fail:
             raise CustomError()
@@ -94,18 +94,17 @@ async def test_cache_simple_none(backend):
 
 
 async def test_cache_simple_key(backend):
-    @decorators.cache(backend, ttl=EXPIRE, func_args=("some",))
+    @decorators.cache(backend, ttl=EXPIRE, key="key:{some}")
     async def func(resp=b"ok", some="err"):
         return resp
 
-    @decorators.cache(backend, ttl=1, func_args=("some",))
+    @decorators.cache(backend, ttl=1, key="key2:{some}")
     async def func2(resp=b"ok", some="err"):
         return resp
 
     assert await func() == b"ok"
     assert await func(b"notok", some="test") == b"notok"
 
-    await asyncio.sleep(0)
     assert await func(b"notok") == b"ok"
 
     assert await func2(b"notok") == b"notok"
@@ -282,7 +281,7 @@ async def test_cache_detect_simple(backend):
     assert await func(b"notok", _from_cache=cache_detect) == b"ok"
     assert len(cache_detect.get()) == 1
     assert list(cache_detect.get().keys()) == [
-        "key",
+        f"key:{EXPIRE}",
     ]
 
 
@@ -299,7 +298,7 @@ async def test_context_cache_detect_simple(backend):
     assert await func(b"notok") == b"ok"
     assert len(decorators.context_cache_detect.get()) == 1
     assert list(decorators.context_cache_detect.get().keys()) == [
-        "key",
+        f"key:{EXPIRE}",
     ]
 
     await asyncio.sleep(EXPIRE)
@@ -327,8 +326,8 @@ async def test_context_cache_detect_deep(backend):
     await func()
 
     assert len(decorators.context_cache_detect.get()) == 2
-    assert "key1" in decorators.context_cache_detect.get()
-    assert "key2" in decorators.context_cache_detect.get()
+    assert f"key1:{EXPIRE}" in decorators.context_cache_detect.get()
+    assert f"key2:{EXPIRE}" in decorators.context_cache_detect.get()
 
 
 async def test_context_cache_detect_context(backend):
@@ -347,8 +346,8 @@ async def test_context_cache_detect_context(backend):
         res = await asyncio.gather(*funcs)
         return len(decorators.context_cache_detect.get())
 
-    await backend.set("key1", "test")
-    await backend.set("key2", "test")
+    await backend.set(f"key1:{EXPIRE}", "test")
+    await backend.set(f"key2:{EXPIRE}", "test")
     assert await func1() == "test"
     assert await func2() == "test"
 

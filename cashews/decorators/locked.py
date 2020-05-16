@@ -3,14 +3,12 @@ from typing import Optional, Union
 
 from ..backends.interface import Backend, LockedException
 from ..key import get_cache_key, get_cache_key_template
-from ..typing import FuncArgsType
 
 __all__ = ("locked",)
 
 
 def locked(
     backend: Backend,
-    func_args: FuncArgsType = None,
     key: Optional[str] = None,
     ttl: Optional[int] = None,
     max_lock_ttl: int = 10,
@@ -23,7 +21,6 @@ def locked(
     Can guarantee that one function call for given ttl, if ttl is None
 
     :param backend: cache backend
-    :param func_args: arguments that will be used in key
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param ttl: duration to lock wrapped function call
     :param prefix: custom prefix for key, default 'lock'
@@ -31,13 +28,11 @@ def locked(
 
     def _decor(func):
 
-        _key_template = key
-        if key is None:
-            _key_template = f"{prefix}:{get_cache_key_template(func, func_args=func_args, key=key)}"
+        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix)}:{ttl}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, _key_template, args, kwargs, func_args)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs)
             try:
                 async with backend.lock(_cache_key, ttl or max_lock_ttl):
                     return await func(*args, **kwargs)

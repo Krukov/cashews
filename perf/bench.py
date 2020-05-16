@@ -139,7 +139,9 @@ if __name__ == '__main__':
     for choice in choices.split():
         tests.append((choice, _tests.get(int(choice))))
 
+    iters = int(input("Iters: ") or "1000")
+
     for test in tests:
         print("--------------------TEST---------------------")
         for target in targets:
-            loop.run_until_complete(run(target, test[1], test[0]))
+            loop.run_until_complete(run(target, test[1], test[0], iters=iters))

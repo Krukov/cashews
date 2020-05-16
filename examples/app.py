@@ -165,7 +165,7 @@ async def get_token(auth: Auth):
 
 
 @app.get("/me")
-@cache(ttl=timedelta(minutes=10), func_args={"user": attrgetter("name")})
+@cache(ttl=timedelta(minutes=10), key="me:{user.name}")
 async def get_me(user: User = Depends(get_current_user)):
     friends = await database.fetch_all(
         "SELECT name, relations.kind FROM user JOIN relations ON relations.target = user.id WHERE relations.owner = :owner",
@@ -182,17 +182,17 @@ class RedisDownException(Exception):
 @cache.fail(
     ttl=timedelta(minutes=10),
     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException),
-    func_args=("accept_language",),
+    key="{accept_language}",
 )
 @mem.fail(
     ttl=timedelta(minutes=5),
     exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
-    func_args=("accept_language",),
+    key=("accept_language",),
 )
-@cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1), func_args=())
-@mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1), func_args=())
-@cache.early(ttl=timedelta(minutes=1), func_args=("accept_language",))
-@cache.locked(func_args=("accept_language",))
+@cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1))
+@mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1))
+@cache.early(ttl=timedelta(minutes=1), key="{accept_language}")
+@cache.locked(key="{accept_language}")
 async def get_rang(accept_language: str = Header("en"), user_agent: str = Header("No")):
     rank = 0
     for user in await User.objects.filter(language=accept_language).all():

@@ -9,7 +9,7 @@ from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
 from .helpers import _auto_init, _is_disable_middleware
 from .key import ttl_to_seconds
-from .typing import TTL, CacheCondition, FuncArgsType
+from .typing import TTL, CacheCondition
 
 #  pylint: disable=too-many-public-methods
 
@@ -202,36 +202,22 @@ class Cache(ProxyBackend):
         limit: int,
         period: TTL,
         ttl: Optional[TTL] = None,
-        func_args: FuncArgsType = None,
         action: Optional[Callable] = None,
         prefix="rate_limit",
     ):  # pylint: disable=too-many-arguments
         return self._wrap_on_enable(
             "rate_limit",
             decorators.rate_limit(
-                self,
-                limit=limit,
-                period=ttl_to_seconds(period),
-                ttl=ttl_to_seconds(ttl),
-                func_args=func_args,
-                action=action,
-                prefix=prefix,
+                self, limit=limit, period=ttl_to_seconds(period), ttl=ttl_to_seconds(ttl), action=action, prefix=prefix,
             ),
         )
 
     def __call__(
-        self,
-        ttl: TTL,
-        func_args: FuncArgsType = None,
-        key: Optional[str] = None,
-        condition: CacheCondition = None,
-        prefix: str = "",
+        self, ttl: TTL, key: Optional[str] = None, condition: CacheCondition = None, prefix: str = "",
     ):
         return self._wrap_on_enable(
             prefix or "cache",
-            decorators.cache(
-                self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, condition=condition, prefix=prefix
-            ),
+            decorators.cache(self, ttl=ttl_to_seconds(ttl), key=key, condition=condition, prefix=prefix),
         )
 
     cache = __call__
@@ -248,20 +234,13 @@ class Cache(ProxyBackend):
         ttl: TTL,
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         key: Optional[str] = None,
-        func_args: FuncArgsType = None,
         condition: CacheCondition = None,
         prefix: str = "fail",
     ):
         return self._wrap_on_enable_with_fail_disable(
             prefix,
             decorators.fail(
-                self,
-                ttl=ttl_to_seconds(ttl),
-                exceptions=exceptions,
-                key=key,
-                func_args=func_args,
-                condition=condition,
-                prefix=prefix,
+                self, ttl=ttl_to_seconds(ttl), exceptions=exceptions, key=key, condition=condition, prefix=prefix,
             ),
         )
 
@@ -272,7 +251,6 @@ class Cache(ProxyBackend):
         ttl: TTL,
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         key: Optional[str] = None,
-        func_args: FuncArgsType = None,
         prefix: str = "circuit_breaker",
     ):
 
@@ -285,24 +263,15 @@ class Cache(ProxyBackend):
                 ttl=ttl_to_seconds(ttl),
                 exceptions=exceptions,
                 key=key,
-                func_args=func_args,
                 prefix=prefix,
             ),
         )
 
     def early(
-        self,
-        ttl: TTL,
-        func_args: FuncArgsType = None,
-        key: Optional[str] = None,
-        condition: CacheCondition = None,
-        prefix: str = "early",
+        self, ttl: TTL, key: Optional[str] = None, condition: CacheCondition = None, prefix: str = "early",
     ):
         return self._wrap_on_enable(
-            prefix,
-            decorators.early(
-                self, ttl=ttl_to_seconds(ttl), func_args=func_args, key=key, condition=condition, prefix=prefix
-            ),
+            prefix, decorators.early(self, ttl=ttl_to_seconds(ttl), key=key, condition=condition, prefix=prefix),
         )
 
     def hit(
@@ -310,7 +279,6 @@ class Cache(ProxyBackend):
         ttl: TTL,
         cache_hits: int,
         update_before: int = 0,
-        func_args: FuncArgsType = None,
         key: Optional[str] = None,
         condition: CacheCondition = None,
         prefix: str = "hit",
@@ -322,7 +290,6 @@ class Cache(ProxyBackend):
                 ttl=ttl_to_seconds(ttl),
                 cache_hits=cache_hits,
                 update_before=update_before,
-                func_args=func_args,
                 key=key,
                 condition=condition,
                 prefix=prefix,
@@ -331,7 +298,6 @@ class Cache(ProxyBackend):
 
     def dynamic(
         self,
-        func_args: FuncArgsType = None,
         ttl: TTL = 60 * 60 * 24,
         key: Optional[str] = None,
         condition: CacheCondition = None,
@@ -339,22 +305,12 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            decorators.hit(
-                self,
-                ttl=ttl,
-                cache_hits=3,
-                update_before=2,
-                func_args=func_args,
-                key=key,
-                condition=condition,
-                prefix=prefix,
-            ),
+            decorators.hit(self, ttl=ttl, cache_hits=3, update_before=2, key=key, condition=condition, prefix=prefix,),
         )
 
     def perf(
         self,
         ttl: TTL,
-        func_args: FuncArgsType = None,
         key: Optional[str] = None,
         trace_size: int = 10,
         perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
@@ -363,32 +319,23 @@ class Cache(ProxyBackend):
         return self._wrap_on_enable(
             prefix,
             decorators.perf(
-                self,
-                ttl=ttl,
-                func_args=func_args,
-                key=key,
-                trace_size=trace_size,
-                perf_condition=perf_condition,
-                prefix=prefix,
+                self, ttl=ttl, key=key, trace_size=trace_size, perf_condition=perf_condition, prefix=prefix,
             ),
         )
 
     def locked(
         self,
         ttl: Optional[TTL] = None,
-        func_args: FuncArgsType = None,
         key: Optional[str] = None,
         step: Union[int, float] = 0.1,
         prefix: str = "locked",
     ):
-        return self._wrap_on_enable(
-            prefix, decorators.locked(self, ttl=ttl, func_args=func_args, key=key, step=step, prefix=prefix)
-        )
+        return self._wrap_on_enable(prefix, decorators.locked(self, ttl=ttl, key=key, step=step, prefix=prefix))
 
 
 def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:
     new_params = {}
-    bool_keys = ("safe", "enable", "disable")
+    bool_keys = ("safe", "enable", "disable", "client_side")
     true_values = (
         "1",
         "true",
