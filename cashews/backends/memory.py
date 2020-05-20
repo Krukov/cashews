@@ -132,10 +132,9 @@ class Memory(Backend):
     def _count_get(self, key):
         if not self._count_stat:
             return
-        template_and_func = get_template_and_func_for(key)
-        if not template_and_func:
+        template, _ = get_template_and_func_for(key)
+        if template is None:
             return
-        template, _ = template_and_func
 
         if key in self.store:
             self._counters[template]["hit"] += 1
@@ -145,10 +144,9 @@ class Memory(Backend):
     def _count_set(self, key):
         if not self._count_stat:
             return
-        template_and_func = get_template_and_func_for(key)
-        if not template_and_func:
+        template, _ = get_template_and_func_for(key)
+        if template is None:
             return
-        template, _ = template_and_func
         self._counters[template]["set"] += 1
 
 

@@ -1,7 +1,39 @@
 from operator import attrgetter
 
 import pytest
-from cashews.key import get_cache_key, get_cache_key_template
+from cashews.key import get_cache_key, get_cache_key_template, get_template_and_func_for, register_template
+
+
+async def func1(a):
+    ...
+
+
+async def func2(a, k=None, **kwargs):
+    ...
+
+
+TEPLATE_FUNC1 = "func1:{a}"
+TEPLATE_FUNC2 = "func2:{k}:user:{user}"
+
+register_template(func1, TEPLATE_FUNC1)
+register_template(func2, TEPLATE_FUNC2)
+
+
+@pytest.mark.parametrize(
+    ("key", "template"),
+    (
+        ("func1:test", TEPLATE_FUNC1.format(a="*")),
+        ("func1:", TEPLATE_FUNC1.format(a="*")),
+        ("prefix:func1:test", TEPLATE_FUNC1.format(a="*")),
+        ("func2:-:user:1", TEPLATE_FUNC2.format(k="*", user="*")),
+        ("func:1", None),
+        ("prefix:func2:test:user:1:1", None),
+        ("func2:user:1", None),
+        ("func2:user:1", None),
+    ),
+)
+def test_detect_template_by_key(key, template):
+    assert get_template_and_func_for(key)[0] == template
 
 
 def test_cache_func_key_dict():
@@ -48,14 +80,6 @@ def atest_cache_key_key(args, func_args, result):
         ...
 
     assert get_cache_key(func, args=args, func_args=func_args) == result
-
-
-async def func1(a):
-    ...
-
-
-async def func2(a, k=None, **kwargs):
-    ...
 
 
 @pytest.mark.parametrize(

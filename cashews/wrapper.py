@@ -5,8 +5,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, U
 from urllib.parse import parse_qsl, urlparse
 
 from . import decorators, validation
+from .backends.client_side import BcastClientSide, UpdateChannelClientSide
 from .backends.interface import Backend, ProxyBackend
 from .backends.memory import Memory, MemoryInterval
+from .backends.redis import Redis
 from .helpers import _auto_init, _is_disable_middleware
 from .key import ttl_to_seconds
 from .typing import TTL, CacheCondition
@@ -82,7 +84,6 @@ class Cache(ProxyBackend):
         else:
             self._set_disable(not params.pop("enable", True))
         if "client_side" in params:
-            from .backends.client_side import BcastClientSide, UpdateChannelClientSide
 
             client_side = params.pop("client_side")
             params["backend"] = BcastClientSide
@@ -360,7 +361,6 @@ def settings_url_parse(url):
     params.update(dict(parse_qsl(parse_result.query)))
     params = _fix_params_types(params)
     if parse_result.scheme == "redis":
-        from cashews.backends.redis import Redis
 
         params["backend"] = Redis
         params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()

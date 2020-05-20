@@ -72,10 +72,8 @@ class _Redis(Redis_):
             pexpire = int(expire * 1000)
             expire = None
         if self._count_stat:
-            template_and_func = get_template_and_func_for(key)
-            if template_and_func:
-                template, _ = template_and_func
-
+            template, _ = get_template_and_func_for(key)
+            if template:
                 return (
                     await asyncio.gather(
                         super().set(key, value, expire=expire, pexpire=pexpire, exist=exist),
@@ -126,7 +124,7 @@ class _Redis(Redis_):
         async for key in self.keys_match(pattern):
             keys.append(key)
         if keys:
-            return await self.unlink(*keys)
+            return await self.unlink(keys[0], *keys[1:])
 
     async def get_size(self, key: str) -> int:
         return int(await self.execute(b"MEMORY", b"USAGE", key))
@@ -134,9 +132,8 @@ class _Redis(Redis_):
     async def get(self, key: str, **kwargs) -> Any:
         if not self._count_stat:
             return await super().get(key=key, **kwargs)
-        template_and_func = get_template_and_func_for(key)
-        if template_and_func:
-            template, _ = template_and_func
+        template, _ = get_template_and_func_for(key)
+        if template:
             if "GET" not in self._sha:
                 self._sha["GET"] = await self.script_load(self._GET_COUNT.replace("\n", " "))
             return await self.evalsha(self._sha["GET"], keys=[key], args=[template])

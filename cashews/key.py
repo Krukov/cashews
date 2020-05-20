@@ -92,7 +92,7 @@ class _ReFormatter(Formatter):
             return super().get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
 
-            return f"(?P<{field_name.replace('.', '_')}>.*)", None
+            return f"(?P<{field_name.replace('.', '_')}>[^:]*)", None
 
 
 class _Blank(Formatter):
@@ -107,7 +107,7 @@ class _Blank(Formatter):
             return self.__default, None
 
 
-def template_to_pattern(template: str, _formatter=_Blank(), **values):
+def template_to_pattern(template: str, _formatter=_Blank(), **values) -> str:
     return _formatter.format(template, **values)
 
 
@@ -115,8 +115,8 @@ _REGISTER = {}
 
 
 def register_template(func, template: str):
-    pattern = template_to_pattern(template, _formatter=_ReFormatter())
-    compile_pattern = re.compile(pattern)
+    pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_ReFormatter()) + "$"
+    compile_pattern = re.compile(pattern, flags=re.MULTILINE)
     _REGISTER.setdefault((func.__module__, func.__name__), set()).add((template, compile_pattern))
 
 
@@ -124,8 +124,9 @@ def get_templates_for(func):
     return (template for template, _ in _REGISTER.get((func.__module__, func.__name__), set()))
 
 
-def get_template_and_func_for(key: str):
+def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callable]]:
     for func, templates in _REGISTER.items():
         for template, compile_pattern in templates:
-            if compile_pattern.match(key):
+            if compile_pattern.fullmatch(key):
                 return template_to_pattern(template), func
+    return None, None

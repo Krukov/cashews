@@ -139,6 +139,8 @@ class BcastClientSide(Redis):
         return await super().clear()
 
     async def close(self):
+        if self.__listen_task is not None:
+            self.__listen_task.cancel()
         await super().close()
 
 
@@ -226,6 +228,6 @@ class UpdateChannelClientSide(Redis):
 
     async def close(self):
         await self._publish_queue.put({"source": self.__virtual_client_id, "event": "go away"})
-        for tast in self.__tasks:
-            tast.cancel()
+        for task in self.__tasks:
+            task.cancel()
         await super().close()
