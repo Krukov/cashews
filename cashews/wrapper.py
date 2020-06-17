@@ -306,7 +306,15 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable(
             prefix,
-            decorators.hit(self, ttl=ttl, cache_hits=3, update_before=2, key=key, condition=condition, prefix=prefix,),
+            decorators.hit(
+                self,
+                ttl=ttl_to_seconds(ttl),
+                cache_hits=3,
+                update_before=2,
+                key=key,
+                condition=condition,
+                prefix=prefix,
+            ),
         )
 
     def perf(
@@ -320,7 +328,12 @@ class Cache(ProxyBackend):
         return self._wrap_on_enable(
             prefix,
             decorators.perf(
-                self, ttl=ttl, key=key, trace_size=trace_size, perf_condition=perf_condition, prefix=prefix,
+                self,
+                ttl=ttl_to_seconds(ttl),
+                key=key,
+                trace_size=trace_size,
+                perf_condition=perf_condition,
+                prefix=prefix,
             ),
         )
 
@@ -331,7 +344,9 @@ class Cache(ProxyBackend):
         step: Union[int, float] = 0.1,
         prefix: str = "locked",
     ):
-        return self._wrap_on_enable(prefix, decorators.locked(self, ttl=ttl, key=key, step=step, prefix=prefix))
+        return self._wrap_on_enable(
+            prefix, decorators.locked(self, ttl=ttl_to_seconds(ttl), key=key, step=step, prefix=prefix)
+        )
 
 
 def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:

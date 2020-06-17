@@ -341,3 +341,4 @@ async def add_from_cache_headers(request: Request, call_next):
 
  https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
  - Invalidate without scan (index?)
+ - Cache strategy based on history of execution (fail too match - add fail cache, too friquent - add cache )

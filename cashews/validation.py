@@ -9,7 +9,6 @@ from cashews.key import get_call_values, get_func_params, get_templates_for, tem
 
 async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None):
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
-    values = {k: str(v) if v is not None else "" for k, v in values.items()}
     for template in get_templates_for(func):
         del_template = template_to_pattern(template, **values).lower()
         await backend.delete_match(del_template)

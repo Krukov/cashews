@@ -87,11 +87,15 @@ def _get_call_values(func, args, kwargs):
 
 
 class _ReFormatter(Formatter):
+    def __init__(self, reg_field=lambda f: f):
+        self._reg_field = reg_field
+        super().__init__()
+
     def get_field(self, field_name, args, kwargs):
         try:
             return super().get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
-
+            self._reg_field(field_name)
             return f"(?P<{field_name.replace('.', '_')}>[^:]*)", None
 
 
@@ -115,18 +119,19 @@ _REGISTER = {}
 
 
 def register_template(func, template: str):
-    pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_ReFormatter()) + "$"
+    fields = []
+    pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_ReFormatter(fields.append)) + "$"
     compile_pattern = re.compile(pattern, flags=re.MULTILINE)
-    _REGISTER.setdefault((func.__module__, func.__name__), set()).add((template, compile_pattern))
+    _REGISTER.setdefault((func.__module__, func.__name__), set()).add((template, compile_pattern, tuple(fields)))
 
 
 def get_templates_for(func):
-    return (template for template, _ in _REGISTER.get((func.__module__, func.__name__), set()))
+    return (template for template, _, _ in _REGISTER.get((func.__module__, func.__name__), set()))
 
 
 def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callable]]:
     for func, templates in _REGISTER.items():
-        for template, compile_pattern in templates:
+        for template, compile_pattern, _ in templates:
             if compile_pattern.fullmatch(key):
                 return template_to_pattern(template), func
     return None, None
