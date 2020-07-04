@@ -1,18 +1,4 @@
-from datetime import datetime, timedelta
-
 from .key import get_call_values
-
-
-def at(hour=23, minute=59, second=59, minimum: timedelta = timedelta(minutes=1), **kwargs):
-    def _ttl():
-        now = datetime.utcnow()
-        expire_at = now.replace(hour=hour, minute=minute, second=second, **kwargs)
-        delta = expire_at - now
-        if delta < minimum:
-            return minimum
-        return delta
-
-    return _ttl
 
 
 async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):

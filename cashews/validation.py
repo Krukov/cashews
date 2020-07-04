@@ -32,8 +32,6 @@ def invalidate(
             for source, dest in args_map.items():
                 if dest in _args:
                     _args[source] = _args.pop(dest)
-                if callable(dest):
-                    _args[source] = dest(*args, **kwargs)
             if callable(target):
                 asyncio.create_task(invalidate_func(backend, target, _args))
             else:

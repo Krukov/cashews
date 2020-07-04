@@ -116,7 +116,7 @@ async def test_delete_match(cache: Backend):
 
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
-    assert await cache.get_size("test") in (sys.getsizeof(b"1"), 69)  # 69 redis
+    assert await cache.get_size("test") in (sys.getsizeof(b"1"), 66)  # 66 redis
 
 
 async def test_get_count_stat(cache: Backend):

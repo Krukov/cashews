@@ -188,7 +188,7 @@ class Cache(ProxyBackend):
                     return await func(*args, **kwargs)
                 detect = decorators.CacheDetect()
                 result = await decorator(func)(*args, _from_cache=detect, **kwargs)
-                if detect.get():
+                if detect.get():  # if result from cache we dont want to set it by eny other decorator
                     decorators.context_cache_detect.merge(detect)
                     self.disable("set")
                 return result

@@ -1,0 +1,15 @@
+[paths]
+source =
+   cashews
+
+[run]
+branch = true
+source =
+    cashews
+
+parallel = true
+
+[report]
+precision = 2
+fail_under = 95
+show_missing = true

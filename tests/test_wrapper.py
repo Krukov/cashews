@@ -1,5 +1,6 @@
 import asyncio
 from unittest.mock import Mock, patch
+import random
 
 import pytest
 from cashews.backends.interface import Backend
@@ -73,7 +74,7 @@ async def test_disable_decorators(cache: Cache, target):
     data = (i for i in range(10))
 
     @cache(ttl=1)
-    @cache.fail(1)
+    @cache.fail(ttl=1)
     @cache.hit(ttl=1, cache_hits=1)
     @cache.perf(ttl=1)
     @cache.circuit_breaker(ttl=1, errors_rate=1, period=1)
@@ -177,3 +178,18 @@ async def test_smoke_cmds(cache: Cache, target):
 
     await cache.unlock("key", "value")  # -> bool
     target.unlock.assert_called_once_with(key="key", value="value")
+
+
+async def test_disable_cache_on_fail_return(cache: Cache):
+
+    @cache(ttl=0.05, key="cache")
+    @cache.fail(ttl=1, key="fail")
+    async def func(fail=False):
+        if fail:
+            raise Exception()
+        return random.randint(0, 100)
+
+    first = await func()  # cache by fail and siple cache
+    await asyncio.sleep(0.1)  # expire simple cache
+    assert await func(fail=True) == first  # return from fail cache but simple cache should be skipped
+    assert await func() != first
