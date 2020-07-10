@@ -11,5 +11,5 @@ parallel = true
 
 [report]
 precision = 2
-fail_under = 95
+fail_under = 90
 show_missing = true

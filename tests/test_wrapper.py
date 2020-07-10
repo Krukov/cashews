@@ -98,6 +98,43 @@ async def test_disable_decorators(cache: Cache, target):
 
 
 @pytest.mark.asyncio
+async def test_disable_decorators_get(cache: Cache, target):
+    data = (i for i in range(10))
+
+    @cache(ttl=1)
+    async def func():
+        return next(data)
+
+    assert await func() == 0
+    assert await func() == 0
+
+    cache.disable("get")
+    assert await func() == 1
+    assert await func() == 2
+
+    cache.enable("get")
+    assert await func() == 2
+
+
+@pytest.mark.asyncio
+async def test_disable_decorators_set(cache: Cache, target):
+    data = (i for i in range(10))
+    cache.disable("set")
+
+    @cache(ttl=1)
+    async def func():
+        return next(data)
+
+    assert await func() == 0
+    target.get.assert_called()
+    assert await func() == 1
+
+    cache.enable("set")
+    assert await func() == 2
+    assert await func() == 2
+
+
+@pytest.mark.asyncio
 async def test_init(cache):
     backend = Mock(wraps=Backend())
     with patch("cashews.wrapper.Memory", Mock(return_value=backend)):
