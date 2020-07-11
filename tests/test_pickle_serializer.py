@@ -49,8 +49,7 @@ async def _cache():
         await redis.init()
         await redis.clear()
         return redis
-    cache = Cache()
-    cache._hash_key = b"test"
+    cache = Cache(hash_key="test", digestmod="md5")
     return cache
 
 
@@ -117,6 +116,14 @@ async def test_unsecure_value(cache):
     with pytest.raises(UnSecureDataError):
         await cache.get("key")
     assert not await cache.get_row("key")
+
+
+async def test_unsecure_value_many(cache):
+    await cache.set_row("key", b"cos\nsystem\n(S'echo hello world'\ntR.")
+    with pytest.raises(UnSecureDataError):
+        await cache.get_many("key")
+    assert not await cache.get_row("key")
+
 
 
 async def test_no_value(cache):

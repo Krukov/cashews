@@ -3,6 +3,9 @@ import hmac
 import pickle
 
 
+BLANK_DIGEST = b""
+
+
 class UnSecureDataError(Exception):
     pass
 
@@ -13,6 +16,7 @@ class none:
 
 class PickleSerializerMixin:
     _digestmods = {
+        BLANK_DIGEST: lambda x: BLANK_DIGEST,
         b"sha1": hashlib.sha1,
         b"md5": hashlib.md5,
         b"sha256": hashlib.sha256,
@@ -20,6 +24,8 @@ class PickleSerializerMixin:
 
     def __init__(self, *args, hash_key=None, digestmod=b"md5", **kwargs):
         super().__init__(*args, **kwargs)
+        if hash_key is None:
+            digestmod = BLANK_DIGEST
         if isinstance(hash_key, str):
             hash_key = hash_key.encode()
 
@@ -29,8 +35,11 @@ class PickleSerializerMixin:
         self._digestmod = digestmod
 
     async def get(self, key, default=None):
+        return await self._get_value(await super().get(key), key, default=default)
+
+    async def _get_value(self, value, key, default=None):
         try:
-            return self._process_value(await super().get(key), key, default=default)
+            return self._process_value(value, key, default=default)
         except UnSecureDataError:
             await super().delete(key)
             raise
@@ -60,19 +69,13 @@ class PickleSerializerMixin:
     async def get_many(self, *keys):
         values = []
         for key, value in zip(keys, await super().get_many(*keys) or [None] * len(keys)):
-            try:
-                values.append(self._process_value(value, key))
-            except UnSecureDataError:
-                await super().delete(key)
-                raise
-            except (pickle.PickleError, AttributeError):
-                await super().delete(key)
-                values.append(None)
+            values.append(await self._get_value(value, key))
+
         return tuple(values)
 
     def get_sign(self, key: str, value: bytes, digestmod: bytes) -> bytes:
-        if self._hash_key is None:
-            return b""
+        if digestmod == BLANK_DIGEST:
+            return BLANK_DIGEST
         value = key.encode() + value
         return hmac.new(self._hash_key, value, self._digestmods[digestmod]).hexdigest().encode()
 

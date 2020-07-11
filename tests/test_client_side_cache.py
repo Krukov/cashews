@@ -28,7 +28,7 @@ async def test_set_get_bcast(create_cache):
     caches = await create_cache(BcastClientSide, caches_local)
 
     await cachef.set("key", b"value", expire=0.1)
-    await asyncio.sleep(0.05)  # skip init signal about invalidation
+    await asyncio.sleep(0.01)  # skip init signal about invalidation
     assert await cachef.get("key") == b"value"
     assert await caches.get("key") == b"value"
     assert await cachef_local.get("key") == b"value"
@@ -75,10 +75,8 @@ async def test_rewrite_bcast(create_cache):
 
     assert await cachef.get("key") == b"new"
 
-    await asyncio.sleep(0.06)
+    await asyncio.sleep(0.15)
     assert await caches.get("key") is None
-
-    await asyncio.sleep(0)
     assert await cachef.get("key") is None
 
 

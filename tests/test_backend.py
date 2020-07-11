@@ -64,7 +64,7 @@ async def test_ping(cache):
 async def test_expire(cache):
     await cache.set("key", b"value", expire=0.01)
     assert await cache.get("key") == b"value"
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.011)
     assert await cache.get("key") is None
 
 
@@ -116,7 +116,7 @@ async def test_delete_match(cache: Backend):
 
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
-    assert await cache.get_size("test") in (sys.getsizeof(b"1"), 69)  # 69 redis
+    assert await cache.get_size("test") in (sys.getsizeof(b"1"), 66)  # 66 redis
 
 
 async def test_get_count_stat(cache: Backend):

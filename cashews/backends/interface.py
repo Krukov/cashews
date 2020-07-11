@@ -1,5 +1,8 @@
 import uuid
-from contextlib import asynccontextmanager
+try:
+    from contextlib import asynccontextmanager
+except ImportError:  # python 3.6
+    from async_generator import asynccontextmanager
 from typing import Any, Optional, Tuple, Union
 
 

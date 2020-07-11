@@ -8,7 +8,8 @@ from cashews.backends.memory import Backend, Memory
 from cashews.backends.redis import Redis
 
 pytestmark = pytest.mark.asyncio
-EXPIRE = 0.01
+REDIS_TESTS = bool(os.environ.get("USE_REDIS"))
+EXPIRE = 0.02
 
 
 class CustomError(Exception):
@@ -17,7 +18,7 @@ class CustomError(Exception):
 
 @pytest.fixture()
 async def backend():
-    if os.environ.get("USE_REDIS"):
+    if REDIS_TESTS:
         redis = Redis("redis://", hash_key=None)
         await redis.init()
         await redis.clear()
@@ -38,7 +39,7 @@ async def test_fail_cache_simple(backend):
     await asyncio.sleep(0.001)
     assert await func(fail=True) == b"ok"
 
-    await asyncio.sleep(EXPIRE)
+    await asyncio.sleep(EXPIRE * 1.1)
     with pytest.raises(CustomError):
         await func(fail=True)
 
@@ -74,7 +75,7 @@ async def test_cache_simple(backend):
     await asyncio.sleep(0)
     assert await func(b"notok") == b"ok"
 
-    await asyncio.sleep(EXPIRE)
+    await asyncio.sleep(EXPIRE * 1.1)
     assert await func(b"notok") == b"notok"
 
 
@@ -104,9 +105,7 @@ async def test_cache_simple_key(backend):
 
     assert await func() == b"ok"
     assert await func(b"notok", some="test") == b"notok"
-
     assert await func(b"notok") == b"ok"
-
     assert await func2(b"notok") == b"notok"
 
 
@@ -119,7 +118,6 @@ async def test_cache_simple_cond(backend):
         return resp
 
     await func()
-
     assert mock.call_count == 1
 
     await func(b"notok")
@@ -141,10 +139,11 @@ async def test_early_cache_simple(backend):
     await asyncio.sleep(0)
     assert await func(b"notok") == b"ok"
 
-    await asyncio.sleep(EXPIRE)
+    await asyncio.sleep(EXPIRE * 1.1)
     assert await func(b"notok") == b"notok"
 
 
+@pytest.mark.skipif(REDIS_TESTS, reason="only for mem")
 async def test_early_cache_parallel(backend):
 
     mock = Mock()
@@ -177,7 +176,7 @@ async def test_lock_cache_parallel(backend):
 
     @decorators.locked(backend, key="key", step=0.01)
     async def func(resp=b"ok"):
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.1)
         mock(resp)
         return resp
 
@@ -185,6 +184,21 @@ async def test_lock_cache_parallel(backend):
         await asyncio.gather(*[func() for _ in range(10)], return_exceptions=True)
 
     assert mock.call_count == 4
+
+
+async def test_lock_cache_parallel_ttl(backend):
+    mock = Mock()
+
+    @decorators.locked(backend, key="key", step=0.01, ttl=0.1)
+    async def func(resp=b"ok"):
+        await asyncio.sleep(0.01)
+        mock(resp)
+        return resp
+
+    for _ in range(4):
+        await asyncio.gather(*[func() for _ in range(10)], return_exceptions=True)
+
+    assert mock.call_count == 40
 
 
 async def test_lock_cache_broken_backend():
@@ -256,10 +270,10 @@ async def test_perf_cache(backend):
     with pytest.raises(decorators.PerfDegradationException):
         await func(0.001)  # long
         assert mock.call_count == 11
-
+    await asyncio.sleep(0.05)
     # prev was slow so no hits
     with pytest.raises(decorators.PerfDegradationException):
-        await asyncio.gather(*[func() for _ in range(1000)])
+        await asyncio.gather(*[func() for _ in range(100)])
 
     assert mock.call_count == 11
     await asyncio.sleep(0.2)
@@ -301,7 +315,7 @@ async def test_context_cache_detect_simple(backend):
         f"key:{EXPIRE}",
     ]
 
-    await asyncio.sleep(EXPIRE)
+    await asyncio.sleep(EXPIRE * 1.1)
     assert await func(b"notok") == b"notok"
     assert len(decorators.context_cache_detect.get()) == 1
 
