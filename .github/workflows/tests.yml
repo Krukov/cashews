@@ -28,8 +28,8 @@ jobs:
         pip install tox
 
     - name: Lint
-        run: |
-          tox -e lint
+      run: |
+        tox -e lint
 
     - name: Basic Test Suit
       run: |
