@@ -64,7 +64,7 @@ async def test_ping(cache):
 async def test_expire(cache):
     await cache.set("key", b"value", expire=0.01)
     assert await cache.get("key") == b"value"
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.011)
     assert await cache.get("key") is None
 
 
