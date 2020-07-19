@@ -125,7 +125,6 @@ async def test_unsecure_value_many(cache):
     assert not await cache.get_row("key")
 
 
-
 async def test_no_value(cache):
     assert await cache.get("key") is None
 

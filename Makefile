@@ -3,7 +3,7 @@ clean:
 	find . -name ".pyc" -delete
 
 upload: clean
-	python3.7 setup.py sdist bdist_wheel
+	python setup.py sdist bdist_wheel
 	twine upload -u krukov dist/*
 
 LENGTH=120

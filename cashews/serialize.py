@@ -2,7 +2,6 @@ import hashlib
 import hmac
 import pickle
 
-
 BLANK_DIGEST = b""
 
 
