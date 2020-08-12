@@ -5,6 +5,7 @@ from operator import attrgetter
 from unittest.mock import Mock
 
 import pytest
+
 from cashews.backends.memory import Memory
 from cashews.decorators.rate import RateLimitException
 from cashews.decorators.rate import rate_limit as _rate_limit

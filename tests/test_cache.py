@@ -3,6 +3,7 @@ import os
 from unittest.mock import Mock
 
 import pytest
+
 from cashews import decorators
 from cashews.backends.memory import Backend, Memory
 from cashews.backends.redis import Redis
@@ -148,27 +149,21 @@ async def test_early_cache_parallel(backend):
 
     mock = Mock()
 
-    @decorators.early(backend, ttl=0.1, key="key")
+    @decorators.early(backend, ttl=0.1, early_ttl=0.05, key="key")
     async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
         mock(resp)
         return resp
 
-    assert await func() == b"ok"
+    assert await func() == b"ok"  # warm
 
     assert mock.call_count == 1
 
-    for _ in range(4):  # 0.01 (first) + 4 * 0.01 = 0.06 + 0.01(executing) 0.8 will execute
+    for _ in range(8):  # 8 * 0.01 = 0.08 - 1 more time should be executed
         await asyncio.sleep(0.01)
         await asyncio.gather(*[func() for _ in range(10)])
 
-    assert mock.call_count == 1
-
-    for _ in range(60):  # 0.01 (hit) + 60 * 0.001  = 0.07 - next hit
-        await asyncio.sleep(0.001)
-        await asyncio.gather(*[func() for _ in range(10)])
-
-    assert mock.call_count in [3, 4, 5]
+    assert mock.call_count == 2
 
 
 async def test_lock_cache_parallel(backend):

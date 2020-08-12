@@ -31,7 +31,7 @@ async def _get_latency(func, *args, **kwargs) -> float:
     return time.perf_counter() - start
 
 
-async def run(target, test, test_name, iters=1000):
+async def run(target, test, iters=1000):
     try:
         await target.init()
     except (AttributeError, TypeError):
@@ -40,7 +40,10 @@ async def run(target, test, test_name, iters=1000):
     method, key_gen, _options = test
 
     method = getattr(target, method)
+    pre_set = _options.get("init", {}).get("set")
+
     await target.clear()
+    await target.set(pre_set, _options.get("init", {}).get("value", "no_value"))
 
     async def execute():
         options = dict(_options)
@@ -57,8 +60,6 @@ async def run(target, test, test_name, iters=1000):
     latencies = []
     for _ in range(iters):
         latencies.append(await execute())
-    print("-" * 100)
-    print(target, test_name)
     print("      max         ", "         mean        ", "      pstdev       ", )
     print(max(latencies), mean(latencies), pstdev(latencies))
 
@@ -95,14 +96,14 @@ if __name__ == '__main__':
     8) cashews with client side br wrapper and statistic
     """)
     backends = {
-        1: caches.get("default"),
-        2: caches.get("redis_pickle"),
-        3: redis.Redis("redis://localhost/", hash_key=b"test"),
-        4: redis.Redis("redis://localhost/", hash_key=None),
-        5: Cache().setup("redis://localhost/", hash_key=b"f34feyhg;s23", count_stat=True),
-        6: client_side.BcastClientSide("redis://localhost/", hash_key=None),
-        7: client_side.UpdateChannelClientSide("redis://localhost/", hash_key=None),
-        8: Cache().setup("redis://localhost/", hash_key="test", count_stat=True, client_side=True),
+        1: ("aiocache simple", caches.get("default")),
+        2: ("aiocache pickle", caches.get("redis_pickle")),
+        3: ("cashews hash", redis.Redis("redis://localhost/", hash_key=b"f34feyhg;s2")),
+        4: ("cashews no hash", redis.Redis("redis://localhost/", hash_key=None)),
+        5: ("cashews (wrapper) with stats", Cache().setup("redis://localhost/", hash_key=b"f34feyhg;s23", count_stat=True)),
+        6: ("cashews with client side bordcast", client_side.BcastClientSide("redis://localhost/", hash_key=None)),
+        7: ("cashews with client side update channel", client_side.UpdateChannelClientSide("redis://localhost/", hash_key=None)),
+        8: ("cashews full", Cache().setup("redis://localhost/", hash_key="test", count_stat=True, client_side=True)),
     }
     targets = []
     for choice in choices.split():
@@ -123,11 +124,11 @@ if __name__ == '__main__':
         11) get big object
     """)
     _tests = {
-        1: ("get", _key_static, {"pre": "set", "value": object()}),
+        1: ("get", _key_static, {"pre": "set", "value": "test"}),
         2: ("get", _key_random, {"pre": "set", "value": "test"}),
         3: ("get", _key_static, {}),
         4: ("get", _key_random, {}),
-        5: ("set", _key_static, {"value": b"simple"}),
+        5: ("set", _key_static, {"value": list(range(100))}),
         6: ("set", _key_random, {"value": b"simple"}),
         7: ("incr", _key_static, {}),
         8: ("incr", _key_random, {}),
@@ -142,6 +143,8 @@ if __name__ == '__main__':
     iters = int(input("Iters: ") or "1000")
 
     for test in tests:
-        print("--------------------TEST---------------------")
+        print("=" * 100)
+        print(f"TEST = {test}")
         for target in targets:
-            loop.run_until_complete(run(target, test[1], test[0], iters=iters))
+            print(f"-----CACHE NAME = {target[0]}-----")
+            loop.run_until_complete(run(target[1], test[1], iters=iters))

@@ -18,7 +18,7 @@ pylint:
 .PHONY: isort
 isort:
 	@echo -n "Run isort"
-	isort --lines $(LENGTH) -rc cashews tests
+	isort -rc cashews tests
 
 .PHONY: black
 black:

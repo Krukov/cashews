@@ -4,7 +4,6 @@ import string
 import hashlib
 import time
 
-from operator import attrgetter
 from datetime import datetime, timedelta
 import ujson
 
@@ -34,7 +33,6 @@ import jwt
 database = databases.Database("sqlite:///db.sqlite")
 metadata = sqlalchemy.MetaData()
 app = FastAPI()
-
 
 cache.setup(
     "redis://?hash_key=test&safe=True&maxsize=20&create_connection_timeout=0.01", client_side=True, count_stat=False
@@ -133,6 +131,11 @@ async def rate_limit_handler(request, exc: RateLimitException):
     return JSONResponse(status_code=429, content=ujson.dumps({"error": "too much"}),)
 
 
+@app.exception_handler(LockedException)
+async def rate_limit_handler(request, exc: LockedException):
+    return JSONResponse(status_code=500, content=ujson.dumps({"error": "LOCK"}),)
+
+
 @app.get("/")
 @cache(ttl=timedelta(minutes=1))
 async def root():
@@ -179,19 +182,11 @@ class RedisDownException(Exception):
 
 
 @app.get("/rank")
-@cache.fail(
-    ttl=timedelta(minutes=10),
-    exceptions=(CircuitBreakerOpen, RateLimitException, LockedException),
-    key="{accept_language}",
-)
 @mem.fail(
-    ttl=timedelta(minutes=5),
-    exceptions=(CircuitBreakerOpen, RateLimitException, LockedException, RedisDownException),
-    key=("accept_language",),
+    ttl=timedelta(minutes=5), exceptions=(Exception,), key=("accept_language",),
 )
 @cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1))
-@mem.circuit_breaker(errors_rate=10, period=timedelta(minutes=10), ttl=timedelta(minutes=1))
-@cache.early(ttl=timedelta(minutes=1), key="{accept_language}")
+@cache.early(ttl=timedelta(minutes=2), early_ttl=timedelta(minutes=1), key="{accept_language}")
 @cache.locked(key="{accept_language}")
 async def get_rang(accept_language: str = Header("en"), user_agent: str = Header("No")):
     rank = 0
@@ -219,6 +214,7 @@ async def create_data():
 if __name__ == "__main__":
     engine = sqlalchemy.create_engine(str(database.url))
     metadata.create_all(engine)
+    # asyncio.run(create_data())
     import uvicorn
 
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -269,10 +269,23 @@ class Cache(ProxyBackend):
         )
 
     def early(
-        self, ttl: TTL, key: Optional[str] = None, condition: CacheCondition = None, prefix: str = "early",
+        self,
+        ttl: TTL,
+        key: Optional[str] = None,
+        early_ttl: Optional[TTL] = None,
+        condition: CacheCondition = None,
+        prefix: str = "early",
     ):
         return self._wrap_on_enable(
-            prefix, decorators.early(self, ttl=ttl_to_seconds(ttl), key=key, condition=condition, prefix=prefix),
+            prefix,
+            decorators.early(
+                self,
+                ttl=ttl_to_seconds(ttl),
+                key=key,
+                early_ttl=ttl_to_seconds(early_ttl),
+                condition=condition,
+                prefix=prefix,
+            ),
         )
 
     def hit(

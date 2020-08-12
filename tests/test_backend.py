@@ -4,6 +4,7 @@ import sys
 from unittest.mock import Mock
 
 import pytest
+
 from cashews.backends.interface import Backend, ProxyBackend
 from cashews.backends.memory import Memory
 from cashews.backends.redis import Redis

@@ -1,4 +1,5 @@
 import pytest
+
 from cashews.backends.memory import Memory, MemoryInterval
 from cashews.backends.redis import Redis
 from cashews.wrapper import settings_url_parse

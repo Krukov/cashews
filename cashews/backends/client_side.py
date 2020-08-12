@@ -108,7 +108,7 @@ class BcastClientSide(Redis):
         return default
 
     async def set(self, key: str, value, *args, **kwargs):
-        await self._local_cache.set(key, value, *args, **kwargs)
+        await self._local_cache.set(key, value, *args, **kwargs)  # not async by the way
         return await super().set(self._prefix + key, value, *args, **kwargs)
 
     async def get_many(self, *keys):

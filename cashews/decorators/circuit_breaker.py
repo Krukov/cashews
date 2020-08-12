@@ -47,7 +47,7 @@ def circuit_breaker(
             if await backend.is_locked(_cache_key + ":open"):
                 raise CircuitBreakerOpen()
             bucket = _get_bucket_number(period, segments=_SEGMENTS)
-            total_in_bucket = await backend.incr(_cache_key + f":total:{bucket}")
+            total_in_bucket = await backend.incr(_cache_key + f":total:{bucket}") or 0
             if total_in_bucket == 1:
                 await backend.expire(key=_cache_key + f":total:{bucket}", timeout=period)
                 await backend.set(key=_cache_key + ":fails", value=0, expire=period)

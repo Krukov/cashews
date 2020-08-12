@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import time
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional
@@ -15,7 +14,12 @@ logger = logging.getLogger(__name__)
 
 
 def early(
-    backend: Backend, ttl: int, key: Optional[str] = None, condition: CacheCondition = None, prefix: str = "early",
+    backend: Backend,
+    ttl: int,
+    key: Optional[str] = None,
+    early_ttl: Optional[int] = None,
+    condition: CacheCondition = None,
+    prefix: str = "early",
 ):
     """
     Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
@@ -29,9 +33,11 @@ def early(
     :param prefix: custom prefix for key, default 'early'
     """
     store = _get_cache_condition(condition)
+    if early_ttl is None:
+        early_ttl = ttl * 0.33
 
     def _decor(func):
-        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix)}:{ttl}"
+        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix + ':v2')}:{ttl}"
         register_template(func, _key_template)
 
         @wraps(func)
@@ -40,25 +46,25 @@ def early(
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
                 _from_cache.set(_cache_key, ttl=ttl)
-                expire_at, delta, result = cached
-                if expire_at <= datetime.utcnow() and await backend.set(
-                    _cache_key + ":hit", "1", expire=delta.total_seconds(), exist=False
+                early_expire_at, result = cached
+                if early_expire_at <= datetime.utcnow() and await backend.set(
+                    _cache_key + ":hit", "1", expire=early_ttl, exist=False
                 ):
-                    logger.info("Recalculate cache for %s (exp_at %s)", _cache_key, expire_at)
-                    asyncio.create_task(_get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store))
-                    # await asyncio.sleep(0)  # let loop switch to upadete cache
+                    logger.info("Recalculate cache for %s (exp_at %s)", _cache_key, early_expire_at)
+                    asyncio.create_task(
+                        _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, early_ttl, store)
+                    )
                 return result
-            return await _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, store)
+            return await _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, early_ttl, store)
 
         return _wrap
 
     return _decor
 
 
-async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: int, condition):
-    start = time.perf_counter()
+async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: int, early_ttl: int, condition):
     result = await func(*args, **kwargs)
     if condition(result, args, kwargs):
-        delta = timedelta(seconds=max([ttl - (time.perf_counter() - start) * 3, 0]))
-        await backend.set(key, [datetime.utcnow() + delta, delta, result], expire=ttl)
+        early_expire_at = datetime.utcnow() + timedelta(seconds=early_ttl)
+        await backend.set(key, [early_expire_at, result], expire=ttl)
     return result

@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+
 from cashews.backends.redis import Redis
 from cashews.wrapper import Cache
 

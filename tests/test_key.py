@@ -1,6 +1,5 @@
-from operator import attrgetter
-
 import pytest
+
 from cashews.key import get_cache_key, get_cache_key_template, get_template_and_func_for, register_template
 
 

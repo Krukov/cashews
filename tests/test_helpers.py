@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+
 from cashews.backends.interface import Backend
 from cashews.utils import check_speed
 

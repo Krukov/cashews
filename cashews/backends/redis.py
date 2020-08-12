@@ -150,7 +150,7 @@ class _Redis(Redis_):
         try:
             return await super().execute(command, *args, **kwargs)
         except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError):
-            if not self._safe:
+            if not self._safe or command.lower() == "ping":
                 raise
             logger.error("Redis down on command %s", command)
             if command.lower() in [b"unlink", b"del", b"memory"]:

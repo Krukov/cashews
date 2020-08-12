@@ -27,8 +27,7 @@ def locked(
     """
 
     def _decor(func):
-
-        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix)}:{ttl}"
+        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix)}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):

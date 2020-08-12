@@ -78,8 +78,13 @@ class Backend:
     async def lock(self, key, expire):
         identifier = str(uuid.uuid4())
         lock = await self.set_lock(key, identifier, expire=expire)
-        if not lock and await self.ping(b"TEST") == b"TEST":
-            raise LockedException(f"Key {key} already locked")
+        if not lock:
+            try:
+                await self.ping(b"TEST")
+            except Exception:
+                pass
+            else:
+                raise LockedException(f"Key {key} already locked")
         try:
             yield
         finally:
