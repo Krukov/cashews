@@ -3,7 +3,7 @@ import datetime
 import gc
 import re
 import sys
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from typing import Any, Optional, Tuple, Union
 
 from ..key import get_template_and_func_for
@@ -184,7 +184,7 @@ class MemoryInterval(Memory):
 
     async def get_expire(self, key: str) -> int:
         if key in self._meta:
-            return abs(float((datetime.datetime.utcnow() - self._meta[key]).total_seconds()))
+            return abs(int((datetime.datetime.utcnow() - self._meta[key]).total_seconds()))
         return -1
 
     async def clear(self):

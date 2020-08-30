@@ -37,7 +37,7 @@ def early(
         early_ttl = ttl * 0.33
 
     def _decor(func):
-        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix + ':v2')}:{ttl}"
+        _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
         register_template(func, _key_template)
 
         @wraps(func)
@@ -45,7 +45,7 @@ def early(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                _from_cache.set(_cache_key, ttl=ttl)
+                _from_cache.set(_cache_key, ttl=ttl, name="early", backend=backend.__class__.__name__)
                 early_expire_at, result = cached
                 if early_expire_at <= datetime.utcnow() and await backend.set(
                     _cache_key + ":hit", "1", expire=early_ttl, exist=False

@@ -24,7 +24,7 @@ def cache(
     store = _get_cache_condition(condition)
 
     def _decor(func):
-        _key_template = f"{get_cache_key_template(func, key=key, prefix=prefix)}:{ttl}"
+        _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 
         @wraps(func)
@@ -32,7 +32,7 @@ def cache(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                _from_cache.set(_cache_key, ttl=ttl)
+                _from_cache.set(_cache_key, ttl=ttl, name="simple", backend=backend.__class__.__name__)
                 return cached
             result = await func(*args, **kwargs)
             if store(result, args, kwargs):

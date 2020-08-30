@@ -21,7 +21,7 @@ There are a few advance techniques with cache and async programming that can hel
 - Support Multi backend ([Memory](#memory), [Redis](#redis))
 - Can cache any objects securely with pickle (use [hash key](#redis)). 
 - Simple configuring and API
-- cache invalidation autosystem and API 
+- cache invalidation avtosystem and API 
 - Cache usage detection API
 - Client Side cache
 - Stats for usage
@@ -102,7 +102,6 @@ cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_time
 Typical cache strategy: execute, store and return cached value till expiration::
 
 ```python
-
 from cashews import cache
 from datetime import timedelta
 
@@ -114,10 +113,7 @@ async def long_running_function(arg, kward):
 
 ### Fail cache
 Return cache result (at list 1 call of function call should be succeed) if call raised one of the given exceptions,
-    
 
-Example
--------
 ```python
 from cashews import cache  # or from cashews import fail
 
@@ -130,8 +126,6 @@ async def get(name):
 ### Hit cache
 Cache call results and drop cache after given numbers of call 'cache_hits'
 
-Example
--------
 ```python
 from cashews import cache  # or from cashews import hit
 
@@ -142,7 +136,6 @@ async def get(name):
 
 ### Performance downgrade detection
 Trace time execution of target and throw exception if it downgrade to given condition
-
 
 ```python
 from cashews import cache   # or from cashews import perf
@@ -156,10 +149,9 @@ async def get(name):
 ### Locked
 Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
 Lock following function calls till first one will be finished
-Can guarantee that one function call for given ttl, if ttl is None
+Can guarantee that one function call for given ttl
 
 ```python
-
 from cashews import cache  # or from cashews import locked
 
 @cache.locked(ttl=timedelta(minutes=10))
@@ -170,13 +162,13 @@ async def get(name):
 
 ### Early
 Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
-With a hot cache recalculate a result in background near expiration time
+With a hot cache recalculate a result in a background 
 Warning! Not good at cold cache
 
 ```python
 from cashews import cache  # or from cashews import early
 
-@cache.early(ttl=timedelta(minutes=10))
+@cache.early(ttl=timedelta(minutes=10), early_ttl=timedelta(minutes=7))  # if you call this function after 7 min, cache will be updated in a backgound 
 async def get(name):
     value = await api_call()
     return {"status": value}
@@ -184,7 +176,6 @@ async def get(name):
 
 ### Rate limit 
 Rate limit for function call. Do not call function if rate limit is reached, and call given action
-
 
 ```python
 from cashews import cache  # or from cashews import rate_limit
@@ -246,8 +237,8 @@ async def user_items(user_id, fresh=False):
 async def items(page=1):
     ...
 
-@cashews.cache_utils.invalidate.invalidate("module:items:page:*")  # the same as @cache.invalidate(items)
-@cashews.cache_utils.invalidate.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh"; True})
+@cache.invalidate("module:items:page:*")  # the same as @cache.invalidate(items)
+@cache.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh"; True})
 async def create_item(user):
    ...
 ```
@@ -300,7 +291,7 @@ async def get_user(user_id):
 
 ##Detect source of a result
 Decorators give to us very simple api but it makes difficult to understand what led to this result - cache or direct call
-To solve this problem cashews have a simple API:
+To solve this problem cashews have a next API:
 ```python
 from cashews import context_cache_detect
 
