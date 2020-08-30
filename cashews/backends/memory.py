@@ -3,7 +3,7 @@ import datetime
 import gc
 import re
 import sys
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict, defaultdict
 from typing import Any, Optional, Tuple, Union
 
 from ..key import get_template_and_func_for
