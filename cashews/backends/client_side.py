@@ -32,14 +32,14 @@ problem with own pubsub with new values  - big size of of messages
 """
 
 import asyncio
-import datetime
 import json
 import pickle
 import uuid
+from datetime import datetime, timedelta
 
 import aioredis
 
-from .memory import MemoryInterval
+from .memory import Memory
 from .redis import Redis
 
 _OWN_CHAN = "_cashews:client:side"
@@ -60,7 +60,7 @@ class BcastClientSide(Redis):
     """
 
     def __init__(self, *args, local_cache=None, prefix=_DEFAULT_PREFIX, **kwargs):
-        self._local_cache = MemoryInterval() if local_cache is None else local_cache
+        self._local_cache = Memory() if local_cache is None else local_cache
         self._prefix = prefix
         self.__listen_task = None
         super().__init__(*args, **kwargs)
@@ -156,7 +156,7 @@ class UpdateChannelClientSide(Redis):
     """
 
     def __init__(self, *args, local_cache=None, **kwargs):
-        self._local_cache = MemoryInterval() if local_cache is None else local_cache
+        self._local_cache = Memory() if local_cache is None else local_cache
         self._publish_queue = asyncio.Queue()
         self.__virtual_client_id = str(uuid.uuid4())
         self.__tasks = []
@@ -190,7 +190,8 @@ class UpdateChannelClientSide(Redis):
             return await self._local_cache.set(key, value, expire=30)
             # we set expire 30 because we expect message about exp next after set
         if event == "exp":
-            return self._local_cache._set_expire_at(key, datetime.datetime.fromtimestamp(data))
+            print("EXP", data - datetime.utcnow().timestamp())
+            return await self._local_cache.expire(key, data - datetime.utcnow().timestamp())
 
     async def _publish_worker(self):
         conn = aioredis.Redis(await self.connection.acquire())
@@ -214,9 +215,7 @@ class UpdateChannelClientSide(Redis):
         await self._local_cache.set(key, value, *args, expire=expire, **kwargs)
         self._publish_key_event(key, "set", value)
         if expire:
-            self._publish_key_event(
-                key, "exp", (datetime.datetime.utcnow() + datetime.timedelta(seconds=expire)).timestamp()
-            )
+            self._publish_key_event(key, "exp", (datetime.utcnow() + timedelta(seconds=expire)).timestamp())
         return await super().set(key, value, *args, expire=expire, **kwargs)
 
     async def delete(self, key: str):

@@ -1,9 +1,8 @@
 from datetime import timedelta
 
+from cashews import mem
 from fastapi import FastAPI, Header
 from starlette.testclient import TestClient
-
-from cashews import mem
 
 app = FastAPI()
 

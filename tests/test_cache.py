@@ -3,7 +3,6 @@ import os
 from unittest.mock import Mock
 
 import pytest
-
 from cashews import decorators
 from cashews.backends.memory import Backend, Memory
 from cashews.backends.redis import Redis

@@ -1,6 +1,5 @@
 import pytest
-
-from cashews.backends.memory import Memory, MemoryInterval
+from cashews.backends.memory import Memory
 from cashews.backends.redis import Redis
 from cashews.wrapper import settings_url_parse
 
@@ -9,7 +8,7 @@ from cashews.wrapper import settings_url_parse
     ("url", "params"),
     (
         ("mem://", {"backend": Memory}),
-        ("mem://?size=10&check_interval=0.01", {"backend": MemoryInterval, "size": 10, "check_interval": 0.01}),
+        ("mem://?size=10&check_interval=0.01", {"backend": Memory, "size": 10, "check_interval": 0.01}),
         ("redis://localhost:9000/0", {"backend": Redis, "address": "redis://localhost:9000/0"}),
         ("redis://password@localhost:9000", {"backend": Redis, "address": "redis://password@localhost:9000"}),
         (

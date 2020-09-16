@@ -7,7 +7,7 @@ from urllib.parse import parse_qsl, urlparse
 from . import decorators, validation
 from .backends.client_side import BcastClientSide, UpdateChannelClientSide
 from .backends.interface import Backend, ProxyBackend
-from .backends.memory import Memory, MemoryInterval
+from .backends.memory import Memory
 from .backends.redis import Redis
 from .helpers import _auto_init, _is_disable_middleware
 from .key import ttl_to_seconds
@@ -394,6 +394,4 @@ def settings_url_parse(url):
         params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()
     elif parse_result.scheme == "mem":
         params["backend"] = Memory
-        if params.get("check_interval"):
-            params["backend"] = MemoryInterval
     return params

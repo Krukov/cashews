@@ -5,7 +5,6 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-
 from cashews.backends.redis import Redis
 from cashews.serialize import PickleSerializerMixin, UnSecureDataError
 
