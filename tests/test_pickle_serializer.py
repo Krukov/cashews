@@ -183,3 +183,8 @@ async def test_data_change(cache):
     # IN key class of data have changed so it should be invalid
     value = await cache.get("key")
     assert value is None
+
+
+async def test_get_set_row(cache):
+    await cache.set_row("key", b"test")
+    assert await cache.get_row("key") == b"test"

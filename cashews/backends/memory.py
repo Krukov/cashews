@@ -3,7 +3,7 @@ import datetime
 import gc
 import re
 import sys
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from typing import Any, Optional, Tuple, Union
 
 from ..key import get_template_and_func_for
@@ -37,8 +37,14 @@ class Memory(Backend):
             self._set(key, value, expire)
         return True
 
+    def set_row(self, key: str, value: Any, **kwargs):
+        self.store[key] = value
+
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
         return self._get(key, default=default)
+
+    def get_row(self, key: str):
+        return self.store.get(key)
 
     async def get_many(self, *keys: str) -> Tuple:
         return tuple([self._get(key) for key in keys])
