@@ -94,8 +94,7 @@ async def test_set_get_custom_chan(create_cache):
     await asyncio.sleep(0.05)  #  wait cache update
     assert await cachef_local.get("key") == b"value"
     assert await caches_local.get("key") == b"value"
-    assert await caches_local.get_expire("key") < 0.05
-    assert await caches_local.get_expire("key") > 0.03
+    assert await caches_local.get_expire("key") == 0
     assert await cachef.get("key") == b"value"
     assert await caches.get("key") == b"value"
     assert await cachef_local.get("key") == b"value"

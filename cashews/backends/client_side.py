@@ -91,7 +91,10 @@ class BcastClientSide(Redis):
     async def _listen_invalidate(self):
         channel = await self._get_channel()
         while await channel.wait_message():
-            key, *_ = await channel.get()
+            message = await channel.get()
+            if message is None:
+                continue
+            key, *_ = message
             if key == b"\x00":
                 continue
             key = key.decode().replace(self._prefix, "")
@@ -172,6 +175,8 @@ class UpdateChannelClientSide(Redis):
     async def _listen_invalidate(self, channel: aioredis.Channel):
         while await channel.wait_message():
             message = await channel.get()
+            if message is None:
+                continue
             message = json.loads(message)
             if message["source"] == self.__virtual_client_id:
                 continue

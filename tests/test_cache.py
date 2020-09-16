@@ -37,7 +37,6 @@ async def test_fail_cache_simple(backend):
         return b"ok"
 
     assert await func() == b"ok"
-    await asyncio.sleep(0.001)
     assert await func(fail=True) == b"ok"
 
     await asyncio.sleep(EXPIRE * 1.1)
