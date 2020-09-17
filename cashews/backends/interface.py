@@ -26,13 +26,13 @@ class Backend:
     ) -> bool:
         ...
 
-    def set_row(self, key: str, value: Any, **kwargs):
+    async def set_row(self, key: str, value: Any, **kwargs):
         ...
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
         ...
 
-    def get_row(self, key: str) -> Any:
+    async def get_row(self, key: str) -> Any:
         ...
 
     async def get_many(self, *keys: str) -> Tuple[Any]:
