@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 from unittest.mock import Mock
 
 import pytest
@@ -123,7 +124,10 @@ async def test_delete_match(cache: Backend):
 
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
-    assert await cache.get_size("test") in (106, 66)  # 106 - ordered dict,  66 redis
+    assert await cache.get_size("test") in (
+        sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),
+        66,
+    )  # 106 - ordered dict,  66 redis
 
 
 async def test_get_count_stat(cache: Backend):

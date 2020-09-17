@@ -1,5 +1,4 @@
 import asyncio
-import datetime
 import gc
 import re
 import sys

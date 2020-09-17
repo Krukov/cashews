@@ -190,7 +190,6 @@ class UpdateChannelClientSide(Redis):
             return await self._local_cache.set(key, value, expire=30)
             # we set expire 30 because we expect message about exp next after set
         if event == "exp":
-            print("EXP", data - datetime.utcnow().timestamp())
             return await self._local_cache.expire(key, data - datetime.utcnow().timestamp())
 
     async def _publish_worker(self):
