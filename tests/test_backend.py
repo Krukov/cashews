@@ -4,7 +4,6 @@ import sys
 from unittest.mock import Mock
 
 import pytest
-
 from cashews.backends.interface import Backend, ProxyBackend
 from cashews.backends.memory import Memory
 from cashews.backends.redis import Redis
@@ -69,6 +68,14 @@ async def test_expire(cache):
     assert await cache.get("key") is None
 
 
+async def test_get_set_expire(cache):
+    await cache.set("key", b"value")
+    assert await cache.get("key") == b"value"
+    assert await cache.get_expire("key") == -1
+    await cache.expire("key", 1)
+    assert await cache.get_expire("key") == 1
+
+
 @pytest.mark.parametrize(
     ("method", "args", "defaults"),
     (
@@ -117,7 +124,10 @@ async def test_delete_match(cache: Backend):
 
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
-    assert await cache.get_size("test") in (sys.getsizeof(b"1"), 66)  # 66 redis
+    assert await cache.get_size("test") in (
+        sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),
+        66,
+    )  # 106 - ordered dict,  66 redis
 
 
 async def test_get_count_stat(cache: Backend):
@@ -129,3 +139,26 @@ async def test_get_count_stat(cache: Backend):
     await cache.get("my:miss")
 
     assert await cache.get_counters("my:*") == {"hit": 1, "set": 1, "miss": 1}
+
+
+async def test_lru():
+    cache = Memory(size=10)
+    # full cache
+    for i in range(10):
+        await cache.set(f"key:{i}", i)
+
+    # use only 5 first
+    for i in range(5):
+        await cache.get(f"key:{i}")
+
+    # add 5 more keys
+    for i in range(5):
+        await cache.set(f"key:{i}:new", i)
+
+    assert len(cache.store) == 10
+
+    for i in range(5):
+        assert await cache.get(f"key:{i}") == i
+
+    for i in range(6, 10):
+        assert await cache.get(f"key:{i}") == None

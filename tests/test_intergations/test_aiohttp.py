@@ -2,7 +2,6 @@ from datetime import timedelta
 
 import pytest
 from aiohttp import web
-
 from cashews import mem
 
 pytestmark = pytest.mark.asyncio

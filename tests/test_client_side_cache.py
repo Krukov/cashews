@@ -2,9 +2,8 @@ import asyncio
 import os
 
 import pytest
-
 from cashews.backends.client_side import BcastClientSide, UpdateChannelClientSide
-from cashews.backends.memory import Memory, MemoryInterval
+from cashews.backends.memory import Memory
 
 pytestmark = pytest.mark.asyncio
 REDIS_TESTS = bool(os.environ.get("USE_REDIS"))
@@ -85,7 +84,7 @@ async def test_rewrite_bcast(create_cache):
 async def test_set_get_custom_chan(create_cache):
     cachef_local = Memory()
     cachef = await create_cache(UpdateChannelClientSide, cachef_local)
-    caches_local = MemoryInterval()
+    caches_local = Memory()
     caches = await create_cache(UpdateChannelClientSide, caches_local)
     caches._pool_or_conn.get = None
 
@@ -110,7 +109,7 @@ async def test_set_get_custom_chan(create_cache):
 async def test_set_get_del_custom_chan_serialize(create_cache):
     cachef_local = Memory()
     cachef = await create_cache(UpdateChannelClientSide, cachef_local)
-    caches_local = MemoryInterval()
+    caches_local = Memory()
     caches = await create_cache(UpdateChannelClientSide, caches_local)
     value = {"my": None}
     await cachef.set("key", value)

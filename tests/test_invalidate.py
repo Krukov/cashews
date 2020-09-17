@@ -2,7 +2,6 @@ import asyncio
 import random
 
 import pytest
-
 from cashews import Cache
 from cashews.validation import invalidate_func, set_invalidate_further
 
