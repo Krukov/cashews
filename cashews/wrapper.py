@@ -17,14 +17,14 @@ from .typing import TTL, CacheCondition
 
 
 class Cache(ProxyBackend):
-    def __init__(self):
+    def __init__(self, name=None):
         self.__init = False
         self.__address = None
         self._kwargs = {}
         self.__disable = ContextVar(str(id(self)), default=[])
         self._set_disable(False)
         self.middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
-        super().__init__()
+        super().__init__(name=name)
 
     @property
     def _disable(self) -> List:
@@ -230,7 +230,7 @@ class Cache(ProxyBackend):
 
     invalidate_func = validation.invalidate_func
 
-    def fail(
+    def failover(
         self,
         ttl: TTL,
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
@@ -240,10 +240,12 @@ class Cache(ProxyBackend):
     ):
         return self._wrap_on_enable_with_fail_disable(
             prefix,
-            decorators.fail(
+            decorators.failover(
                 self, ttl=ttl_to_seconds(ttl), exceptions=exceptions, key=key, condition=condition, prefix=prefix,
             ),
         )
+
+    fail = failover
 
     def circuit_breaker(
         self,

@@ -86,6 +86,7 @@ async def test_simple_cmd_bcast(create_cache):
     cache = await create_cache(BcastClientSide, local)
 
     await cache.set("key:1", "test", 1)
+    await asyncio.sleep(0.05)  # skip init signal about invalidation
     assert await cache.get("key:1") == "test"
 
     await cache.incr("key:2")

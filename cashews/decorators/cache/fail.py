@@ -6,10 +6,10 @@ from ...key import get_cache_key, get_cache_key_template, register_template
 from ...typing import CacheCondition
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
-__all__ = ("fail",)
+__all__ = ("failover",)
 
 
-def fail(
+def failover(
     backend: Backend,
     ttl: int,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
@@ -40,7 +40,7 @@ def fail(
             except exceptions as exc:
                 cached = await backend.get(_cache_key, default=_empty)
                 if cached is not _empty:
-                    _from_cache.set(_cache_key, ttl=ttl, exc=exc, name="fail", backend=backend.__class__.__name__)
+                    _from_cache.set(_cache_key, ttl=ttl, exc=exc, name="fail", backend=backend.name)
                     return cached
                 raise exc
             else:

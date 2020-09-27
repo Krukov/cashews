@@ -75,14 +75,11 @@ Also read about dynamic disabling at [simple cache](#simple-cache) section
 ### Backends
 
 #### Memory
-Store values in a dict, have 2 strategies to expire keys: 
-deferred task to remove key, can overload loop by big amount of async tasks, that's why use strategy with storing expiration time is prefer
-This strategy check expiration on 'get' and periodically purge expired keys
-Also size of memory cache limit with size parameter (default 1000):
+Store values in a LRU dict with given size (default 1000). Check expiration on 'get' and periodically purge expired keys
 
 ```python
-cache.setup("mem://?size=500")
-cache.setup("mem://?check_interval=10&size=10000") # using strategy with expiration store, we increase check_interval be
+cache.setup("mem://")
+cache.setup("mem://?check_interval=10&size=10000")
 ```
 #### Redis
 Required aioredis package
@@ -111,7 +108,7 @@ async def long_running_function(arg, kward):
 ```
 
 
-### Fail cache
+### Fail cache (Failover cache)
 Return cache result (at list 1 call of function call should be succeed) if call raised one of the given exceptions,
 
 ```python
@@ -289,7 +286,7 @@ async def get_user(user_id):
     return User("Dima", "Krykov")
 ```
 
-##Detect source of a result
+### Detect source of a result
 Decorators give to us very simple api but it makes difficult to understand what led to this result - cache or direct call
 To solve this problem cashews have a next API:
 ```python

@@ -29,7 +29,7 @@ async def backend():
 
 
 async def test_fail_cache_simple(backend):
-    @decorators.fail(backend, ttl=EXPIRE, exceptions=CustomError, key="fail")
+    @decorators.failover(backend, ttl=EXPIRE, exceptions=CustomError, key="fail")
     async def func(fail=False):
         if fail:
             raise CustomError()

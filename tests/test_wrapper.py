@@ -222,7 +222,7 @@ async def test_smoke_cmds(cache: Cache, target):
 
 async def test_disable_cache_on_fail_return(cache: Cache):
     @cache(ttl=0.05, key="cache")
-    @cache.fail(ttl=1, key="fail")
+    @cache.failover(ttl=1, key="fail")
     async def func(fail=False):
         if fail:
             raise Exception()

@@ -45,7 +45,7 @@ def early(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                _from_cache.set(_cache_key, ttl=ttl, name="early", backend=backend.__class__.__name__)
+                _from_cache.set(_cache_key, ttl=ttl, name="early", backend=backend.name)
                 early_expire_at, result = cached
                 if early_expire_at <= datetime.utcnow() and await backend.set(
                     _cache_key + ":hit", "1", expire=early_ttl, exist=False

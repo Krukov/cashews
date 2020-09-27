@@ -11,9 +11,10 @@ from .validation import set_invalidate_further  # noqa
 from .wrapper import Cache  # noqa
 
 # pylint: disable=invalid-name
-cache = Cache()
+cache = Cache(name="default")
 rate_limit = cache.rate_limit
-fail = cache.fail
+fail = cache.failover
+failover = cache.failover
 circuit_breaker = cache.circuit_breaker
 early = cache.early
 hit = cache.hit
@@ -24,7 +25,7 @@ invalidate = cache.invalidate
 invalidate_func = cache.invalidate_func
 
 
-mem = Cache()
+mem = Cache(name="mem")
 mem.setup(
     "mem://?check_interval=1", size=1_000_000,
 )  # 1_000_000 * 248(size of small dict) == 31 mb

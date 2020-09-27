@@ -12,6 +12,8 @@ class LockedException(Exception):
 
 
 class Backend:
+    name: str = ""
+
     def __init__(self, *args, **kwargs):
         ...
 
@@ -101,7 +103,9 @@ class Backend:
 
 
 class ProxyBackend(Backend):
-    def __init__(self, target=None):
+    def __init__(self, target=None, name=None):
+        if name:
+            self.name = name
         self._target = target
         super().__init__()
 
