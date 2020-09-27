@@ -110,6 +110,9 @@ class _Redis(Redis_):
     def delete(self, key):
         return self.unlink(key)
 
+    def exists(self, key) -> bool:
+        return super().exists(key)
+
     async def keys_match(self, pattern: str):
         cursor = b"0"
         while cursor:

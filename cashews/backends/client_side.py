@@ -97,7 +97,7 @@ class BcastClientSide(Redis):
             key, *_ = message
             if key == b"\x00":
                 continue
-            key = key.decode().replace(self._prefix, "")
+            key = key.decode().lstrip(self._prefix)
             await self._local_cache.delete(key)
 
     async def get(self, key: str, default=None):
@@ -128,6 +128,10 @@ class BcastClientSide(Redis):
         await self._local_cache.delete(key)
         return await super().delete(self._prefix + key)
 
+    async def delete_match(self, pattern: str):
+        await self._local_cache.delete_match(pattern)
+        return await super().delete_match(self._prefix + pattern)
+
     async def expire(self, key, timeout):
         await self._local_cache.expire(key, timeout)
         return await super().expire(self._prefix + key, timeout)
@@ -137,14 +141,17 @@ class BcastClientSide(Redis):
             return await self._local_cache.get_expire(key)
         return await super().get_expire(self._prefix + key)
 
+    async def exists(self, key) -> bool:
+        return await self._local_cache.exists(key) or await super().exists(self._prefix + key)
+
     async def clear(self):
         await self._local_cache.clear()
         return await super().clear()
 
-    async def close(self):
+    def close(self):
         if self.__listen_task is not None:
             self.__listen_task.cancel()
-        await super().close()
+        super().close()
 
 
 class UpdateChannelClientSide(Redis):

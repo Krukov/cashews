@@ -1,3 +1,4 @@
+import random
 from datetime import datetime
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
@@ -19,6 +20,7 @@ def circuit_breaker(
     errors_rate: int,
     period: int,
     ttl: int,
+    half_open_ttl: Optional[int] = None,
     min_calls: int = 10,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
@@ -45,6 +47,10 @@ def circuit_breaker(
         async def _wrap(*args, **kwargs):
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             if await backend.is_locked(_cache_key + ":open"):
+                if half_open_ttl:
+                    await backend.set(_cache_key + ":halfopen", value=1, expire=half_open_ttl)
+                raise CircuitBreakerOpen()
+            if await backend.exists(_cache_key + ":halfopen") and random.randint(0, 1):
                 raise CircuitBreakerOpen()
             bucket = _get_bucket_number(period, segments=_SEGMENTS)
             total_in_bucket = await backend.incr(_cache_key + f":total:{bucket}") or 0
@@ -59,7 +65,7 @@ def circuit_breaker(
                 fails = await backend.incr(_cache_key + ":fails")
                 total = total_in_bucket + await _get_buckets_values(backend, segments=_SEGMENTS, except_number=bucket)
                 if fails * 100 / total >= errors_rate:
-                    await backend.set_lock(_cache_key + ":open", "1", expire=ttl)
+                    await backend.set_lock(_cache_key + ":open", value=1, expire=ttl)
                 raise
 
         return _wrap

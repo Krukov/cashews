@@ -216,6 +216,9 @@ async def test_smoke_cmds(cache: Cache, target):
     await cache.unlock("key", "value")  # -> bool
     target.unlock.assert_called_once_with(key="key", value="value")
 
+    await cache.exists("key")
+    target.exists.assert_called_once_with("key")
+
 
 async def test_disable_cache_on_fail_return(cache: Cache):
     @cache(ttl=0.05, key="cache")

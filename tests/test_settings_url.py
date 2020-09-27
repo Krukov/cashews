@@ -27,6 +27,7 @@ from cashews.wrapper import settings_url_parse
                 "create_connection_timeout": 0.1,
             },
         ),
+        ("redis://localhost:9000?", {"backend": Redis, "address": "redis://localhost:9000"}),
     ),
 )
 def test_url(url, params):

@@ -44,7 +44,7 @@ async def test_fail_cache_simple(backend):
 
 
 async def test_circuit_breaker_simple(backend):
-    @decorators.circuit_breaker(backend, ttl=EXPIRE * 10, errors_rate=5, period=1, key="test")
+    @decorators.circuit_breaker(backend, ttl=EXPIRE * 10, min_calls=10, errors_rate=5, period=1, key="test")
     async def func(fail=False):
         if fail:
             raise CustomError()
@@ -62,6 +62,40 @@ async def test_circuit_breaker_simple(backend):
 
     with pytest.raises(decorators.CircuitBreakerOpen):
         await func(fail=False)
+
+
+async def test_circuit_breaker_half_open(backend):
+    @decorators.circuit_breaker(
+        backend, ttl=EXPIRE, half_open_ttl=0.1, errors_rate=1, min_calls=0, period=1, key="test"
+    )
+    async def func(fail=False):
+        if fail:
+            raise CustomError()
+        return b"ok"
+
+    with pytest.raises(CustomError):
+        await func(fail=True)
+
+    with pytest.raises(decorators.CircuitBreakerOpen):
+        await func(fail=True)
+
+    await asyncio.sleep(EXPIRE)
+
+    errors = 0
+    success = 0
+    for _ in range(100):
+        try:
+            await func(fail=False)
+        except decorators.CircuitBreakerOpen:
+            errors += 1
+        else:
+            success += 1
+    assert success > 0
+    assert errors > 0
+    assert success + errors == 100
+
+    await asyncio.sleep(0.1)
+    assert await func() == b"ok"
 
 
 async def test_cache_simple(backend):

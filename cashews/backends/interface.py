@@ -38,6 +38,9 @@ class Backend:
     async def get_many(self, *keys: str) -> Tuple[Any]:
         ...
 
+    async def exists(self, key) -> bool:
+        ...
+
     async def keys_match(self, pattern: str):
         ...
 
@@ -116,6 +119,9 @@ class ProxyBackend(Backend):
 
     def get_many(self, *keys: str) -> Tuple[Any]:
         return self._target.get_many(keys)
+
+    def exists(self, key):
+        return self._target.exists(key)
 
     def incr(self, key: str) -> int:
         return self._target.incr(key)

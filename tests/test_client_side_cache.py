@@ -81,6 +81,32 @@ async def test_rewrite_bcast(create_cache):
 
 
 @pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
+async def test_simple_cmd_bcast(create_cache):
+    local = Memory()
+    cache = await create_cache(BcastClientSide, local)
+
+    await cache.set("key:1", "test", 1)
+    assert await cache.get("key:1") == "test"
+
+    await cache.incr("key:2")
+    assert await cache.get("key:2") == 1
+    await cache.delete("key:2")
+    assert await cache.get("key:2") is None
+    assert await local.get("key:2") is None
+
+    assert await cache.get("key:1") == "test"
+    await cache.expire("key:1", 1)
+    assert await cache.get_expire("key:1") > 0
+    assert await local.get_expire("key:1") > 0
+
+    assert await cache.delete_match("key:*")
+    assert await cache.get("key:1") is None
+    assert await local.get("key:1") is None
+    await cache.clear()
+    cache.close()
+
+
+@pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
 async def test_set_get_custom_chan(create_cache):
     cachef_local = Memory()
     cachef = await create_cache(UpdateChannelClientSide, cachef_local)

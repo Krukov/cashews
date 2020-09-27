@@ -61,6 +61,12 @@ async def test_ping(cache):
     assert await cache.ping() == b"PONG"
 
 
+async def test_exists(cache):
+    assert not await cache.exists("not")
+    await cache.set("yes", "1")
+    assert await cache.exists("yes")
+
+
 async def test_expire(cache):
     await cache.set("key", b"value", expire=0.01)
     assert await cache.get("key") == b"value"
@@ -80,8 +86,11 @@ async def test_get_set_expire(cache):
     ("method", "args", "defaults"),
     (
         ("get", ("key",), {"default": None}),
+        ("get_row", ("key",), None),
         ("set", ("key", "value"), {"exist": None, "expire": None}),
+        ("set_row", ("key", "value"), None),
         ("incr", ("key",), None),
+        ("exists", ("key",), None),
         ("delete", ("key",), None),
         ("expire", ("key", 10), None),
         ("ping", (), None),

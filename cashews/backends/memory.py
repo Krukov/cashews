@@ -69,6 +69,9 @@ class Memory(Backend):
         self._set(key=key, value=value)
         return value
 
+    async def exists(self, key: str):
+        return self._key_exist(key)
+
     async def delete(self, key: str):
         return self._delete(key)
 
