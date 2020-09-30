@@ -83,9 +83,9 @@ class Cache(ProxyBackend):
             self._set_disable(params.pop("disable"))
         else:
             self._set_disable(not params.pop("enable", True))
-        if "client_side" in params and params["client_side"]:
 
-            client_side = params.pop("client_side")
+        client_side = params.pop("client_side", None)
+        if client_side:
             params["backend"] = BcastClientSide
             if client_side == "update":
                 params["backend"] = UpdateChannelClientSide
