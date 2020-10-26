@@ -1,10 +1,7 @@
 import uuid
 from typing import Any, Optional, Tuple, Union
 
-try:
-    from contextlib import asynccontextmanager
-except ImportError:  # python 3.6
-    from async_generator import asynccontextmanager
+from contextlib import asynccontextmanager
 
 
 class LockedException(Exception):
@@ -18,6 +15,9 @@ class Backend:
         ...
 
     async def init(self):
+        ...
+
+    def is_init(self):
         ...
 
     async def close(self):
@@ -108,6 +108,10 @@ class ProxyBackend(Backend):
             self.name = name
         self._target = target
         super().__init__()
+
+    @property
+    def is_init(self):
+        return self._target.is_init
 
     def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None) -> bool:
         return self._target.set(key, value, expire=expire, exist=exist)

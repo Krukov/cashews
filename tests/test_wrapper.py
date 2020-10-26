@@ -144,9 +144,12 @@ async def test_init(cache):
 
 
 @pytest.mark.asyncio
-async def test_auto_init(cache, target):
-    await cache.ping()
-    target.init.assert_called_once()
+async def test_auto_init(cache):
+    target = Memory()
+    cache._target = target
+    assert not target.is_init
+    assert b"PONG" == await cache.ping()
+    assert target.is_init
 
 
 @pytest.mark.asyncio

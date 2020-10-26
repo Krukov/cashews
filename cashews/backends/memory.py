@@ -24,10 +24,16 @@ class Memory(Backend):
         self.size = size
         self._count_stat = count_stat
         self._counters = defaultdict(lambda: {"hit": 0, "miss": 0, "set": 0})
+        self.__is_init = False
         super().__init__()
 
     async def init(self):
+        self.__is_init = True
         asyncio.create_task(self._remove_expired())
+
+    @property
+    def is_init(self):
+        return self.__is_init
 
     async def _remove_expired(self):
         while True:

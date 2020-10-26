@@ -18,7 +18,6 @@ from .typing import TTL, CacheCondition
 
 class Cache(ProxyBackend):
     def __init__(self, name=None):
-        self.__init = False
         self.__address = None
         self._kwargs = {}
         self.__disable = ContextVar(str(id(self)), default=[])
@@ -36,10 +35,6 @@ class Cache(ProxyBackend):
         elif value is False:
             value = []
         self.__disable.set(value)
-
-    @property
-    def is_init(self):
-        return self.__init
 
     def is_disable(self, *cmds: str) -> bool:
         _disable = self._disable
@@ -97,18 +92,13 @@ class Cache(ProxyBackend):
         if self._target:
             asyncio.create_task(self._target.close())
         self._target = backend(**kwargs)
-        self.__init = False
 
     async def init(self, *args, **kwargs):
-        self.setup(*args, **kwargs)
-        await self._init()
-
-    async def _init(self):
+        if args or kwargs:
+            self.setup(*args, **kwargs)
         if self.is_disable():
             return None
-        if not self.__init:
-            await self._target.init()
-        self.__init = True
+        await self._target.init()
 
     def _with_middlewares(self, cmd: str, target):
         call = target

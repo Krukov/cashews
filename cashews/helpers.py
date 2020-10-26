@@ -12,7 +12,7 @@ async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
 
 async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
     if not backend.is_init:
-        await backend._init()
+        await backend.init()
     return await call(*args, **kwargs)
 
 
