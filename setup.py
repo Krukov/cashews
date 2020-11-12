@@ -1,3 +1,3 @@
 from setuptools import setup
 
-setup(name='cashews')
+setup(name="cashews")

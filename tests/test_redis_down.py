@@ -33,7 +33,7 @@ async def test_safe_redis():
 async def test_cache_decorators_on_redis_down():
     mock = Mock(return_value="val")
     cache = Cache()
-    cache._setup_backend(Redis, safe=True, address="redis://localhost:9223", hash_key=None)
+    cache._add_backend(Redis, safe=True, address="redis://localhost:9223", hash_key=None)
 
     @cache(ttl=1)
     @cache.fail(1)

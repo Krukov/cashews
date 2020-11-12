@@ -1,171 +1,154 @@
-import asyncio
 from contextvars import ContextVar
 from functools import partial, wraps
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
 from . import decorators, validation
-from .backends.client_side import BcastClientSide, UpdateChannelClientSide
-from .backends.interface import Backend, ProxyBackend
+from .backends.client_side import BcastClientSide
+from .backends.interface import Backend
 from .backends.memory import Memory
 from .backends.redis import Redis
-from .helpers import _auto_init, _is_disable_middleware
+from .disable_control import ControlMixin, _is_disable_middleware
 from .key import ttl_to_seconds
 from .typing import TTL, CacheCondition
 
 #  pylint: disable=too-many-public-methods
 
 
-class Cache(ProxyBackend):
+async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
+    if not backend.is_init:
+        await backend.init()
+    return await call(*args, **kwargs)
+
+
+class Cache(Backend):
+    default_prefix = ""
+
     def __init__(self, name=None):
-        self.__address = None
-        self._kwargs = {}
-        self.__disable = ContextVar(str(id(self)), default=[])
-        self._set_disable(False)
-        self.middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
-        super().__init__(name=name)
+        self._backends = {}
+        self._default_middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
+        self._name = name
+        self.__decorators_disable = ContextVar(str(id(self)), default=[])
 
-    @property
-    def _disable(self) -> List:
-        return list(self.__disable.get())
+    def disable(self, *cmds, prefix=""):
+        return self._get_backend(prefix).disable(*cmds)
 
-    def _set_disable(self, value):
-        if value is True:
-            value = ["cmds", "decorators"]
-        elif value is False:
-            value = []
-        self.__disable.set(value)
+    def enable(self, *cmds, prefix=""):
+        return self._get_backend(prefix).enable(*cmds)
 
-    def is_disable(self, *cmds: str) -> bool:
-        _disable = self._disable
-        if not cmds and _disable:
-            return True
-        for cmd in cmds:
-            if cmd.lower() in [c.lower() for c in _disable]:
-                return True
-        return False
+    def is_disable(self, *cmds, prefix=""):
+        return self._get_backend(prefix).is_disable(*cmds)
 
-    def is_enable(self, *cmds):
-        return not self.is_disable(*cmds)
+    def is_enable(self, *cmds, prefix=""):
+        return not self.is_disable(*cmds, prefix=prefix)
 
-    def disable(self, *cmds: str):
-        _disable = self._disable
-        if not cmds:
-            _disable = ["cmds", "decorators"]
-        if self._disable is False:
-            _disable = []
-        _disable.extend(cmds)
-        self._set_disable(_disable)
+    def _get_backend_and_config(self, key) -> Tuple[Backend, Tuple[Callable]]:
+        for prefix in sorted(self._backends.keys(), reverse=True):
+            if key.startswith(prefix):
+                return self._backends[prefix]
+        return self._backends.get(self.default_prefix, (None, None))
 
-    def enable(self, *cmds: str):
-        _disable = self._disable
-        if not cmds:
-            _disable = []
-        for cmd in cmds:
-            if cmd in _disable:
-                _disable.remove(cmd)
-        self._set_disable(_disable)
+    def _get_backend(self, key) -> Optional[Backend]:
+        backend, _ = self._get_backend_and_config(key)
+        return backend
 
-    @property
-    def disable_info(self):
-        return self._disable
-
-    def setup(self, settings_url: str, middlewares: Tuple = (), **kwargs):
-        self.middlewares = tuple(middlewares) + self.middlewares
+    def setup(self, settings_url: str, middlewares: Tuple = (), prefix=default_prefix, **kwargs):
         params = settings_url_parse(settings_url)
         params.update(kwargs)
-        if "disable" in params:
-            self._set_disable(params.pop("disable"))
-        else:
-            self._set_disable(not params.pop("enable", True))
 
-        client_side = params.pop("client_side", None)
-        if client_side:
+        if params.pop("client_side", None):
             params["backend"] = BcastClientSide
-            if client_side == "update":
-                params["backend"] = UpdateChannelClientSide
+        backend = params.pop("backend")
 
-        self._setup_backend(**params)
-        return self
+        self._add_backend(backend, middlewares, prefix, **params)
 
-    def _setup_backend(self, backend: Type[Backend], **kwargs):
-        if self._target:
-            asyncio.create_task(self._target.close())
-        self._target = backend(**kwargs)
+    def _add_backend(self, backend_class, middlewares=(), prefix=default_prefix, **params):
+        class _backend_class(ControlMixin, backend_class):
+            pass
+
+        self._backends[prefix] = (_backend_class(**params), self._default_middlewares + middlewares)
 
     async def init(self, *args, **kwargs):
         if args or kwargs:
             self.setup(*args, **kwargs)
-        if self.is_disable():
-            return None
-        await self._target.init()
+        for backend, _ in self._backends.values():
+            await backend.init()
 
-    def _with_middlewares(self, cmd: str, target):
-        call = target
-        for middleware in self.middlewares:
-            call = partial(middleware, call, cmd=cmd, backend=self)
+    def _with_middlewares(self, cmd: str, key):
+        backend, middlewares = self._get_backend_and_config(key)
+        call = getattr(backend, cmd)
+        for middleware in middlewares:
+            call = partial(middleware, call, cmd=cmd, backend=backend)
         return call
 
     def set(self, key: str, value: Any, expire: Union[float, None, TTL] = None, exist: Optional[bool] = None):
-        return self._with_middlewares("set", self._target.set)(
-            key=key, value=value, expire=ttl_to_seconds(expire), exist=exist
-        )
+        return self._with_middlewares("set", key)(key=key, value=value, expire=ttl_to_seconds(expire), exist=exist)
+
+    def set_row(self, key: str, value: Any, **kwargs):
+        return self._with_middlewares("set_row", key)(key=key, value=value, **kwargs)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
-        return self._with_middlewares("get", self._target.get)(key=key, default=default)
+        return self._with_middlewares("get", key)(key=key, default=default)
+
+    def get_row(self, key: str) -> Any:
+        return self._with_middlewares("get_row", key)(key=key)
+
+    def keys_match(self, pattern: str):
+        return self._with_middlewares("keys_match", pattern)(pattern=pattern)
 
     def get_many(self, *keys: str):
-        return self._with_middlewares("get_many", self._target.get_many)(*keys)
+        return self._with_middlewares("get_many", keys[0])(*keys)
 
     def incr(self, key: str) -> int:
-        return self._with_middlewares("incr", self._target.incr)(key=key)
+        return self._with_middlewares("incr", key)(key=key)
 
     def delete(self, key: str):
-        return self._with_middlewares("delete", self._target.delete)(key=key)
+        return self._with_middlewares("delete", key)(key=key)
 
     def delete_match(self, pattern: str):
-        return self._with_middlewares("delete_match", self._target.delete_match)(pattern=pattern)
+        return self._with_middlewares("delete_match", pattern)(pattern=pattern)
 
     def expire(self, key: str, timeout: TTL):
-        return self._with_middlewares("expire", self._target.expire)(key=key, timeout=ttl_to_seconds(timeout))
+        return self._with_middlewares("expire", key)(key=key, timeout=ttl_to_seconds(timeout))
 
-    def get_expire(self, key: str) -> int:
-        return self._with_middlewares("get_expire", self._target.get_expire)(key=key)
+    def get_expire(self, key: str):
+        return self._with_middlewares("get_expire", key)(key=key)
 
-    def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
-        return self._with_middlewares("lock", self._target.set_lock)(
-            key=key, value=value, expire=ttl_to_seconds(expire)
-        )
+    def exists(self, key: str):
+        return self._with_middlewares("exists", key)(key=key)
 
-    def unlock(self, key: str, value: str) -> bool:
-        return self._with_middlewares("unlock", self._target.unlock)(key=key, value=value)
+    def set_lock(self, key: str, value: Any, expire: TTL):
+        return self._with_middlewares("set_lock", key)(key=key, value=value, expire=ttl_to_seconds(expire))
+
+    def unlock(self, key: str, value: str):
+        return self._with_middlewares("unlock", key)(key=key, value=value)
 
     def listen(self, pattern: str, *cmds, reader=None):
-        return self._with_middlewares("listen", self._target.listen)(pattern, *cmds, reader=reader)
+        return self._with_middlewares("listen", pattern)(pattern, *cmds, reader=reader)
 
     def ping(self, message: Optional[bytes] = None) -> str:
-        return self._with_middlewares("ping", self._target.ping)(message=message)
+        _key = message
+        if _key is None:
+            _key = b""
+        return self._with_middlewares("ping", _key.decode())(message=message)
 
-    def clear(self):
-        return self._with_middlewares("clear", self._target.clear)()
+    async def clear(self):
+        for backend, _ in self._backends.values():
+            await backend.clear()
+
+    async def close(self):
+        for backend, _ in self._backends.values():
+            await backend.close()
 
     def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
-        return self._with_middlewares("is_locked", self._target.is_locked)(
-            key=key, wait=ttl_to_seconds(wait), step=step
-        )
+        return self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
     def _wrap_on_enable(self, name, decorator):
         def _decorator(func):
-            decorator(func)  # to register cache templates
+            return decorator(func)
 
-            @wraps(func)
-            async def _call(*args, **kwargs):
-                if self.is_disable("decorators", name):
-                    return await func(*args, **kwargs)
-                return await decorator(func)(*args, **kwargs)
-
-            return _call
-
+        _decorator.disable = lambda: self.disable("set", prefix=name)
+        _decorator.enable = lambda: self.enable("set", prefix=name)
         return _decorator
 
     def _wrap_on_enable_with_fail_disable(self, name, decorator):
@@ -174,13 +157,11 @@ class Cache(ProxyBackend):
 
             @wraps(func)
             async def _call(*args, **kwargs):
-                if self.is_disable("decorators", name):
-                    return await func(*args, **kwargs)
                 detect = decorators.CacheDetect()
                 result = await decorator(func)(*args, _from_cache=detect, **kwargs)
                 if detect.get():  # if result from cache we dont want to set it by eny other decorator
                     decorators.context_cache_detect.merge(detect)
-                    self.disable("set")
+                    self.disable("set", prefix=name)
                 return result
 
             return _call
@@ -213,9 +194,9 @@ class Cache(ProxyBackend):
 
     cache = __call__
 
-    def invalidate(self, target, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
+    def invalidate(self, func, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
         return self._wrap_on_enable(
-            "cache", validation.invalidate(self, target=target, args_map=args_map, defaults=defaults)
+            "cache", validation.invalidate(self, target=func, args_map=args_map, defaults=defaults)
         )
 
     invalidate_func = validation.invalidate_func
@@ -385,4 +366,7 @@ def settings_url_parse(url):
         params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()
     elif parse_result.scheme == "mem":
         params["backend"] = Memory
+    elif parse_result.scheme == "":
+        params["backend"] = Memory
+        params["disable"] = True
     return params

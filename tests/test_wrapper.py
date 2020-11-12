@@ -1,41 +1,49 @@
 import asyncio
 import random
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
-from cashews.backends.interface import Backend
 from cashews.backends.memory import Memory
+from cashews.disable_control import ControlMixin
 from cashews.helpers import add_prefix
-from cashews.wrapper import Cache
+from cashews.wrapper import Cache, _auto_init
 
 
 @pytest.fixture(name="target")
 def _target():
-    return Mock(wraps=Memory())
+    class New(ControlMixin, Memory):
+        pass
+
+    return Mock(wraps=New())
 
 
 @pytest.fixture(name="cache")
 def __cache(target):
     _cache = Cache()
-    _cache._target = target
+    _cache._add_backend(Memory)
+    _cache._backends[""] = (target, _cache._backends[""][1])
     return _cache
-
-
-def test_setup(cache):
-    backend = Mock()
-    cache._target = None
-    with patch("cashews.wrapper.Memory", backend):
-        cache.setup("mem://localhost?test=1")
-    backend.assert_called_with(test=1)
 
 
 @pytest.mark.asyncio
 async def test_init_disable(cache):
-    backend = Mock(wraps=Backend())
-    with patch("cashews.wrapper.Memory", Mock(return_value=backend)):
-        await cache.init("mem://localhost?disable=1")
-    backend.init.assert_not_called()
+    await cache.init("mem://localhost?disable=1")
     assert cache.is_disable()
+
+
+@pytest.mark.asyncio
+async def test_prefix(cache):
+    await cache.init("mem://localhost")
+    await cache.init("://", prefix="-")
+    assert not cache.is_disable()
+    assert cache.is_disable(prefix="-")
+
+    await cache.set("key", "value")
+    await cache.set("-:key", "-value")
+
+    assert await cache.get("key") == "value"
+    assert await cache.get("-:key") == None
+    assert await cache.get("-:key", default="def") == "def"
 
 
 @pytest.mark.asyncio
@@ -54,12 +62,12 @@ async def test_disable_cmd(cache):
 @pytest.mark.asyncio
 async def test_disable_ctz(cache):
     await cache.init("mem://localhost")
-    cache.enable("cmds")
+    cache.enable()
 
     async def test():
         await cache.set("test", "1")
         assert await cache.get("test") == "1"
-        cache.disable("cmds")
+        cache.disable()
         await cache.set("test", "2")
 
     await asyncio.create_task(test())
@@ -70,7 +78,7 @@ async def test_disable_ctz(cache):
 
 @pytest.mark.asyncio
 async def test_disable_decorators(cache: Cache, target):
-    cache.disable("decorators")
+    cache.disable()
     data = (i for i in range(10))
 
     @cache(ttl=1)
@@ -90,25 +98,32 @@ async def test_disable_decorators(cache: Cache, target):
     target.get.assert_not_called()
     target.set.assert_not_called()
 
-    cache.enable("decorators")
+    cache.enable()
     assert await func() == 2
-    target.get.assert_called()
-    target.set.assert_called()
     assert await func() == 2
 
 
 @pytest.mark.asyncio
-async def test_disable_decorators_get(cache: Cache, target):
+async def test_disable_decorators_get(cache: Cache):
     data = (i for i in range(10))
+    await cache.init("mem://localhost")
 
     @cache(ttl=1)
     async def func():
         return next(data)
 
+    assert cache.is_enable()
+    assert cache.is_enable("set", prefix="cache")
+    assert cache.is_enable("get", prefix="cache")
+    assert cache.is_enable("set", prefix="")
     assert await func() == 0
     assert await func() == 0
 
     cache.disable("get")
+
+    assert not cache.is_enable("get")
+    assert cache.is_enable("set")
+
     assert await func() == 1
     assert await func() == 2
 
@@ -117,7 +132,7 @@ async def test_disable_decorators_get(cache: Cache, target):
 
 
 @pytest.mark.asyncio
-async def test_disable_decorators_set(cache: Cache, target):
+async def test_disable_decorators_set(cache: Cache):
     data = (i for i in range(10))
     cache.disable("set")
 
@@ -126,7 +141,6 @@ async def test_disable_decorators_set(cache: Cache, target):
         return next(data)
 
     assert await func() == 0
-    target.get.assert_called()
     assert await func() == 1
 
     cache.enable("set")
@@ -136,17 +150,14 @@ async def test_disable_decorators_set(cache: Cache, target):
 
 @pytest.mark.asyncio
 async def test_init(cache):
-    backend = Mock(wraps=Backend())
-    with patch("cashews.wrapper.Memory", Mock(return_value=backend)):
-        await cache.init("mem://localhost")
-    backend.init.assert_called_once()
+    await cache.init("mem://localhost")
     assert cache.is_enable()
 
 
 @pytest.mark.asyncio
 async def test_auto_init(cache):
     target = Memory()
-    cache._target = target
+    cache._backends[""] = target, (_auto_init,)
     assert not target.is_init
     assert b"PONG" == await cache.ping()
     assert target.is_init
@@ -154,7 +165,7 @@ async def test_auto_init(cache):
 
 @pytest.mark.asyncio
 async def test_add_prefix(cache: Cache, target):
-    cache.middlewares = (add_prefix("prefix!"),)
+    cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
 
     await cache.get(key="key")
     target.get.assert_called_once_with(key="prefix!key", default=None)
@@ -169,14 +180,14 @@ async def test_add_prefix(cache: Cache, target):
 
 @pytest.mark.asyncio
 async def test_add_prefix_get_many(cache: Cache, target):
-    cache.middlewares = (add_prefix("prefix!"),)
+    cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
     await cache.get_many("key")
     target.get_many.assert_called_once_with("prefix!key")
 
 
 @pytest.mark.asyncio
 async def test_add_prefix_delete_match(cache: Cache, target):
-    cache.middlewares = (add_prefix("prefix!"),)
+    cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
     await cache.delete_match("key")
     target.delete_match.assert_called_once_with(pattern="prefix!key")
 
@@ -220,9 +231,10 @@ async def test_smoke_cmds(cache: Cache, target):
     target.unlock.assert_called_once_with(key="key", value="value")
 
     await cache.exists("key")
-    target.exists.assert_called_once_with("key")
+    target.exists.assert_called_once_with(key="key")
 
 
+@pytest.mark.asyncio
 async def test_disable_cache_on_fail_return(cache: Cache):
     @cache(ttl=0.05, key="cache")
     @cache.failover(ttl=1, key="fail")

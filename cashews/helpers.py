@@ -1,21 +1,6 @@
 from .key import get_call_values
 
 
-async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
-    if backend.is_disable(cmd, "cmds"):
-        if cmd == "get":
-            call_values = get_call_values(call, args, kwargs)
-            return call_values.get("default")
-        return None
-    return await call(*args, **kwargs)
-
-
-async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
-    if not backend.is_init:
-        await backend.init()
-    return await call(*args, **kwargs)
-
-
 def add_prefix(prefix: str):
     async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
         if cmd.lower() == "get_many":

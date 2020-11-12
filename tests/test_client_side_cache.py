@@ -2,7 +2,7 @@ import asyncio
 import os
 
 import pytest
-from cashews.backends.client_side import BcastClientSide, UpdateChannelClientSide
+from cashews.backends.client_side import BcastClientSide
 from cashews.backends.memory import Memory
 
 pytestmark = pytest.mark.asyncio
@@ -105,48 +105,3 @@ async def test_simple_cmd_bcast(create_cache):
     assert await local.get("key:1") is None
     await cache.clear()
     cache.close()
-
-
-@pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
-async def test_set_get_custom_chan(create_cache):
-    cachef_local = Memory()
-    cachef = await create_cache(UpdateChannelClientSide, cachef_local)
-    caches_local = Memory()
-    caches = await create_cache(UpdateChannelClientSide, caches_local)
-    caches._pool_or_conn.get = None
-
-    await cachef.set("key", b"value", expire=0.1)
-    assert await cachef_local.get("key") == b"value"
-    await asyncio.sleep(0.05)  #  wait cache update
-    assert await cachef_local.get("key") == b"value"
-    assert await caches_local.get("key") == b"value"
-    assert await caches_local.get_expire("key") == 0
-    assert await cachef.get("key") == b"value"
-    assert await caches.get("key") == b"value"
-    assert await cachef_local.get("key") == b"value"
-    await asyncio.sleep(0.2)
-
-    assert await cachef_local.get("key") is None
-    assert await caches_local.get("key") is None
-
-    assert await caches.get("key") is None
-
-
-@pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
-async def test_set_get_del_custom_chan_serialize(create_cache):
-    cachef_local = Memory()
-    cachef = await create_cache(UpdateChannelClientSide, cachef_local)
-    caches_local = Memory()
-    caches = await create_cache(UpdateChannelClientSide, caches_local)
-    value = {"my": None}
-    await cachef.set("key", value)
-    await asyncio.sleep(0.05)  # wait cache update
-    assert await cachef_local.get("key") == value
-    assert await caches_local.get("key") == value
-    assert await caches.get("key") == value
-
-    await cachef.delete("key")
-    assert await cachef_local.get("key") is None
-
-    await asyncio.sleep(0.05)  # wait cache update
-    assert await caches_local.get("key") is None
