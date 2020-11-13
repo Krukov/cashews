@@ -12,7 +12,7 @@ jobs:
     strategy:
       max-parallel: 4
       matrix:
-        python-version: [3.7, 3.8]
+        python-version: [3.7, 3.8, 3.9]
 
     steps:
     - uses: actions/checkout@v2
@@ -21,10 +21,6 @@ jobs:
       uses: actions/setup-python@v1
       with:
         python-version: ${{ matrix.python-version }}
-    
-    - uses: shogo82148/actions-setup-redis@v1
-      with:
-        redis-version: '6.x'
 
     - name: Install dependencies
       run: |
@@ -38,10 +34,6 @@ jobs:
     - name: Basic Test Suit
       run: |
         tox -e py
-    
-    - name: Test With redis and integration
-      run: |
-        tox -e py-integration
     
     - name: Generate coverage report
       run: |
