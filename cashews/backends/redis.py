@@ -43,6 +43,10 @@ class _Redis(Redis_):
         self._safe = safe
         self._count_stat = count_stat
 
+    @property
+    def is_init(self):
+        return bool(self._pool_or_conn)
+
     async def init(self):
         pool = create_pool(address=self._address, **self._kwargs)
 

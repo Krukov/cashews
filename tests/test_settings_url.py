@@ -7,6 +7,7 @@ from cashews.wrapper import settings_url_parse
 @pytest.mark.parametrize(
     ("url", "params"),
     (
+        ("://", {"backend": Memory, "disable": True}),
         ("mem://", {"backend": Memory}),
         ("mem://?size=10&check_interval=0.01", {"backend": Memory, "size": 10, "check_interval": 0.01}),
         ("redis://localhost:9000/0", {"backend": Redis, "address": "redis://localhost:9000/0"}),

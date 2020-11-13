@@ -50,9 +50,8 @@ from cashews import cache
 
 cache.setup("redis://0.0.0.0/?db=1&create_connection_timeout=0.5&safe=0&hash_key=my_sicret&enable=1")
 or
+cache.setup("mem://", prefix="fail:user") # for inmemory cache
 cache.setup("redis://0.0.0.0/", db=1, create_connection_timeout=0.5, safe=False, hash_key=b"my_key", enable=True)
-or
-cache.setup("mem://") # for inmemory cache
 ```
 if you dont like global objects or prefer more manageable way you can work with cache class 
 ```python
@@ -66,8 +65,9 @@ cache.setup("mem://?size=500")
 You can disable cache by 'enable' parameter:
 ```python
 
-cache.setup("mem://?size=500", enable=False)
 cache.setup("redis://redis/0?enable=1")
+cache.setup("mem://?size=500", enable=False)
+cache.setup("://", prefix="early")
 cache.setup("redis://redis?enable=True")
 ```
 Also read about dynamic disabling at [simple cache](#simple-cache) section
