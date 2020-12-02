@@ -28,7 +28,11 @@ class Cache(Backend):
         self._backends = {}
         self._default_middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
         self._name = name
+        self._default_fail_exceptions = Exception
         self.__decorators_disable = ContextVar(str(id(self)), default=[])
+
+    def set_default_fail_exceptions(self, exc: Union[Type[Exception], Iterable[Type[Exception]]]):
+        self._default_fail_exceptions = exc
 
     def disable(self, *cmds, prefix=""):
         return self._get_backend(prefix).disable(*cmds)
@@ -204,11 +208,12 @@ class Cache(Backend):
     def failover(
         self,
         ttl: TTL,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+        exceptions: Union[Type[Exception], Iterable[Type[Exception]], None] = None,
         key: Optional[str] = None,
         condition: CacheCondition = None,
         prefix: str = "fail",
     ):
+        exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_on_enable_with_fail_disable(
             prefix,
             decorators.failover(
@@ -223,11 +228,11 @@ class Cache(Backend):
         errors_rate: int,
         period: TTL,
         ttl: TTL,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+        exceptions: Union[Type[Exception], Tuple[Type[Exception]], None] = None,
         key: Optional[str] = None,
         prefix: str = "circuit_breaker",
     ):
-
+        exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_on_enable(
             prefix,
             decorators.circuit_breaker(

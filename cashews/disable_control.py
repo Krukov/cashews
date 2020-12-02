@@ -14,7 +14,7 @@ async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
 
 class ControlMixin:
     def __init__(self, *args, **kwargs):
-        self.__disable = ContextVar(str(id(self)), default=[])
+        self.__disable = ContextVar(str(id(self)), default=())
         if "disable" in kwargs:
             self._set_disable(kwargs.pop("disable"))
         else:
@@ -23,7 +23,7 @@ class ControlMixin:
 
     @property
     def _disable(self):
-        return self.__disable.get([])
+        return list(self.__disable.get(()))
 
     def _set_disable(self, value):
         if value is True:
@@ -32,7 +32,7 @@ class ControlMixin:
             ]
         elif value is False:
             value = []
-        self.__disable.set(value)
+        self.__disable.set(tuple(value))
 
     def is_disable(self, *cmds: str) -> bool:
         _disable = self._disable

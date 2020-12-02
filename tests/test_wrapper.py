@@ -67,7 +67,7 @@ async def test_disable_ctz(cache):
     async def test():
         await cache.set("test", "1")
         assert await cache.get("test") == "1"
-        cache.disable()
+        cache.disable("set")
         await cache.set("test", "2")
 
     await asyncio.create_task(test())
