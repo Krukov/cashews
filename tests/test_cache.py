@@ -16,8 +16,8 @@ class CustomError(Exception):
     pass
 
 
-@pytest.fixture()
-async def backend():
+@pytest.fixture(name="backend")
+async def _backend():
     if REDIS_TESTS:
         redis = Redis("redis://", hash_key=None)
         await redis.init()
@@ -387,8 +387,8 @@ async def test_context_cache_detect_context(backend):
             await asyncio.gather(*funcs)
             return len(decorators.context_cache_detect.get())
 
-    await backend.set(f"key1", "test")
-    await backend.set(f"key2", "test")
+    await backend.set("key1", "test")
+    await backend.set("key2", "test")
     assert await func1() == "test"
     assert await func2() == "test"
 

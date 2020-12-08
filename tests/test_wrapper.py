@@ -8,6 +8,8 @@ from cashews.disable_control import ControlMixin
 from cashews.helpers import add_prefix
 from cashews.wrapper import Cache, _auto_init
 
+pytestmark = pytest.mark.asyncio
+
 
 @pytest.fixture(name="target")
 def _target():
@@ -25,13 +27,11 @@ def __cache(target):
     return _cache
 
 
-@pytest.mark.asyncio
 async def test_init_disable(cache):
     await cache.init("mem://localhost?disable=1")
     assert cache.is_disable()
 
 
-@pytest.mark.asyncio
 async def test_prefix(cache):
     await cache.init("mem://localhost")
     await cache.init("://", prefix="-")
@@ -46,7 +46,6 @@ async def test_prefix(cache):
     assert await cache.get("-:key", default="def") == "def"
 
 
-@pytest.mark.asyncio
 async def test_disable_cmd(cache):
     await cache.init("mem://localhost")
     cache.disable("incr")
@@ -59,7 +58,6 @@ async def test_disable_cmd(cache):
     assert await cache.get("test") == 11
 
 
-@pytest.mark.asyncio
 async def test_disable_ctz(cache):
     await cache.init("mem://localhost")
     cache.enable()
@@ -76,7 +74,6 @@ async def test_disable_ctz(cache):
     assert await cache.get("test") == "3"
 
 
-@pytest.mark.asyncio
 async def test_disable_decorators(cache: Cache, target):
     cache.disable()
     data = (i for i in range(10))
@@ -103,7 +100,6 @@ async def test_disable_decorators(cache: Cache, target):
     assert await func() == 2
 
 
-@pytest.mark.asyncio
 async def test_disable_decorators_get(cache: Cache):
     data = (i for i in range(10))
     await cache.init("mem://localhost")
@@ -131,7 +127,6 @@ async def test_disable_decorators_get(cache: Cache):
     assert await func() == 2
 
 
-@pytest.mark.asyncio
 async def test_disable_decorators_set(cache: Cache):
     data = (i for i in range(10))
     cache.disable("set")
@@ -148,13 +143,11 @@ async def test_disable_decorators_set(cache: Cache):
     assert await func() == 2
 
 
-@pytest.mark.asyncio
 async def test_init(cache):
     await cache.init("mem://localhost")
     assert cache.is_enable()
 
 
-@pytest.mark.asyncio
 async def test_auto_init(cache):
     target = Memory()
     cache._backends[""] = target, (_auto_init,)
@@ -163,7 +156,6 @@ async def test_auto_init(cache):
     assert target.is_init
 
 
-@pytest.mark.asyncio
 async def test_add_prefix(cache: Cache, target):
     cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
 
@@ -178,21 +170,18 @@ async def test_add_prefix(cache: Cache, target):
     target.ping.assert_called_once_with(message=None)
 
 
-@pytest.mark.asyncio
 async def test_add_prefix_get_many(cache: Cache, target):
     cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
     await cache.get_many("key")
     target.get_many.assert_called_once_with("prefix!key")
 
 
-@pytest.mark.asyncio
 async def test_add_prefix_delete_match(cache: Cache, target):
     cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
     await cache.delete_match("key")
     target.delete_match.assert_called_once_with(pattern="prefix!key")
 
 
-@pytest.mark.asyncio
 async def test_smoke_cmds(cache: Cache, target):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
     target.set.assert_called_once_with(key="key", value={"any": True}, expire=60, exist=None)
@@ -234,16 +223,39 @@ async def test_smoke_cmds(cache: Cache, target):
     target.exists.assert_called_once_with(key="key")
 
 
-@pytest.mark.asyncio
 async def test_disable_cache_on_fail_return(cache: Cache):
-    @cache(ttl=0.05, key="cache")
-    @cache.failover(ttl=1, key="fail")
+    assert await cache.get("key") is None
+
+    @cache(ttl=1, key="key")
+    @cache.failover(ttl=1, key="fail", prefix="")
     async def func(fail=False):
         if fail:
             raise Exception()
-        return random.randint(0, 100)
+        return "1"
 
-    first = await func()  # cache by fail and siple cache
-    await asyncio.sleep(0.1)  # expire simple cache
-    assert await func(fail=True) == first  # return from fail cache but simple cache should be skipped
-    assert await func() != first
+    await cache.set("fail", "test_fail")
+
+    assert await func(fail=True) == "test_fail"  # return from fail cache but simple cache should be skipped
+    assert await cache.get("key") is None
+
+    await cache.delete("fail")
+    await cache.set("key", "val")
+    assert await func() == "val"
+
+
+async def test_multilayer_cache(cache: Cache):
+    # If results from key2, key1 must not be set
+
+    @cache(ttl=1, key="key1")
+    @cache(ttl=1, key="key2")
+    async def func():
+        return 1
+
+    await cache.set("key2", "test2")
+
+    assert await func() == "test2"
+    assert await cache.get("key1") is None
+
+    await cache.set("key1", "test1")
+    assert await func() == "test1"
+    assert await cache.get("key2") == "test2"

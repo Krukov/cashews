@@ -81,7 +81,9 @@ class _ContextCacheDetect:
             var.merge(other)
 
     def stop(self):
-        del self._levels[self.level]
+        if self.level in self._levels:
+            del self._levels[self.level]
+        _level.set(_previous_level.get())
 
     def __enter__(self):
         return self.start()

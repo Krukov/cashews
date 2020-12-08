@@ -1,4 +1,3 @@
-from contextvars import ContextVar
 from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
@@ -29,7 +28,6 @@ class Cache(Backend):
         self._default_middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
         self._name = name
         self._default_fail_exceptions = Exception
-        self.__decorators_disable = ContextVar(str(id(self)), default=[])
 
     def set_default_fail_exceptions(self, exc: Union[Type[Exception], Iterable[Type[Exception]]]):
         self._default_fail_exceptions = exc
@@ -155,21 +153,29 @@ class Cache(Backend):
         _decorator.enable = lambda: self.enable("set", prefix=name)
         return _decorator
 
-    def _wrap_on_enable_with_fail_disable(self, name, decorator):
+    def _wrap_on_enable_with_disable_cmd(self, name, decorator_fabric, condition, **decor_kwargs):
         def _decorator(func):
-            decorator(func)  # to register cache templates
+            decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
             @wraps(func)
             async def _call(*args, **kwargs):
-                detect = decorators.CacheDetect()
-                result = await decorator(func)(*args, _from_cache=detect, **kwargs)
-                if detect.get():  # if result from cache we dont want to set it by eny other decorator
-                    decorators.context_cache_detect.merge(detect)
-                    self.disable("set", prefix=name)
+                with decorators.context_cache_detect as detect:
+
+                    def new_condition(result, _args, _kwargs):
+                        if detect.get():
+                            return False
+                        return condition(result, _args, _kwargs) if condition else result is not None
+
+                    decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
+                    result = await decorator(func)(*args, **kwargs)
+
+                    # decorators.context_cache_detect.merge(detect)
                 return result
 
             return _call
 
+        _decorator.disable = lambda: self.disable("set", prefix=name)
+        _decorator.enable = lambda: self.enable("set", prefix=name)
         return _decorator
 
     # DecoratorS
@@ -191,9 +197,8 @@ class Cache(Backend):
     def __call__(
         self, ttl: TTL, key: Optional[str] = None, condition: CacheCondition = None, prefix: str = "",
     ):
-        return self._wrap_on_enable(
-            prefix or "cache",
-            decorators.cache(self, ttl=ttl_to_seconds(ttl), key=key, condition=condition, prefix=prefix),
+        return self._wrap_on_enable_with_disable_cmd(
+            prefix or "cache", decorators.cache, ttl=ttl_to_seconds(ttl), key=key, condition=condition, prefix=prefix,
         )
 
     cache = __call__
@@ -214,11 +219,14 @@ class Cache(Backend):
         prefix: str = "fail",
     ):
         exceptions = exceptions or self._default_fail_exceptions
-        return self._wrap_on_enable_with_fail_disable(
+        return self._wrap_on_enable_with_disable_cmd(
             prefix,
-            decorators.failover(
-                self, ttl=ttl_to_seconds(ttl), exceptions=exceptions, key=key, condition=condition, prefix=prefix,
-            ),
+            decorators.failover,
+            ttl=ttl_to_seconds(ttl),
+            exceptions=exceptions,
+            key=key,
+            condition=condition,
+            prefix=prefix,
         )
 
     fail = failover
@@ -254,16 +262,14 @@ class Cache(Backend):
         condition: CacheCondition = None,
         prefix: str = "early",
     ):
-        return self._wrap_on_enable(
+        return self._wrap_on_enable_with_disable_cmd(
             prefix,
-            decorators.early(
-                self,
-                ttl=ttl_to_seconds(ttl),
-                key=key,
-                early_ttl=ttl_to_seconds(early_ttl),
-                condition=condition,
-                prefix=prefix,
-            ),
+            decorators.early,
+            ttl=ttl_to_seconds(ttl),
+            key=key,
+            early_ttl=ttl_to_seconds(early_ttl),
+            condition=condition,
+            prefix=prefix,
         )
 
     def hit(
@@ -275,17 +281,15 @@ class Cache(Backend):
         condition: CacheCondition = None,
         prefix: str = "hit",
     ):
-        return self._wrap_on_enable(
+        return self._wrap_on_enable_with_disable_cmd(
             prefix,
-            decorators.hit(
-                self,
-                ttl=ttl_to_seconds(ttl),
-                cache_hits=cache_hits,
-                update_before=update_before,
-                key=key,
-                condition=condition,
-                prefix=prefix,
-            ),
+            decorators.hit,
+            ttl=ttl_to_seconds(ttl),
+            cache_hits=cache_hits,
+            update_before=update_before,
+            key=key,
+            condition=condition,
+            prefix=prefix,
         )
 
     def dynamic(
@@ -295,17 +299,15 @@ class Cache(Backend):
         condition: CacheCondition = None,
         prefix: str = "dynamic",
     ):
-        return self._wrap_on_enable(
+        return self._wrap_on_enable_with_disable_cmd(
             prefix,
-            decorators.hit(
-                self,
-                ttl=ttl_to_seconds(ttl),
-                cache_hits=3,
-                update_before=2,
-                key=key,
-                condition=condition,
-                prefix=prefix,
-            ),
+            decorators.hit,
+            ttl=ttl_to_seconds(ttl),
+            cache_hits=3,
+            update_before=2,
+            key=key,
+            condition=condition,
+            prefix=prefix,
         )
 
     def perf(
