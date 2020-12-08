@@ -1,3 +1,4 @@
+import uuid
 from contextvars import ContextVar
 from typing import Any
 
@@ -25,6 +26,7 @@ def _get_cache_condition(condition: CacheCondition):
 class CacheDetect:
     def __init__(self):
         self._value = {}
+        self._previous_level = _previous_level.get()
 
     def set(self, key: str, **kwargs):
         self._value.setdefault(key, []).append(kwargs)
@@ -36,33 +38,56 @@ class CacheDetect:
         self._value.update(other._value)
 
 
-_var = ContextVar("cashews", default=None)
+_previous_level = ContextVar("_previous_level", default=None)
+_level = ContextVar("level", default=uuid.uuid4())
 
 
 class _ContextCacheDetect:
-    @staticmethod
-    def start():
-        if _var.get() is None:
-            _var.set(CacheDetect())
+    def __init__(self):
+        self._levels = {}
 
-    @staticmethod
-    def set(key: str, **kwargs):
-        var = _var.get()
-        if var is not None:
+    @property
+    def level(self):
+        return _level.get()
+
+    def start(self):
+        _previous_level.set(self.level)
+        level = uuid.uuid4()
+        _level.set(level)
+        self._levels[level] = CacheDetect()
+        return self._levels[level]
+
+    def set(self, key: str, **kwargs):
+        level = self.level
+        while level:
+            var = self._levels.get(level)
+            if var is None:
+                return
             var.set(key, **kwargs)
+            level = var._previous_level
 
-    @staticmethod
-    def get():
-        var = _var.get()
+    def get(self):
+        var = self._levels.get(self.level)
         if var is not None:
             return var.get()
-        return var
 
-    @staticmethod
-    def merge(other: CacheDetect):
-        var = _var.get()
+    @property
+    def calls(self):
+        return self.get()
+
+    def merge(self, other: CacheDetect):
+        var = self._levels.get(self.level)
         if var is not None:
             var.merge(other)
+
+    def stop(self):
+        del self._levels[self.level]
+
+    def __enter__(self):
+        return self.start()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
 
 
 context_cache_detect = _ContextCacheDetect()

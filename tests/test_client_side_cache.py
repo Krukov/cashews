@@ -96,7 +96,7 @@ async def test_simple_cmd_bcast(create_cache):
     assert await local.get("key:2") is None
 
     assert await cache.get("key:1") == "test"
-    await cache.expire("key:1", 1)
+    await cache.expire("key:1", 3)
     assert await cache.get_expire("key:1") > 0
     assert await local.get_expire("key:1") > 0
 

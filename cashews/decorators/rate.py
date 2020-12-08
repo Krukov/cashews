@@ -56,5 +56,7 @@ def rate_limit(
                 await backend.expire(key=_cache_key, timeout=period)
 
             return await func(*args, **kwargs)
+
         return wrapped_func
+
     return decorator

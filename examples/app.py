@@ -34,9 +34,7 @@ database = databases.Database("sqlite:///db.sqlite")
 metadata = sqlalchemy.MetaData()
 app = FastAPI()
 
-cache.setup(
-    "redis://?hash_key=test&safe=True&maxsize=20&create_connection_timeout=0.01", client_side=True, count_stat=False
-)
+cache.setup("redis://?hash_key=test&safe=True&maxsize=20&create_connection_timeout=0.01", client_side=True)
 
 SECRET_KEY = "test"
 ALGORITHM = "HS256"

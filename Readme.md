@@ -49,7 +49,7 @@ Cache object is a single object that can be configured in one place by url::
 from cashews import cache
 
 cache.setup("redis://0.0.0.0/?db=1&create_connection_timeout=0.5&safe=0&hash_key=my_sicret&enable=1")
-or
+# or
 cache.setup("mem://", prefix="fail:user") # for inmemory cache
 cache.setup("redis://0.0.0.0/", db=1, create_connection_timeout=0.5, safe=False, hash_key=b"my_key", enable=True)
 ```
@@ -114,7 +114,7 @@ Return cache result (at list 1 call of function call should be succeed) if call 
 ```python
 from cashews import cache  # or from cashews import fail
 
-@cache.fail(ttl=timedelta(hours=2))
+@cache.fail(ttl=timedelta(hours=2), exceptions=(ValueError, MyException))
 async def get(name):
     value = await api_call()
     return {"status": value}
@@ -160,12 +160,11 @@ async def get(name):
 ### Early
 Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
 With a hot cache recalculate a result in a background 
-Warning! Not good at cold cache
 
 ```python
 from cashews import cache  # or from cashews import early
 
-@cache.early(ttl=timedelta(minutes=10), early_ttl=timedelta(minutes=7))  # if you call this function after 7 min, cache will be updated in a backgound 
+@cache.early(ttl=timedelta(minutes=10), early_ttl=timedelta(minutes=7))  # if you call this function after 7 min, cache will be updated in a background 
 async def get(name):
     value = await api_call()
     return {"status": value}
@@ -235,7 +234,7 @@ async def items(page=1):
     ...
 
 @cache.invalidate("module:items:page:*")  # the same as @cache.invalidate(items)
-@cache.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh"; True})
+@cache.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh": True})
 async def create_item(user):
    ...
 ```
@@ -254,7 +253,7 @@ Than we did changes
 
 
 There is no way simple way to automatically detect that kind of cache invalidity, because it is a dict.
-Сertainly we can add prefix for this cache:
+Certainly we can add prefix for this cache:
 ```python
 @cache(ttl=timedelta(days=1), prefix="v2")
 async def get_user(user_id):
@@ -292,11 +291,11 @@ To solve this problem cashews have a next API:
 ```python
 from cashews import context_cache_detect
 
-context_cache_detect.start()
-response = await decorated_function()
-keys = context_cache_detect.get()
+with context_cache_detect as detector:
+    response = await decorated_function()
+    keys = detector.get()
 print(keys)
-# >>> {"key": [{"ttl": 10}, ], "fail_key": [{"ttl": timedelta(hours=10), "exc": RateLimit}]}
+# >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": timedelta(hours=10), "exc": RateLimit}, "name": "fail", "backend": "mem"],}
 
 # OR
 from cashews import CacheDetect
@@ -312,9 +311,9 @@ You can use it in your web app:
 ```python
 @app.middleware("http")
 async def add_from_cache_headers(request: Request, call_next):
-    context_cache_detect.start()
-    response = await call_next(request)
-    keys = context_cache_detect.get()
+    with context_cache_detect:
+        response = await call_next(request)
+        keys = context_cache_detect.get()
     if keys:
         key = list(keys.keys())[0]
         response.headers["X-From-Cache"] = key
@@ -330,3 +329,4 @@ async def add_from_cache_headers(request: Request, call_next):
  https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
  - Invalidate without scan (index?)
  - Cache strategy based on history of execution (fail too match - add fail cache, too friquent - add cache )
+ - cache if not cached (multilayer)

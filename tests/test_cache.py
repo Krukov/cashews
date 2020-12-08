@@ -383,9 +383,9 @@ async def test_context_cache_detect_context(backend):
         return 2
 
     async def func(*funcs):
-        decorators.context_cache_detect.start()
-        res = await asyncio.gather(*funcs)
-        return len(decorators.context_cache_detect.get())
+        with decorators.context_cache_detect:
+            await asyncio.gather(*funcs)
+            return len(decorators.context_cache_detect.get())
 
     await backend.set(f"key1", "test")
     await backend.set(f"key2", "test")
@@ -394,7 +394,13 @@ async def test_context_cache_detect_context(backend):
 
     assert decorators.context_cache_detect.get() is None
 
-    assert await asyncio.create_task(func(func1())) == 1
-    assert await asyncio.create_task(func(func1(), func2())) == 2
-    assert await asyncio.create_task(func(func2(), func2())) == 1
-    assert decorators.context_cache_detect.get() is None  # ! It should be 3 but for now  it is ok, have no user case
+    with decorators.context_cache_detect as detector:
+        assert await asyncio.create_task(func(func1())) == 1
+        assert await asyncio.create_task(func(func1(), func2())) == 2
+        assert await asyncio.create_task(func(func2())) == 1
+        assert await asyncio.create_task(func(func2(), func2())) == 1
+        assert len(detector.get()) == 2
+        assert len(decorators.context_cache_detect.calls) == 2
+        assert len(decorators.context_cache_detect.get()) == 2
+
+    assert decorators.context_cache_detect.get() is None
