@@ -14,7 +14,6 @@ from starlette.responses import JSONResponse
 from starlette.status import HTTP_403_FORBIDDEN
 from pydantic import BaseModel
 
-import cashews.decorators.rate
 from cashews import (
     cache,
     mem,
@@ -111,16 +110,11 @@ async def add_process_time_header(request: Request, call_next):
 
 @app.middleware("http")
 async def add_from_cache_headers(request: Request, call_next):
-    context_cache_detect.start()
-    response = await call_next(request)
-    keys = context_cache_detect.get()
-    if keys:
-        key = list(keys.keys())[0]
-        response.headers["X-From-Cache"] = key
-        expire = await mem.get_expire(key)
-        if expire == -1:
-            expire = await cache.get_expire(key)
-        response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
+    with context_cache_detect as detector:
+        response = await call_next(request)
+        if detector.keys:
+            key = list(detector.keys.keys())[0]
+            response.headers["X-From-Cache"] = key
     return response
 
 

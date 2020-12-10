@@ -302,27 +302,26 @@ from cashews import CacheDetect
 
 cache_detect = CacheDetect()
 await func(_from_cache=cache_detect)
-assert cache_detect.get() == {}
+assert cache_detect.keys == {}
 
 await func(_from_cache=cache_detect)
-assert len(cache_detect.get()) == 1
+assert len(cache_detect.keys) == 1
 ```
 You can use it in your web app:
 ```python
 @app.middleware("http")
 async def add_from_cache_headers(request: Request, call_next):
-    with context_cache_detect:
+    with context_cache_detect as detector:
         response = await call_next(request)
-        keys = context_cache_detect.get()
-    if keys:
-        key = list(keys.keys())[0]
-        response.headers["X-From-Cache"] = key
-        expire = await mem.get_expire(key)
-        if expire == -1:
-            expire = await cache.get_expire(key)
-        response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
-        if "exc" in keys[key]:
-            response.headers["X-From-Cache-Exc"] = str(keys[key]["exc"])
+        if detector.keys:
+            key = list(detector.keys.keys())[0]
+            response.headers["X-From-Cache"] = key
+            expire = await mem.get_expire(key)
+            if expire == -1:
+                expire = await cache.get_expire(key)
+            response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
+            if "exc" in detector.keys[key]:
+                response.headers["X-From-Cache-Exc"] = str(detector.keys[key]["exc"])
     return response
 ```
 

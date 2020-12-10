@@ -162,7 +162,7 @@ class Cache(Backend):
                 with decorators.context_cache_detect as detect:
 
                     def new_condition(result, _args, _kwargs):
-                        if detect.get():
+                        if detect.keys:
                             return False
                         return condition(result, _args, _kwargs) if condition else result is not None
 

@@ -28,13 +28,14 @@ class CacheDetect:
         self._value = {}
         self._previous_level = _previous_level.get()
 
-    def set(self, key: str, **kwargs):
+    def _set(self, key: str, **kwargs):
         self._value.setdefault(key, []).append(kwargs)
 
-    def get(self):
+    @property
+    def keys(self):
         return dict(self._value)
 
-    def merge(self, other):
+    def _merge(self, other):
         self._value.update(other._value)
 
 
@@ -50,46 +51,42 @@ class _ContextCacheDetect:
     def level(self):
         return _level.get()
 
-    def start(self):
+    def _start(self):
         _previous_level.set(self.level)
         level = uuid.uuid4()
         _level.set(level)
         self._levels[level] = CacheDetect()
         return self._levels[level]
 
-    def set(self, key: str, **kwargs):
+    def _set(self, key: str, **kwargs):
         level = self.level
         while level:
-            var = self._levels.get(level)
+            var: CacheDetect = self._levels.get(level)
             if var is None:
                 return
-            var.set(key, **kwargs)
+            var._set(key, **kwargs)
             level = var._previous_level
 
-    def get(self):
+    def _get(self):
         var = self._levels.get(self.level)
         if var is not None:
             return var.get()
 
-    @property
-    def calls(self):
-        return self.get()
-
-    def merge(self, other: CacheDetect):
+    def _merge(self, other: CacheDetect):
         var = self._levels.get(self.level)
         if var is not None:
-            var.merge(other)
+            var._merge(other)
 
-    def stop(self):
+    def _stop(self):
         if self.level in self._levels:
             del self._levels[self.level]
         _level.set(_previous_level.get())
 
     def __enter__(self):
-        return self.start()
+        return self._start()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.stop()
+        self._stop()
 
 
 context_cache_detect = _ContextCacheDetect()

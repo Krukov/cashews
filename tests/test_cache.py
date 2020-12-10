@@ -316,12 +316,12 @@ async def test_cache_detect_simple(backend):
 
     cache_detect = decorators.CacheDetect()
     assert await func(_from_cache=cache_detect) == b"ok"
-    assert cache_detect.get() == {}
+    assert cache_detect.keys == {}
 
     await asyncio.sleep(0)
     assert await func(b"notok", _from_cache=cache_detect) == b"ok"
-    assert len(cache_detect.get()) == 1
-    assert list(cache_detect.get().keys()) == [
+    assert len(cache_detect.keys) == 1
+    assert list(cache_detect.keys.keys()) == [
         "key",
     ]
 
@@ -331,20 +331,19 @@ async def test_context_cache_detect_simple(backend):
     async def func(resp=b"ok"):
         return resp
 
-    decorators.context_cache_detect.start()
-    assert await func() == b"ok"
-    assert decorators.context_cache_detect.get() == {}
+    with decorators.context_cache_detect as detector:
+        assert await func() == b"ok"
+        assert detector.keys == {}
 
-    await asyncio.sleep(0)
-    assert await func(b"notok") == b"ok"
-    assert len(decorators.context_cache_detect.get()) == 1
-    assert list(decorators.context_cache_detect.get().keys()) == [
-        "key",
-    ]
+        await asyncio.sleep(0)
+        assert await func(b"notok") == b"ok"
+        assert list(detector.keys.keys()) == [
+            "key",
+        ]
 
-    await asyncio.sleep(EXPIRE * 1.1)
-    assert await func(b"notok") == b"notok"
-    assert len(decorators.context_cache_detect.get()) == 1
+        await asyncio.sleep(EXPIRE * 1.1)
+        assert await func(b"notok") == b"notok"
+        assert len(detector.keys) == 1
 
 
 async def test_context_cache_detect_deep(backend):
@@ -359,20 +358,20 @@ async def test_context_cache_detect_deep(backend):
     async def func():
         return await asyncio.gather(func1(), func2())
 
-    decorators.context_cache_detect.start()
-    await func()
-    assert decorators.context_cache_detect.get() == {}
+    with decorators.context_cache_detect as detector:
+        await func()
+        assert detector.keys == {}
 
-    await asyncio.sleep(0)
-    await func()
+        await asyncio.sleep(0)
+        await func()
 
-    assert len(decorators.context_cache_detect.get()) == 2
-    assert "key1" in decorators.context_cache_detect.get()
-    assert "key2" in decorators.context_cache_detect.get()
+        assert len(detector.keys) == 2
+        assert "key1" in detector.keys
+        assert "key2" in detector.keys
 
 
 async def test_context_cache_detect_context(backend):
-    assert decorators.context_cache_detect.get() is None
+    assert decorators.context_cache_detect._get() is None
 
     @decorators.cache(backend, ttl=EXPIRE, key="key1")
     async def func1():
@@ -383,24 +382,23 @@ async def test_context_cache_detect_context(backend):
         return 2
 
     async def func(*funcs):
-        with decorators.context_cache_detect:
+        with decorators.context_cache_detect as detector:
             await asyncio.gather(*funcs)
-            return len(decorators.context_cache_detect.get())
+            return len(detector.keys)
 
     await backend.set("key1", "test")
     await backend.set("key2", "test")
     assert await func1() == "test"
     assert await func2() == "test"
 
-    assert decorators.context_cache_detect.get() is None
+    assert decorators.context_cache_detect._get() is None
 
     with decorators.context_cache_detect as detector:
         assert await asyncio.create_task(func(func1())) == 1
         assert await asyncio.create_task(func(func1(), func2())) == 2
         assert await asyncio.create_task(func(func2())) == 1
         assert await asyncio.create_task(func(func2(), func2())) == 1
-        assert len(detector.get()) == 2
-        assert len(decorators.context_cache_detect.calls) == 2
-        assert len(decorators.context_cache_detect.get()) == 2
 
-    assert decorators.context_cache_detect.get() is None
+        assert len(detector.keys) == 2
+
+    assert decorators.context_cache_detect._get() is None

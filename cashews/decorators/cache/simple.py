@@ -32,7 +32,7 @@ def cache(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                _from_cache.set(_cache_key, ttl=ttl, name="simple", backend=backend.name)
+                _from_cache._set(_cache_key, ttl=ttl, name="simple", backend=backend.name)
                 return cached
             result = await func(*args, **kwargs)
             if store(result, args, kwargs):
