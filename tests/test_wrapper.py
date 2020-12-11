@@ -226,7 +226,7 @@ async def test_smoke_cmds(cache: Cache, target):
 async def test_disable_cache_on_fail_return(cache: Cache):
     assert await cache.get("key") is None
 
-    @cache(ttl=1, key="key")
+    @cache(ttl=1, key="key", upper=True)
     @cache.failover(ttl=1, key="fail", prefix="")
     async def func(fail=False):
         if fail:
@@ -246,7 +246,7 @@ async def test_disable_cache_on_fail_return(cache: Cache):
 async def test_multilayer_cache(cache: Cache):
     # If results from key2, key1 must not be set
 
-    @cache(ttl=1, key="key1")
+    @cache(ttl=1, key="key1", upper=True)
     @cache(ttl=1, key="key2")
     async def func():
         return 1

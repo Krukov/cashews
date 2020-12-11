@@ -145,15 +145,21 @@ class Cache(Backend):
     def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
         return self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
-    def _wrap_on_enable(self, name, decorator):
+    def _wrap_on(self, name, decorator_fabric, upper, **decor_kwargs):
+        wrapper = self._wrap_on_enable
+        if upper:
+            wrapper = self._wrap_on_enable_with_condition
+        return wrapper(name, decorator_fabric, **decor_kwargs)
+
+    def _wrap_on_enable(self, name, decorator_fabric, **decor_kwargs):
         def _decorator(func):
-            return decorator(func)
+            return decorator_fabric(self, **decor_kwargs)(func)
 
         _decorator.disable = lambda: self.disable("set", prefix=name)
         _decorator.enable = lambda: self.enable("set", prefix=name)
         return _decorator
 
-    def _wrap_on_enable_with_disable_cmd(self, name, decorator_fabric, condition, **decor_kwargs):
+    def _wrap_on_enable_with_condition(self, name, decorator_fabric, condition, **decor_kwargs):
         def _decorator(func):
             decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
@@ -189,24 +195,36 @@ class Cache(Backend):
     ):  # pylint: disable=too-many-arguments
         return self._wrap_on_enable(
             "rate_limit",
-            decorators.rate_limit(
-                self, limit=limit, period=ttl_to_seconds(period), ttl=ttl_to_seconds(ttl), action=action, prefix=prefix,
-            ),
+            decorators.rate_limit,
+            limit=limit,
+            period=ttl_to_seconds(period),
+            ttl=ttl_to_seconds(ttl),
+            action=action,
+            prefix=prefix,
         )
 
     def __call__(
-        self, ttl: TTL, key: Optional[str] = None, condition: CacheCondition = None, prefix: str = "",
+        self,
+        ttl: TTL,
+        key: Optional[str] = None,
+        condition: CacheCondition = None,
+        prefix: str = "",
+        upper: bool = False,
     ):
-        return self._wrap_on_enable_with_disable_cmd(
-            prefix or "cache", decorators.cache, ttl=ttl_to_seconds(ttl), key=key, condition=condition, prefix=prefix,
+        return self._wrap_on(
+            prefix or "cache",
+            decorators.cache,
+            upper,
+            ttl=ttl_to_seconds(ttl),
+            key=key,
+            condition=condition,
+            prefix=prefix,
         )
 
     cache = __call__
 
     def invalidate(self, func, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
-        return self._wrap_on_enable(
-            "cache", validation.invalidate(self, target=func, args_map=args_map, defaults=defaults)
-        )
+        return self._wrap_on_enable("cache", validation.invalidate, target=func, args_map=args_map, defaults=defaults,)
 
     invalidate_func = validation.invalidate_func
 
@@ -219,7 +237,7 @@ class Cache(Backend):
         prefix: str = "fail",
     ):
         exceptions = exceptions or self._default_fail_exceptions
-        return self._wrap_on_enable_with_disable_cmd(
+        return self._wrap_on_enable_with_condition(
             prefix,
             decorators.failover,
             ttl=ttl_to_seconds(ttl),
@@ -243,15 +261,13 @@ class Cache(Backend):
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_on_enable(
             prefix,
-            decorators.circuit_breaker(
-                self,
-                errors_rate=errors_rate,
-                period=ttl_to_seconds(period),
-                ttl=ttl_to_seconds(ttl),
-                exceptions=exceptions,
-                key=key,
-                prefix=prefix,
-            ),
+            decorators.circuit_breaker,
+            errors_rate=errors_rate,
+            period=ttl_to_seconds(period),
+            ttl=ttl_to_seconds(ttl),
+            exceptions=exceptions,
+            key=key,
+            prefix=prefix,
         )
 
     def early(
@@ -261,10 +277,12 @@ class Cache(Backend):
         early_ttl: Optional[TTL] = None,
         condition: CacheCondition = None,
         prefix: str = "early",
+        upper: bool = False,
     ):
-        return self._wrap_on_enable_with_disable_cmd(
+        return self._wrap_on(
             prefix,
             decorators.early,
+            upper,
             ttl=ttl_to_seconds(ttl),
             key=key,
             early_ttl=ttl_to_seconds(early_ttl),
@@ -280,10 +298,12 @@ class Cache(Backend):
         key: Optional[str] = None,
         condition: CacheCondition = None,
         prefix: str = "hit",
+        upper: bool = False,
     ):
-        return self._wrap_on_enable_with_disable_cmd(
+        return self._wrap_on(
             prefix,
             decorators.hit,
+            upper,
             ttl=ttl_to_seconds(ttl),
             cache_hits=cache_hits,
             update_before=update_before,
@@ -298,10 +318,12 @@ class Cache(Backend):
         key: Optional[str] = None,
         condition: CacheCondition = None,
         prefix: str = "dynamic",
+        upper: bool = False,
     ):
-        return self._wrap_on_enable_with_disable_cmd(
+        return self._wrap_on(
             prefix,
             decorators.hit,
+            upper,
             ttl=ttl_to_seconds(ttl),
             cache_hits=3,
             update_before=2,
@@ -320,14 +342,12 @@ class Cache(Backend):
     ):
         return self._wrap_on_enable(
             prefix,
-            decorators.perf(
-                self,
-                ttl=ttl_to_seconds(ttl),
-                key=key,
-                trace_size=trace_size,
-                perf_condition=perf_condition,
-                prefix=prefix,
-            ),
+            decorators.perf,
+            ttl=ttl_to_seconds(ttl),
+            key=key,
+            trace_size=trace_size,
+            perf_condition=perf_condition,
+            prefix=prefix,
         )
 
     def locked(
@@ -338,7 +358,7 @@ class Cache(Backend):
         prefix: str = "locked",
     ):
         return self._wrap_on_enable(
-            prefix, decorators.locked(self, ttl=ttl_to_seconds(ttl), key=key, step=step, prefix=prefix)
+            prefix, decorators.locked, ttl=ttl_to_seconds(ttl), key=key, step=step, prefix=prefix
         )
 
 
