@@ -1,4 +1,4 @@
-import uuid
+import random
 from contextvars import ContextVar
 from typing import Any
 
@@ -24,9 +24,10 @@ def _get_cache_condition(condition: CacheCondition):
 
 
 class CacheDetect:
-    def __init__(self):
+    def __init__(self, previous_level=0, unset_token=None):
         self._value = {}
-        self._previous_level = _previous_level.get()
+        self._unset_token = unset_token
+        self._previous_level = previous_level
 
     def _set(self, key: str, **kwargs):
         self._value.setdefault(key, []).append(kwargs)
@@ -39,8 +40,7 @@ class CacheDetect:
         self._value.update(other._value)
 
 
-_previous_level = ContextVar("_previous_level", default=None)
-_level = ContextVar("level", default=uuid.uuid4())
+_level = ContextVar("level", default=0)
 
 
 class _ContextCacheDetect:
@@ -51,11 +51,11 @@ class _ContextCacheDetect:
     def level(self):
         return _level.get()
 
-    def _start(self):
-        _previous_level.set(self.level)
-        level = uuid.uuid4()
-        _level.set(level)
-        self._levels[level] = CacheDetect()
+    def _start(self) -> CacheDetect:
+        previous_level = self.level
+        level = random.randint(1, 1000)
+        token = _level.set(level)
+        self._levels[level] = CacheDetect(previous_level=previous_level, unset_token=token)
         return self._levels[level]
 
     def _set(self, key: str, **kwargs):
@@ -79,10 +79,11 @@ class _ContextCacheDetect:
 
     def _stop(self):
         if self.level in self._levels:
+            token = self._levels[self.level]._unset_token
             del self._levels[self.level]
-        _level.set(_previous_level.get())
+            _level.reset(token)
 
-    def __enter__(self):
+    def __enter__(self) -> CacheDetect:
         return self._start()
 
     def __exit__(self, exc_type, exc_val, exc_tb):

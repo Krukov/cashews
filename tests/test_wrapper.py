@@ -1,5 +1,4 @@
 import asyncio
-import random
 from unittest.mock import Mock
 
 import pytest
@@ -241,6 +240,28 @@ async def test_disable_cache_on_fail_return(cache: Cache):
     await cache.delete("fail")
     await cache.set("key", "val")
     assert await func() == "val"
+
+
+async def test_disable_cache_on_fail_return_2(cache: Cache):
+    assert await cache.get("key") is None
+
+    @cache.failover(ttl=1, key="fail", prefix="")
+    @cache(ttl=1, key="key")
+    async def func(fail=False):
+        if fail:
+            raise Exception()
+        return "1"
+
+    await cache.set("fail", "test_fail")
+
+    assert await func(fail=True) == "test_fail"  # return from fail cache but simple cache should be skipped
+    assert await cache.get("key") is None
+
+    await cache.delete("fail")
+    assert await cache.get("fail") is None
+    await cache.set("key", "val")
+    assert await func() == "val"
+    assert await cache.get("fail") is None
 
 
 async def test_multilayer_cache(cache: Cache):

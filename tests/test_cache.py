@@ -345,6 +345,8 @@ async def test_context_cache_detect_simple(backend):
         assert await func(b"notok") == b"notok"
         assert len(detector.keys) == 1
 
+    assert decorators.context_cache_detect._levels == {}
+
 
 async def test_context_cache_detect_deep(backend):
     @decorators.cache(backend, ttl=EXPIRE, key="key1")
@@ -368,6 +370,7 @@ async def test_context_cache_detect_deep(backend):
         assert len(detector.keys) == 2
         assert "key1" in detector.keys
         assert "key2" in detector.keys
+    assert decorators.context_cache_detect._levels == {}
 
 
 async def test_context_cache_detect_context(backend):
@@ -402,3 +405,4 @@ async def test_context_cache_detect_context(backend):
         assert len(detector.keys) == 2
 
     assert decorators.context_cache_detect._get() is None
+    assert decorators.context_cache_detect._levels == {}
