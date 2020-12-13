@@ -18,12 +18,10 @@ class Memory(Backend):
     Inmemory backend lru with ttl
     """
 
-    def __init__(self, size: int = 1000, count_stat=False, check_interval=1):
+    def __init__(self, size: int = 1000, check_interval=1):
         self.store = OrderedDict()
         self._check_interval = check_interval
         self.size = size
-        self._count_stat = count_stat
-        self._counters = defaultdict(lambda: {"hit": 0, "miss": 0, "set": 0})
         self.__is_init = False
         super().__init__()
 
@@ -109,7 +107,6 @@ class Memory(Backend):
         return b"PONG" if message in (None, b"PING") else message
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None):
-        self._count_set(key)
         expire = time.time() + expire if expire else None
         if expire is None and key in self.store:
             expire, _ = self.store[key]
@@ -119,7 +116,6 @@ class Memory(Backend):
             self.store.popitem(last=False)
 
     def _get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
-        self._count_get(key)
         if key not in self.store:
             return default
         self.store.move_to_end(key)
@@ -152,31 +148,6 @@ class Memory(Backend):
         if key in self.store:
             return _get_obj_size(self.store[key])
         return 0
-
-    async def get_counters(self, template):
-        if not self._count_stat:
-            raise Exception("Can't get counters: count stat if off")
-        return self._counters.get(template)
-
-    def _count_get(self, key):
-        if not self._count_stat:
-            return
-        template, _ = get_template_and_func_for(key)
-        if template is None:
-            return
-
-        if key in self.store:
-            self._counters[template]["hit"] += 1
-        else:
-            self._counters[template]["miss"] += 1
-
-    def _count_set(self, key):
-        if not self._count_stat:
-            return
-        template, _ = get_template_and_func_for(key)
-        if template is None:
-            return
-        self._counters[template]["set"] += 1
 
 
 def _get_obj_size(obj) -> int:

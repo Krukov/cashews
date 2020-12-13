@@ -3,11 +3,10 @@ import logging
 import socket
 from typing import Any, Optional, Union
 
-from aioredis import ConnectionsPool as _ConnectionsPool
+from aioredis import ConnectionsPool as __ConnectionsPool
 from aioredis import Redis as Redis_
-from aioredis import RedisError, util
+from aioredis import RedisError, create_pool
 
-from ..key import get_template_and_func_for
 from ..serialize import PickleSerializerMixin
 from .interface import Backend
 
@@ -25,40 +24,24 @@ end
 
 
 class _Redis(Redis_):
-    _GET_COUNT = """
-        local res = redis.call('get',KEYS[1])
-        if res then
-            redis.call('incr','_counters:'..ARGV[1]..':hit')
-        else
-            redis.call('incr','_counters:'..ARGV[1]..':miss')
-        end
-        return res
-    """
 
-    def __init__(self, address, safe=False, count_stat=False, **kwargs):
+    def __init__(self, address, safe=False, **kwargs):
         self._address = address
         self._kwargs = kwargs
         self._pool_or_conn: Optional[_ConnectionsPool] = None
         self._sha = {}
         self._safe = safe
-        self._count_stat = count_stat
 
     @property
     def is_init(self):
         return bool(self._pool_or_conn)
 
     async def init(self):
-        pool = create_pool(address=self._address, **self._kwargs)
-
         try:
-            await pool._fill_free(override_min=False)
+            self._pool_or_conn = await create_pool(address=self._address, pool_cls=_ConnectionsPool, **self._kwargs)
         except Exception:
             if not self._safe:
-                pool.close()
-                await pool.wait_closed()
                 raise
-
-        self._pool_or_conn = pool
 
     def get_many(self, *keys: str):
         return self.mget(keys[0], *keys[1:])
@@ -75,15 +58,6 @@ class _Redis(Redis_):
         if isinstance(expire, float):
             pexpire = int(expire * 1000)
             expire = None
-        if self._count_stat:
-            template, _ = get_template_and_func_for(key)
-            if template:
-                return (
-                    await asyncio.gather(
-                        super().set(key, value, expire=expire, pexpire=pexpire, exist=exist),
-                        self.incr(f"_counters:{template}:set"),
-                    )
-                )[0]
         return await super().set(key, value, expire=expire, pexpire=pexpire, exist=exist)
 
     def get_expire(self, key: str) -> int:
@@ -137,13 +111,6 @@ class _Redis(Redis_):
         return int(await self.execute(b"MEMORY", b"USAGE", key))
 
     async def get(self, key: str, **kwargs) -> Any:
-        if not self._count_stat:
-            return await super().get(key=key, **kwargs)
-        template, _ = get_template_and_func_for(key)
-        if template:
-            if "GET" not in self._sha:
-                self._sha["GET"] = await self.script_load(self._GET_COUNT.replace("\n", " "))
-            return await self.evalsha(self._sha["GET"], keys=[key], args=[template])
         return await super().get(key=key, **kwargs)
 
     async def get_counters(self, template):
@@ -156,7 +123,7 @@ class _Redis(Redis_):
     async def execute(self, command, *args, **kwargs):
         try:
             return await super().execute(command, *args, **kwargs)
-        except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError):
+        except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError, AttributeError):
             if not self._safe or command.lower() == "ping":
                 raise
             logger.error("Redis down on command %s", command)
@@ -171,56 +138,8 @@ class Redis(PickleSerializerMixin, _Redis, Backend):
     pass
 
 
-class __ConnectionsPool(_ConnectionsPool):
+class _ConnectionsPool(__ConnectionsPool):
     async def _create_new_connection(self, address):
         conn = await super()._create_new_connection(address)
         await conn.execute(b"CLIENT", b"SETNAME", b"cachews")
         return conn
-
-
-def create_pool(
-    address,
-    *,
-    db=None,
-    password=None,
-    ssl=None,
-    encoding=None,
-    minsize=1,
-    maxsize=10,
-    parser=None,
-    loop=None,
-    create_connection_timeout=None,
-    pool_cls=None,
-    connection_cls=None,
-):
-    if pool_cls:
-        cls = pool_cls
-    else:
-        cls = __ConnectionsPool
-    if isinstance(address, str):
-        address, options = util.parse_url(address)
-        db = options.setdefault("db", db)
-        password = options.setdefault("password", password)
-        encoding = options.setdefault("encoding", encoding)
-        create_connection_timeout = options.setdefault("timeout", create_connection_timeout)
-        if "ssl" in options:
-            assert options["ssl"] or (not options["ssl"] and not ssl), (
-                "Conflicting ssl options are set",
-                options["ssl"],
-                ssl,
-            )
-            ssl = ssl or options["ssl"]
-
-    return cls(
-        address,
-        db,
-        password,
-        encoding,
-        minsize=minsize,
-        maxsize=maxsize,
-        ssl=ssl,
-        parser=parser,
-        create_connection_timeout=create_connection_timeout,
-        connection_cls=connection_cls,
-        loop=loop,
-    )
