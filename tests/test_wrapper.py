@@ -5,7 +5,7 @@ import pytest
 from cashews.backends.memory import Memory
 from cashews.disable_control import ControlMixin
 from cashews.helpers import add_prefix
-from cashews.key import get_templates_for
+from cashews.key import get_templates_for_func
 from cashews.wrapper import Cache, _auto_init
 
 pytestmark = pytest.mark.asyncio
@@ -288,4 +288,4 @@ async def test_cache_decor_register(cache: Cache):
     async def my_func(val=1):
         return val
 
-    assert next(get_templates_for(my_func)) == "test:key:{val}"
+    assert next(get_templates_for_func(my_func)) == "test:key:{val}"

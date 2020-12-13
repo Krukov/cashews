@@ -4,6 +4,7 @@ from urllib.parse import parse_qsl, urlparse
 
 from . import decorators, validation
 from .backends.client_side import BcastClientSide
+from .backends.index import IndexRedis
 from .backends.interface import Backend
 from .backends.memory import Memory
 from .backends.redis import Redis
@@ -60,6 +61,8 @@ class Cache(Backend):
 
         if params.pop("client_side", None):
             params["backend"] = BcastClientSide
+        if "index_name" in params:
+            params["backend"] = IndexRedis
         backend = params.pop("backend")
 
         self._add_backend(backend, middlewares, prefix, **params)

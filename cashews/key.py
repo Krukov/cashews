@@ -152,11 +152,11 @@ def register_template(func, template: str):
     fields = []
     pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_ReFormatter(fields.append)) + "$"
     compile_pattern = re.compile(pattern, flags=re.MULTILINE)
-    _REGISTER.setdefault((func.__module__, func.__name__), set()).add((template, compile_pattern, tuple(fields)))
+    _REGISTER.setdefault((func.__module__ or "", func.__name__), set()).add((template, compile_pattern, tuple(fields)))
 
 
-def get_templates_for(func):
-    return (template for template, _, _ in _REGISTER.get((func.__module__, func.__name__), set()))
+def get_templates_for_func(func):
+    return (template for template, _, _ in _REGISTER.get((func.__module__ or "", func.__name__), set()))
 
 
 def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callable]]:
@@ -164,4 +164,13 @@ def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callabl
         for template, compile_pattern, _ in templates:
             if compile_pattern.fullmatch(key):
                 return template_to_pattern(template), func
+    return None, None
+
+
+def get_template_for_key(key: str) -> Tuple[Optional[str], Optional[dict]]:
+    for func, templates in _REGISTER.items():
+        for template, compile_pattern, _ in templates:
+            match = compile_pattern.fullmatch(key)
+            if match:
+                return template, match.groupdict()
     return None, None

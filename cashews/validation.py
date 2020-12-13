@@ -4,12 +4,12 @@ from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
 from cashews.backends.interface import Backend
-from cashews.key import get_call_values, get_func_params, get_templates_for, template_to_pattern
+from cashews.key import get_call_values, get_func_params, get_templates_for_func, template_to_pattern
 
 
 async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None):
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
-    for template in get_templates_for(func):
+    for template in get_templates_for_func(func):
         del_template = template_to_pattern(template, **values).lower()
         await backend.delete_match(del_template)
 

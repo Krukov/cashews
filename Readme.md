@@ -90,8 +90,9 @@ You can set parameters for [redis pool](https://aioredis.readthedocs.io/en/v1.3.
 Also if you would like to use [client side cache](https://redis.io/topics/client-side-caching) set `client_side=True` 
 
 ```python
-cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=1&hash_key=my_secret")
-cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=0, hash_key="my_secret", client_side=True)
+cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=0&hash_key=my_secret", prefix="func")
+cache.setup("redis://0.0.0.0/?db=2", hash_key=None, prefix="super", index_name="user", index_field="user_uid")
+cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=1, hash_key="my_secret", client_side=True)
 ```
 
 ### Simple cache
@@ -326,5 +327,4 @@ async def add_from_cache_headers(request: Request, call_next):
 ```
 
  https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
- - Invalidate without scan (index?)
- - Cache strategy based on history of execution (fail too match - add fail cache, too friquent - add cache )
+ - Redis with https://github.com/NoneGG/aredis
