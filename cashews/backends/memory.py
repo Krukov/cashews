@@ -106,7 +106,7 @@ class Memory(Backend):
         return round(expire_at - time.time()) if expire_at is not None else -1
 
     async def ping(self, message: Optional[bytes] = None):
-        return b"PONG" if message is None else message
+        return b"PONG" if message in (None, b"PING") else message
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None):
         self._count_set(key)

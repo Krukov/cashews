@@ -17,7 +17,6 @@ from pydantic import BaseModel
 from cashews import (
     cache,
     mem,
-    CircuitBreakerOpen,
     RateLimitException,
     context_cache_detect,
     utils,

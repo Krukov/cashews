@@ -86,7 +86,7 @@ async def test_simple_cmd_bcast(create_cache):
     cache = await create_cache(BcastClientSide, local)
 
     await cache.set("key:1", "test", 1)
-    await asyncio.sleep(0.05)  # skip init signal about invalidation
+    await asyncio.sleep(0.1)  # skip init signal about invalidation
     assert await cache.get("key:1") == "test"
 
     await cache.incr("key:2")
@@ -96,9 +96,10 @@ async def test_simple_cmd_bcast(create_cache):
     assert await local.get("key:2") is None
 
     assert await cache.get("key:1") == "test"
+    assert await local.get("key:1") == "test"
     await cache.expire("key:1", 3)
     assert await cache.get_expire("key:1") > 0
-    assert await local.get_expire("key:1") > 0
+    assert await local.get("key:1") is None
 
     assert await cache.delete_match("key:*")
     assert await cache.get("key:1") is None

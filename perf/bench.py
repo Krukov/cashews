@@ -21,7 +21,7 @@ def _key_random():
     return f"{prefix}:{random.randint(1, 1000)}"
 
 
-async def set_big(backend, key):
+async def  set_big(backend, key):
     return await backend.set(key, [{"name": f"name_{i}", "id": i} for i in range(100)])
 
 
@@ -38,23 +38,18 @@ async def run(target, test, iters=1000):
         pass
 
     method, key_gen, _options = test
+    _options = dict(_options)
 
     method = getattr(target, method)
-    pre_set = _options.get("init", {}).get("set")
-
     await target.clear()
-    await target.set(pre_set, _options.get("init", {}).get("value", "no_value"))
+    if _options.get("init"):
+        await target.set(_options.pop("init"), _options.get("value", "no_value"))
 
     async def execute():
         options = dict(_options)
         key = key_gen()
-        pre = options.pop("pre", None)
-        if pre:
-            if pre == "set":
-                value = options.pop("value", "no_value")
-                await target.set(key, value)
-            else:
-                await pre(target, key)
+        if options.get("set"):
+            await target.set(key, options.pop("set", "no_value"))
         return await _get_latency(method, key, **options)
 
     latencies = []
@@ -90,20 +85,16 @@ if __name__ == '__main__':
     2) aiocache pickle
     3) cashews hash 
     4) cashews no hash 
-    5) cashews (wrapper) with stats
-    6) cashews with client side bordcast
-    7) cashews with client side update chan
-    8) cashews with client side br wrapper and statistic
-    """)
+    5) cashews with client side
+    6) cashews with client side wrapper 
+    """) or "2 4 6"
     backends = {
         1: ("aiocache simple", caches.get("default")),
         2: ("aiocache pickle", caches.get("redis_pickle")),
         3: ("cashews hash", redis.Redis("redis://localhost/", hash_key=b"f34feyhg;s2")),
         4: ("cashews no hash", redis.Redis("redis://localhost/", hash_key=None)),
-        5: ("cashews (wrapper) with stats", Cache().setup("redis://localhost/", hash_key=b"f34feyhg;s23", count_stat=True)),
-        6: ("cashews with client side bordcast", client_side.BcastClientSide("redis://localhost/", hash_key=None)),
-        7: ("cashews with client side update channel", client_side.UpdateChannelClientSide("redis://localhost/", hash_key=None)),
-        8: ("cashews full", Cache().setup("redis://localhost/", hash_key="test", count_stat=True, client_side=True)),
+        5: ("cashews with client side", client_side.BcastClientSide("redis://localhost/", hash_key=None)),
+        6: ("cashews full", Cache().setup("redis://localhost/", hash_key="test",  client_side=True)),
     }
     targets = []
     for choice in choices.split():
@@ -122,10 +113,10 @@ if __name__ == '__main__':
         9) del static key
         10) del random key
         11) get big object
-    """)
+    """) or "1 2 3 4 5 6"
     _tests = {
-        1: ("get", _key_static, {"pre": "set", "value": "test"}),
-        2: ("get", _key_random, {"pre": "set", "value": "test"}),
+        1: ("get", lambda: "test", {"init": "test"}),
+        2: ("get", _key_random, {"set": "test"}),
         3: ("get", _key_static, {}),
         4: ("get", _key_random, {}),
         5: ("set", _key_static, {"value": list(range(100))}),
@@ -134,13 +125,13 @@ if __name__ == '__main__':
         8: ("incr", _key_random, {}),
         9: ("delete", _key_static, {}),
         10: ("delete", _key_random, {}),
-        11: ("get", _key_static, {"pre": set_big}),
+        11: ("get", _key_static, {"init": set_big}),
     }
     tests = []
     for choice in choices.split():
         tests.append((choice, _tests.get(int(choice))))
 
-    iters = int(input("Iters: ") or "1000")
+    iters = int(input("Iters: ") or "5000")
 
     for test in tests:
         print("=" * 100)

@@ -128,7 +128,7 @@ async def test_cache_simple_none(backend):
 
 
 async def test_cache_simple_key(backend):
-    @decorators.cache(backend, ttl=EXPIRE, key="key:{some}")
+    @decorators.cache(backend, ttl=1, key="key:{some}")
     async def func(resp=b"ok", some="err"):
         return resp
 

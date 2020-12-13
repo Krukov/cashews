@@ -8,6 +8,10 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 from .typing import TTL
 
 
+class WrongKeyException(ValueError):
+    pass
+
+
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
     timeout = ttl() if callable(ttl) else ttl
     return timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
@@ -47,12 +51,23 @@ def get_cache_key_template(func: Callable, key: Optional[str] = None, prefix: st
     :param key: template for key, may contain alias to args or kwargs passed to a call
     :return: cache key template
     """
+    func_params = get_func_params(func)
     if key is None:
-        params = {param_name: "{" + param_name + "}" for param_name in get_func_params(func)}
+        params = {param_name: "{" + param_name + "}" for param_name in func_params}
         key = ":".join([func.__module__, func.__name__, *chain(*params.items())]).lower()
+    else:
+        _check_key_params(key, func_params)
     if prefix:
         key = f"{prefix}:{key}"
     return key
+
+
+def _check_key_params(key, func_params):
+    func_params = {param: param for param in func_params}
+    check = _CheckFormatter()
+    check.format(key, **func_params)
+    if check.error:
+        raise WrongKeyException(f"Wrong parameter placeholder '{check.error}' in the key ")
 
 
 def get_call_values(func: Callable, args, kwargs) -> Dict:
@@ -109,6 +124,21 @@ class _Blank(Formatter):
             return super().get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
             return self.__default, None
+
+
+class _CheckFormatter(Formatter):
+    def __init__(self):
+        self.error = False
+        super().__init__()
+
+    def get_field(self, field_name, args, kwargs):
+        try:
+            return super().get_field(field_name, args, kwargs)
+        except KeyError:
+            self.error = field_name
+            return "", None
+        except AttributeError:
+            return "", None
 
 
 def template_to_pattern(template: str, _formatter=_Blank(), **values) -> str:

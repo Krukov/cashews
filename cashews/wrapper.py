@@ -63,6 +63,7 @@ class Cache(Backend):
         backend = params.pop("backend")
 
         self._add_backend(backend, middlewares, prefix, **params)
+        return self._backends[prefix][0]
 
     def _add_backend(self, backend_class, middlewares=(), prefix=default_prefix, **params):
         class _backend_class(ControlMixin, backend_class):
@@ -129,13 +130,13 @@ class Cache(Backend):
         return self._with_middlewares("listen", pattern)(pattern, *cmds, reader=reader)
 
     def ping(self, message: Optional[bytes] = None) -> str:
-        _key = message
-        if _key is None:
-            _key = b""
-        return self._with_middlewares("ping", _key.decode())(message=message)
+        message = b"PING" if message is None else message
+        return self._with_middlewares("ping", message.decode())(message=message)
 
     async def clear(self):
         for backend, _ in self._backends.values():
+            if not backend.is_init:
+                await backend.init()
             await backend.clear()
 
     async def close(self):

@@ -5,6 +5,7 @@ import pytest
 from cashews.backends.memory import Memory
 from cashews.disable_control import ControlMixin
 from cashews.helpers import add_prefix
+from cashews.key import get_templates_for
 from cashews.wrapper import Cache, _auto_init
 
 pytestmark = pytest.mark.asyncio
@@ -166,7 +167,7 @@ async def test_add_prefix(cache: Cache, target):
         key="prefix!key", value="value", exist=None, expire=None,
     )
     await cache.ping()
-    target.ping.assert_called_once_with(message=None)
+    target.ping.assert_called_once_with(message=b"PING")
 
 
 async def test_add_prefix_get_many(cache: Cache, target):
@@ -280,3 +281,11 @@ async def test_multilayer_cache(cache: Cache):
     await cache.set("key1", "test1")
     assert await func() == "test1"
     assert await cache.get("key2") == "test2"
+
+
+async def test_cache_decor_register(cache: Cache):
+    @cache(ttl=1, key="key:{val}", prefix="test")
+    async def my_func(val=1):
+        return val
+
+    assert next(get_templates_for(my_func)) == "test:key:{val}"

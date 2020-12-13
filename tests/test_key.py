@@ -85,8 +85,14 @@ def atest_cache_key_key(args, func_args, result):
     (
         (func1, None, "tests.test_key:func1:a:{a}"),
         (func2, None, "tests.test_key:func2:a:{a}:k:{k}"),
-        (func2, "key:{test}", "key:{test}"),
+        (func2, "key:{k}", "key:{k}"),
     ),
 )
 def test_get_key_template(func, key, template):
     assert get_cache_key_template(func, key) == template
+
+
+def test_get_key_template_error():
+    with pytest.raises(ValueError) as exc:
+        get_cache_key_template(func1, "key:{wrong_key}:{a}")
+    exc.match("wrong_key")

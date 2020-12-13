@@ -51,29 +51,6 @@ async def test_rate_limit_ttl(rate_limit):
     await func()
 
 
-async def test_rate_limit_func_args_list(rate_limit):
-    @rate_limit(limit=1, period=0.01, key="{arg1}:{kwarg2}", prefix=str(uuid.uuid4()))
-    async def func(*args, **kwargs):
-        return len(args) + len(kwargs)
-
-    assert await func() == 0
-
-    with pytest.raises(RateLimitException):
-        await func()
-
-    assert await func(arg1="test") == 1
-    with pytest.raises(RateLimitException):
-        await func(arg1="test")
-
-    assert await func(arg1="test2") == 1
-
-    assert await func(arg1="test", kwarg2="test") == 2
-    assert await func(arg1="test2", kwarg2="test2") == 2
-
-    with pytest.raises(RateLimitException):
-        await func(arg1="test2", kwarg2="test2")
-
-
 async def test_rate_limit_func_args_dict(rate_limit):
     @rate_limit(limit=1, period=0.1, key="user:{user.name}")
     async def func(user):

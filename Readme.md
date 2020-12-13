@@ -102,8 +102,8 @@ Typical cache strategy: execute, store and return cached value till expiration::
 from cashews import cache
 from datetime import timedelta
 
-@cache(ttl=timedelta(hours=3))
-async def long_running_function(arg, kward):
+@cache(ttl=timedelta(hours=3), key="user:{request.user.uid}")
+async def long_running_function(request):
     ...
 ```
 
@@ -114,8 +114,8 @@ Return cache result (at list 1 call of function call should be succeed) if call 
 ```python
 from cashews import cache  # or from cashews import fail
 
-@cache.fail(ttl=timedelta(hours=2), exceptions=(ValueError, MyException))
-async def get(name):
+@cache.fail(ttl=timedelta(hours=2), exceptions=(ValueError, MyException))  # the key will be "__module__.get_status:name:{name}"
+async def get_status(name):
     value = await api_call()
     return {"status": value}
 ```
@@ -242,7 +242,7 @@ async def create_item(user):
 Also you may face problem with invalid cache arising on code changing. For example we have:
 ```python
 
-@cache(ttl=timedelta(days=1))
+@cache(ttl=timedelta(days=1), key="user:{user_id}")
 async def get_user(user_id):
     return {"name": "Dmitry", "surname": "Krykov"}
 ```
