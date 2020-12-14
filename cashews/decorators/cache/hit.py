@@ -39,8 +39,7 @@ def hit(
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             result, hits = await asyncio.gather(
-                backend.get(_cache_key, default=_empty),
-                backend.incr(_cache_key + ":counter"),
+                backend.get(_cache_key, default=_empty), backend.incr(_cache_key + ":counter"),
             )
             if result is not _empty and hits and hits <= cache_hits:
                 _from_cache._set(_cache_key, ttl=ttl, cache_hits=cache_hits, name="hit", backend=backend.name)

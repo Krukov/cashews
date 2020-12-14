@@ -1,0 +1,1 @@
+from aredis import StrictRedis

@@ -1,3 +1,4 @@
+import random
 from contextvars import ContextVar
 from typing import Any
 
@@ -45,15 +46,16 @@ _level = ContextVar("level", default=0)
 class _ContextCacheDetect:
     def __init__(self):
         self._levels = {}
-        self._pointer = 0
 
     @property
     def level(self):
         return _level.get()
 
     def _get_next_level(self):
-        self._pointer += 1
-        return self._pointer
+        level = random.random()
+        if level not in self._levels:
+            return level
+        return self._get_next_level()
 
     def _start(self) -> CacheDetect:
         previous_level = self.level
@@ -82,7 +84,6 @@ class _ContextCacheDetect:
             var._merge(other)
 
     def _stop(self):
-        self._pointer -= 1
         if self.level in self._levels:
             token = self._levels[self.level]._unset_token
             del self._levels[self.level]

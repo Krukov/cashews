@@ -24,7 +24,6 @@ end
 
 
 class _Redis(Redis_):
-
     def __init__(self, address, safe=False, **kwargs):
         self._address = address
         self._kwargs = kwargs
