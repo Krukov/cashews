@@ -3,6 +3,7 @@ import os
 from unittest.mock import Mock
 
 import pytest
+
 from cashews import decorators
 from cashews.backends.memory import Backend, Memory
 from cashews.backends.redis import Redis
@@ -374,8 +375,6 @@ async def test_context_cache_detect_deep(backend):
 
 
 async def test_context_cache_detect_context(backend):
-    assert decorators.context_cache_detect._get() is None
-
     @decorators.cache(backend, ttl=EXPIRE, key="key1")
     async def func1():
         return 1
@@ -394,8 +393,6 @@ async def test_context_cache_detect_context(backend):
     assert await func1() == "test"
     assert await func2() == "test"
 
-    assert decorators.context_cache_detect._get() is None
-
     with decorators.context_cache_detect as detector:
         assert await asyncio.create_task(func(func1())) == 1
         assert await asyncio.create_task(func(func1(), func2())) == 2
@@ -404,5 +401,4 @@ async def test_context_cache_detect_context(backend):
 
         assert len(detector.keys) == 2
 
-    assert decorators.context_cache_detect._get() is None
     assert decorators.context_cache_detect._levels == {}

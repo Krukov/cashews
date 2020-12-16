@@ -3,10 +3,9 @@ import gc
 import re
 import sys
 import time
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from typing import Any, Optional, Tuple, Union
 
-from ..key import get_template_and_func_for
 from .interface import Backend
 
 __all__ = "Memory"

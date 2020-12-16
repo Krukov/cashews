@@ -112,21 +112,14 @@ class _Redis(Redis_):
     async def get(self, key: str, **kwargs) -> Any:
         return await super().get(key=key, **kwargs)
 
-    async def get_counters(self, template):
-        get = super().get
-        _hit, _miss, _set = await asyncio.gather(
-            get(f"_counters:{template}:hit"), get(f"_counters:{template}:miss"), get(f"_counters:{template}:set"),
-        )
-        return {"hit": int(_hit or 0), "miss": int(_miss or 0), "set": int(_set or 0)}
-
     async def execute(self, command, *args, **kwargs):
         try:
             return await super().execute(command, *args, **kwargs)
         except (RedisError, socket.gaierror, OSError, asyncio.TimeoutError, AttributeError):
-            if not self._safe or command.lower() == "ping":
+            if not self._safe or command.lower() == b"ping":
                 raise
             logger.error("Redis down on command %s", command)
-            if command.lower() in [b"unlink", b"del", b"memory"]:
+            if command.lower() in [b"unlink", b"del", b"memory", b"ttl"]:
                 return 0
             if command.lower() == b"scan":
                 return [0, []]

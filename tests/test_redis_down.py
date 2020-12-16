@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+
 from cashews.backends.redis import Redis
 from cashews.wrapper import Cache
 
@@ -21,7 +22,7 @@ async def test_safe_redis():
     assert await redis.get("test") is None
     assert await redis.get_many("test", "test2") == (None, None)
 
-    assert await redis.get_expire("test") is None
+    assert await redis.get_expire("test") == 0
     assert await redis.incr("test") is None
     assert await redis.get_size("test") == 0
     async for i in redis.keys_match("*"):

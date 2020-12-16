@@ -36,9 +36,6 @@ class CacheDetect:
     def keys(self):
         return dict(self._value)
 
-    def _merge(self, other):
-        self._value.update(other._value)
-
 
 _level = ContextVar("level", default=0)
 
@@ -72,16 +69,6 @@ class _ContextCacheDetect:
                 return
             var._set(key, **kwargs)
             level = var._previous_level
-
-    def _get(self):
-        var = self._levels.get(self.level)
-        if var is not None:
-            return var.get()
-
-    def _merge(self, other: CacheDetect):
-        var = self._levels.get(self.level)
-        if var is not None:
-            var._merge(other)
 
     def _stop(self):
         if self.level in self._levels:

@@ -1,6 +1,7 @@
 import os
 
 import pytest
+
 from cashews.backends.index import IndexRedis
 from cashews.key import register_template
 
