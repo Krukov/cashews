@@ -1,4 +1,5 @@
 from .key import get_call_values
+from .utils import _get_obj_size
 
 
 def add_prefix(prefix: str):
@@ -16,3 +17,15 @@ def add_prefix(prefix: str):
         return await call(*args, **kwargs)
 
     return _middleware
+
+
+def memory_limit(min=0, max=None):
+    async def _memory_middleware(call, *args, backend=None, cmd=None, **kwargs):
+        if cmd != "set":
+            return await call(*args, **kwargs)
+        call_values = get_call_values(call, args, kwargs)
+        value_size = _get_obj_size(call_values["value"])
+        if max and value_size > max or value_size < min:
+            return None
+        return await call(*args, **kwargs)
+    return _memory_middleware
