@@ -41,6 +41,8 @@ def hit(
             result, hits = await asyncio.gather(
                 backend.get(_cache_key, default=_empty), backend.incr(_cache_key + ":counter"),
             )
+            if hits == 1:
+                asyncio.create_task(backend.expire(_cache_key + ":counter", ttl))
             if result is not _empty and hits and hits <= cache_hits:
                 _from_cache._set(_cache_key, ttl=ttl, cache_hits=cache_hits, name="hit", backend=backend.name)
                 if update_before is not None and cache_hits - hits <= update_before:
