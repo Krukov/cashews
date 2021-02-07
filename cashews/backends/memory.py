@@ -148,5 +148,3 @@ class Memory(Backend):
         if key in self.store:
             return _get_obj_size(self.store[key])
         return 0
-
-
