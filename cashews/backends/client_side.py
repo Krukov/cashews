@@ -127,7 +127,9 @@ class BcastClientSide(Redis):
     async def get_expire(self, key: str) -> int:
         if await self._local_cache.get_expire(key) != -1:
             return await self._local_cache.get_expire(key)
-        return await super().get_expire(self._prefix + key)
+        expire = await super().get_expire(self._prefix + key)
+        await self._local_cache.expire(key, expire)
+        return expire
 
     async def exists(self, key) -> bool:
         return await self._local_cache.exists(key) or await super().exists(self._prefix + key)

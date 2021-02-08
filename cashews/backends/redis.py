@@ -26,6 +26,8 @@ end
 class _Redis(Redis_):
     def __init__(self, address, safe=False, **kwargs):
         self._address = address
+        kwargs.pop("local_cache", None)
+        kwargs.pop("prefix", None)
         self._kwargs = kwargs
         self._pool_or_conn: Optional[_ConnectionsPool] = None
         self._sha = {}
