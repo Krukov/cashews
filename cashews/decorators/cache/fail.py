@@ -9,6 +9,17 @@ from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_d
 __all__ = ("failover",)
 
 
+def fast_condition(getter, setter=None):
+    def _fast_condition(result, args, kwargs, key=""):
+        if getter(key):
+            return False
+        if setter:
+            setter(key, result)
+        return True
+
+    return _fast_condition
+
+
 def failover(
     backend: Backend,
     ttl: int,
@@ -44,7 +55,7 @@ def failover(
                     return cached
                 raise exc
             else:
-                if condition(result, args, kwargs):
+                if condition(result, args, kwargs, key=_cache_key):
                     await backend.set(_cache_key, result, expire=ttl)
                 return result
 
