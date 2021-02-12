@@ -63,7 +63,6 @@ class BcastClientSide(Redis):
             try:
                 await self._listen_invalidate()
             except (aioredis.errors.ConnectionClosedError, ConnectionRefusedError):
-                print(f"Bcast: clear local cache")
                 await self._local_cache.clear()
                 await asyncio.sleep(_RECONNECT_WAIT)
 
@@ -84,18 +83,14 @@ class BcastClientSide(Redis):
             if key == b"\x00":
                 continue
             key = key.decode().lstrip(self._prefix)
-            print(f"Bcast: Deleting key: {key}")
             await self._local_cache.delete(key)
 
     async def get(self, key: str, default=None):
-        print(f"Bcast: get key '{key}'")
         value = await self._local_cache.get(key, default=_empty)
         if value is not _empty:
-            print(f"Bcast: key is in local_cache")
             return value
         value = await super().get(self._prefix + key, default=_empty)
         if value is not _empty:
-            print(f"Bcast get: for local cache")
             await self._local_cache.set(key, value)
             return value
         return default
@@ -123,10 +118,13 @@ class BcastClientSide(Redis):
         return await super().delete_match(self._prefix + pattern)
 
     async def expire(self, key, timeout):
-        print(f"Bcast calling expire: '{key}'; timeout: {timeout};")
+        # `expire` sends message to invalidate channel. This results in deleting key 
+        # from local_cache. To avoid this we first capture original value, and then
+        # set it again with appropriate `timeout`.
         local_value = self._local_cache.get(key)
         result = await super().expire(self._prefix + key, timeout)
-        await self._local_cache.set(key, local_value, timeout)
+        while not await self._local_cache.set(key, local_value, timeout):
+            continue
         return result
 
     async def get_expire(self, key: str) -> int:
