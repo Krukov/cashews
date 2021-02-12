@@ -7,14 +7,18 @@ import pytest
 
 from cashews.backends.interface import Backend, ProxyBackend
 from cashews.backends.memory import Memory
-from cashews.backends.redis import Redis
 
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="cache")
-async def _cache():
-    if os.environ.get("USE_REDIS"):
+@pytest.fixture(name="cache", params=[
+    "memory",
+    pytest.param("redis", marks=pytest.mark.redis)
+])
+async def _cache(request):
+    if request.param == "redis":
+        from cashews.backends.redis import Redis
+
         redis = Redis("redis://", hash_key=None)
         await redis.init()
         await redis.clear()

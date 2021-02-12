@@ -30,11 +30,6 @@ def _app():
     return app
 
 
-@pytest.fixture
-def loop(event_loop):
-    return event_loop
-
-
 @pytest.fixture(name="cli")
 async def _cli(aiohttp_client, app):
     return await aiohttp_client(app)

@@ -27,10 +27,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install tox
 
-    - name: Lint
-      run: |
-        tox -e lint
-
     - name: Basic Test Suit
       run: |
         tox -e py

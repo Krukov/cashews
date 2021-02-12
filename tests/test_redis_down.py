@@ -2,14 +2,20 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews.backends.redis import Redis
 from cashews.wrapper import Cache
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 
 
-async def test_safe_redis():
-    redis = Redis(safe=True, address="redis://localhost:9223", hash_key=None)
+@pytest.fixture
+def redis_backend():
+    from cashews.backends.redis import Redis
+    
+    return Redis
+
+
+async def test_safe_redis(redis_backend):
+    redis = redis_backend(safe=True, address="redis://localhost:9223", hash_key=None)
     await redis.init()
     assert await redis.clear() is False
     assert await redis.set("test", "test") is False
@@ -31,10 +37,10 @@ async def test_safe_redis():
     assert await redis.delete("test") == 0
 
 
-async def test_cache_decorators_on_redis_down():
+async def test_cache_decorators_on_redis_down(redis_backend):
     mock = Mock(return_value="val")
     cache = Cache()
-    cache._add_backend(Redis, safe=True, address="redis://localhost:9223", hash_key=None)
+    cache._add_backend(redis_backend, safe=True, address="redis://localhost:9223", hash_key=None)
 
     @cache(ttl=1)
     @cache.fail(1)

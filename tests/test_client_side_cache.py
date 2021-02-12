@@ -3,17 +3,17 @@ import os
 
 import pytest
 
-from cashews.backends.client_side import BcastClientSide
 from cashews.backends.memory import Memory
 
-pytestmark = pytest.mark.asyncio
-REDIS_TESTS = bool(os.environ.get("USE_REDIS"))
+pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 
 
 @pytest.fixture(name="create_cache")
 def _create_cache():
-    async def call(cache_class, local_cache=Memory()):
-        redis = cache_class("redis://", hash_key=None, local_cache=local_cache)
+    from cashews.backends.client_side import BcastClientSide
+
+    async def call(local_cache=Memory()):
+        redis = BcastClientSide("redis://", hash_key=None, local_cache=local_cache)
         await redis.init()
         await redis.clear()
         return redis
@@ -21,12 +21,11 @@ def _create_cache():
     return call
 
 
-@pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
 async def test_set_get_bcast(create_cache):
     cachef_local = Memory()
-    cachef = await create_cache(BcastClientSide, cachef_local)
+    cachef = await create_cache(cachef_local)
     caches_local = Memory()
-    caches = await create_cache(BcastClientSide, caches_local)
+    caches = await create_cache(caches_local)
 
     await cachef.set("key", b"value", expire=0.1)
     await asyncio.sleep(0.01)  # skip init signal about invalidation
@@ -41,12 +40,11 @@ async def test_set_get_bcast(create_cache):
     assert await caches.get("key") is None
 
 
-@pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
 async def test_del_bcast(create_cache):
     cachef_local = Memory()
-    cachef = await create_cache(BcastClientSide, cachef_local)
+    cachef = await create_cache(cachef_local)
     caches_local = Memory()
-    caches = await create_cache(BcastClientSide, caches_local)
+    caches = await create_cache(caches_local)
 
     await cachef.set("key", b"value")
     await asyncio.sleep(0.05)  # skip init signal about invalidation
@@ -58,12 +56,11 @@ async def test_del_bcast(create_cache):
     assert await caches.get("key") is None
 
 
-@pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
 async def test_rewrite_bcast(create_cache):
     cachef_local = Memory()
-    cachef = await create_cache(BcastClientSide, cachef_local)
+    cachef = await create_cache(cachef_local)
     caches_local = Memory()
-    caches = await create_cache(BcastClientSide, caches_local)
+    caches = await create_cache(caches_local)
 
     await cachef.set("key", b"value")
     await asyncio.sleep(0.05)  # skip init signal about invalidation
@@ -81,10 +78,9 @@ async def test_rewrite_bcast(create_cache):
     assert await cachef.get("key") is None
 
 
-@pytest.mark.skipif(not REDIS_TESTS, reason="only for redis")
 async def test_simple_cmd_bcast(create_cache):
     local = Memory()
-    cache = await create_cache(BcastClientSide, local)
+    cache = await create_cache(local)
 
     await cache.set("key:1", "test", 1)
     await asyncio.sleep(0.1)  # skip init signal about invalidation
