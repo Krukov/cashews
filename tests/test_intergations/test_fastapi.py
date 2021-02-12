@@ -1,23 +1,34 @@
 from datetime import timedelta
 
-from fastapi import FastAPI, Header
-from starlette.testclient import TestClient
+import pytest
 
 from cashews import mem
 
-app = FastAPI()
+pytestmark = [pytest.mark.integration]
 
 
-@app.get("/")
-@mem.early(ttl=timedelta(seconds=1), key="root:{q}")
-async def root(q: str = "q", x_name: str = Header("test")):
-    return {"name": x_name, "q": q}
+@pytest.fixture(name="app")
+def _app():
+    from fastapi import FastAPI, Header
+
+    app = FastAPI()
+
+    @app.get("/")
+    @mem.early(ttl=timedelta(seconds=1), key="root:{q}")
+    async def root(q: str = "q", x_name: str = Header("test")):
+        return {"name": x_name, "q": q}
+    
+    return app
 
 
-client = TestClient(app)
+@pytest.fixture(name="client")
+def _client(app):
+    from starlette.testclient import TestClient
+
+    return TestClient(app)
 
 
-def test_no_cache():
+def test_no_cache(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"name": "test", "q": "q"}
@@ -27,7 +38,7 @@ def test_no_cache():
     assert response.json() == {"name": "name", "q": "test"}
 
 
-def test_cache():
+def test_cache(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"name": "test", "q": "q"}
