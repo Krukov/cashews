@@ -9,11 +9,11 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 
 
 @pytest.fixture(name="create_cache")
-def _create_cache():
+def _create_cache(redis_dsn):
     from cashews.backends.client_side import BcastClientSide
 
-    async def call(local_cache=Memory()):
-        redis = BcastClientSide("redis://", hash_key=None, local_cache=local_cache)
+    async def call(local_cache):
+        redis = BcastClientSide(redis_dsn, hash_key=None, local_cache=local_cache)
         await redis.init()
         await redis.clear()
         return redis
@@ -82,19 +82,16 @@ async def test_simple_cmd_bcast(create_cache):
     local = Memory()
     cache = await create_cache(local)
 
-    await cache.set("key:1", "test", 1)
-    await asyncio.sleep(0.1)  # skip init signal about invalidation
-    assert await cache.get("key:1") == "test"
-
     await cache.incr("key:2")
     assert await cache.get("key:2") == 1
     await cache.delete("key:2")
     assert await cache.get("key:2") is None
     assert await local.get("key:2") is None
 
+    await cache.set("key:1", "test", 10)
     assert await cache.get("key:1") == "test"
     assert await local.get("key:1") == "test"
-    await cache.expire("key:1", 3)
+    await cache.expire("key:1", 100)
     assert await cache.get_expire("key:1") > 0
     assert await local.get_expire("key:1") > 0
 

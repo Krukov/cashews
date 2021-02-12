@@ -60,14 +60,12 @@ class BcastClientSide(Redis):
 
     async def _listen_invalidate_forever(self):
         while True:
-            await self._local_cache.clear()
             try:
                 await self._listen_invalidate()
             except (aioredis.errors.ConnectionClosedError, ConnectionRefusedError):
+                print(f"Bcast: clear local cache")
                 await self._local_cache.clear()
                 await asyncio.sleep(_RECONNECT_WAIT)
-            finally:
-                await self._local_cache.clear()
 
     async def _get_channel(self) -> aioredis.Channel:
         conn = aioredis.Redis(await self.connection.acquire())
@@ -86,14 +84,18 @@ class BcastClientSide(Redis):
             if key == b"\x00":
                 continue
             key = key.decode().lstrip(self._prefix)
+            print(f"Bcast: Deleting key: {key}")
             await self._local_cache.delete(key)
 
     async def get(self, key: str, default=None):
+        print(f"Bcast: get key '{key}'")
         value = await self._local_cache.get(key, default=_empty)
         if value is not _empty:
+            print(f"Bcast: key is in local_cache")
             return value
         value = await super().get(self._prefix + key, default=_empty)
         if value is not _empty:
+            print(f"Bcast get: for local cache")
             await self._local_cache.set(key, value)
             return value
         return default
@@ -121,8 +123,11 @@ class BcastClientSide(Redis):
         return await super().delete_match(self._prefix + pattern)
 
     async def expire(self, key, timeout):
-        await self._local_cache.expire(key, timeout)
-        return await super().expire(self._prefix + key, timeout)
+        print(f"Bcast calling expire: '{key}'; timeout: {timeout};")
+        local_value = self._local_cache.get(key)
+        result = await super().expire(self._prefix + key, timeout)
+        await self._local_cache.set(key, local_value, timeout)
+        return result
 
     async def get_expire(self, key: str) -> int:
         if await self._local_cache.get_expire(key) != -1:

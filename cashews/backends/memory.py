@@ -107,6 +107,7 @@ class Memory(Backend):
         return b"PONG" if message in (None, b"PING") else message
 
     def _set(self, key: str, value: Any, expire: Optional[float] = None):
+        print(f"Local cache: set key: '{key}'; expire: {expire}")
         expire = time.time() + expire if expire else None
         if expire is None and key in self.store:
             expire, _ = self.store[key]
@@ -116,11 +117,13 @@ class Memory(Backend):
             self.store.popitem(last=False)
 
     def _get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
+        print(f"Local cache: get key: '{key}'")
         if key not in self.store:
             return default
         self.store.move_to_end(key)
         expire_at, value = self.store.get(key)
         if expire_at and expire_at < time.time():
+            print(f"Local cache: delete: key '{key}' because it is expired")
             self._delete(key)
             return default
         return value

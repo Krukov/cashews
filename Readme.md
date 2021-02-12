@@ -5,7 +5,7 @@ Async cache utils with simple api to build fast and reliable applications
 -------------------------------------------------------------------------
 
     pip install cashews
-    pip install cashews[aioredis]
+    pip install cashews[redis]
 
 
 Why

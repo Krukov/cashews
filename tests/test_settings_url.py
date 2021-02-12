@@ -50,7 +50,7 @@ def test_url_but_backend_dependency_is_not_installed():
     ),
 )
 def test_url_with_redis_as_backend(url, params):
-    from cachews.backend.redis import Redis
+    from cashews.backends.redis import Redis
 
     params["backend"] = Redis
     assert settings_url_parse(url) == params

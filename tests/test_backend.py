@@ -15,11 +15,11 @@ pytestmark = pytest.mark.asyncio
     "memory",
     pytest.param("redis", marks=pytest.mark.redis)
 ])
-async def _cache(request):
+async def _cache(request, redis_dsn):
     if request.param == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis("redis://", hash_key=None)
+        redis = Redis(redis_dsn, hash_key=None)
         await redis.init()
         await redis.clear()
         return redis
@@ -140,8 +140,8 @@ async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
     assert await cache.get_size("test") in (
         sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),
-        66,
-    )  # 106 - ordered dict,  66 redis
+        68,
+    )  # 106 - ordered dict,  68 redis
 
 
 async def test_lru():

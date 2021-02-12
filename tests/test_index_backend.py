@@ -8,10 +8,10 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 
 
 @pytest.fixture(name="cache")
-async def _cache():
+async def _cache(redis_dsn):
     from cashews.backends.index import IndexRedis
 
-    redis = IndexRedis(address="redis://", hash_key=None, index_field="user", index_name="test")
+    redis = IndexRedis(address=redis_dsn, hash_key=None, index_field="user", index_name="test")
     await redis.init()
     await redis.clear()
     return redis

@@ -46,11 +46,11 @@ class Cache(PickleSerializerMixin, DummyCache):
     "dummy",
     pytest.param("redis", marks=pytest.mark.redis)
 ])
-async def _cache(request):
+async def _cache(request, redis_dsn):
     if request.param == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis("redis://", hash_key=b"test", safe=True)
+        redis = Redis(redis_dsn, hash_key=b"test", safe=True)
         await redis.init()
         await redis.clear()
         return redis

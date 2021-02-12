@@ -20,11 +20,11 @@ class CustomError(Exception):
     "memory",
     pytest.param("redis", marks=pytest.mark.redis)
 ])
-async def _backend(request):
+async def _backend(request, redis_dsn):
     if request.param == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis("redis://", hash_key=None)
+        redis = Redis(redis_dsn, hash_key=None)
         await redis.init()
         await redis.clear()
         return redis
