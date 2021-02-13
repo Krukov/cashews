@@ -4,10 +4,9 @@
     <em>Async cache utils with simple API to build fast and reliable applications</em>
 </p>
 
----
-
 ```bash
 pip install cashews
+pip install cashews[redis]
 ```
 
 ---

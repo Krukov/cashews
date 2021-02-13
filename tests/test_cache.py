@@ -6,10 +6,9 @@ import pytest
 
 from cashews import decorators
 from cashews.backends.memory import Backend, Memory
-from cashews.backends.redis import Redis
 
 pytestmark = pytest.mark.asyncio
-REDIS_TESTS = bool(os.environ.get("USE_REDIS"))
+
 EXPIRE = 0.02
 
 
@@ -17,10 +16,15 @@ class CustomError(Exception):
     pass
 
 
-@pytest.fixture(name="backend")
-async def _backend():
-    if REDIS_TESTS:
-        redis = Redis("redis://", hash_key=None)
+@pytest.fixture(name="backend", params=[
+    "memory",
+    pytest.param("redis", marks=pytest.mark.redis)
+])
+async def _backend(request, redis_dsn):
+    if request.param == "redis":
+        from cashews.backends.redis import Redis
+
+        redis = Redis(redis_dsn, hash_key=None)
         await redis.init()
         await redis.clear()
         return redis
@@ -177,7 +181,7 @@ async def test_early_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
-@pytest.mark.skipif(REDIS_TESTS, reason="only for mem")
+@pytest.mark.redis
 async def test_early_cache_parallel(backend):
 
     mock = Mock()

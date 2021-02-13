@@ -3,16 +3,28 @@ from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
 from . import decorators, validation
-from .backends.client_side import BcastClientSide
-from .backends.index import IndexRedis
 from .backends.interface import Backend
 from .backends.memory import Memory
-from .backends.redis import Redis
 from .disable_control import ControlMixin, _is_disable_middleware
 from .key import ttl_to_seconds
 from .typing import TTL, CacheCondition
 
+try:
+    import aioredis
+except ImportError:
+    BcastClientSide, IndexRedis, Redis = None, None, None
+else:
+    from .backends.client_side import BcastClientSide
+    from .backends.index import IndexRedis
+    from .backends.redis import Redis
+
+    del aioredis
+
 #  pylint: disable=too-many-public-methods
+
+
+class BackendNotAvailable(Exception):
+    pass
 
 
 async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
@@ -393,6 +405,8 @@ def settings_url_parse(url):
     params.update(dict(parse_qsl(parse_result.query)))
     params = _fix_params_types(params)
     if parse_result.scheme == "redis":
+        if Redis is None:
+            raise BackendNotAvailable("Redis backend requires `aioredis` to be installed.")
         params["backend"] = Redis
         params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()
     elif parse_result.scheme == "mem":

@@ -1,38 +1,37 @@
 from datetime import timedelta
 
 import pytest
-from aiohttp import web
 
 from cashews import mem
 
-pytestmark = pytest.mark.asyncio
-pytest_plugins = ["aiohttp.pytest_plugin"]
+pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 
-def json(func):
-    async def _handler(request):
-        return web.json_response(data=await func(request))
-
-    return _handler
-
-
-@json
-@mem(ttl=timedelta(seconds=1), key="q:{request.query}")
-async def handle(request: web.Request):
-    name = request.headers.get("X-Name", "test")
-    return {"name": name, "q": request.query.get("q", "q")}
+# just an alias, required by aiohttp
+@pytest.fixture
+def loop(event_loop):
+    return event_loop
 
 
 @pytest.fixture(name="app")
 def _app():
+    from aiohttp import web
+
+    def json(func):
+        async def _handler(request):
+            return web.json_response(data=await func(request))
+
+        return _handler
+
+    @json
+    @mem(ttl=timedelta(seconds=1), key="q:{request.query}")
+    async def handle(request):
+        name = request.headers.get("X-Name", "test")
+        return {"name": name, "q": request.query.get("q", "q")}
+
     app = web.Application()
     app.add_routes([web.get("/", handle)])
     return app
-
-
-@pytest.fixture
-def loop(event_loop):
-    return event_loop
 
 
 @pytest.fixture(name="cli")

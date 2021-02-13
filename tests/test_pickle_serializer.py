@@ -6,7 +6,6 @@ from decimal import Decimal
 
 import pytest
 
-from cashews.backends.redis import Redis
 from cashews.serialize import PickleSerializerMixin, UnSecureDataError
 
 pytestmark = pytest.mark.asyncio
@@ -43,15 +42,19 @@ class Cache(PickleSerializerMixin, DummyCache):
     pass
 
 
-@pytest.fixture(name="cache")
-async def _cache():
-    if os.environ.get("USE_REDIS"):
-        redis = Redis("redis://", hash_key=b"test", safe=True)
+@pytest.fixture(name="cache", params=[
+    "dummy",
+    pytest.param("redis", marks=pytest.mark.redis)
+])
+async def _cache(request, redis_dsn):
+    if request.param == "redis":
+        from cashews.backends.redis import Redis
+
+        redis = Redis(redis_dsn, hash_key=b"test", safe=True)
         await redis.init()
         await redis.clear()
         return redis
-    cache = Cache(hash_key="test", digestmod="md5")
-    return cache
+    return Cache(hash_key="test", digestmod="md5")
 
 
 @pytest.mark.parametrize(
