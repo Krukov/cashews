@@ -64,7 +64,7 @@ def early(
 
 async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: int, early_ttl: int, condition):
     result = await func(*args, **kwargs)
-    if condition(result, args, kwargs):
+    if condition(result, args, kwargs, key):
         early_expire_at = datetime.utcnow() + timedelta(seconds=early_ttl)
         await backend.set(key, [early_expire_at, result], expire=ttl)
     return result

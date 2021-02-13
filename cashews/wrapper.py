@@ -183,10 +183,10 @@ class Cache(Backend):
             async def _call(*args, **kwargs):
                 with decorators.context_cache_detect as detect:
 
-                    def new_condition(result, _args, _kwargs):
+                    def new_condition(result, _args, _kwargs, key):
                         if detect.keys:
                             return False
-                        return condition(result, _args, _kwargs) if condition else result is not None
+                        return condition(result, _args, _kwargs, key=key) if condition else result is not None
 
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
                     result = await decorator(func)(*args, **kwargs)

@@ -7,11 +7,11 @@ from ...typing import CacheCondition
 _empty = object()
 
 
-def _default_store_condition(result, args, kwargs) -> bool:
+def _default_store_condition(result, args, kwargs, key=None) -> bool:
     return result is not None
 
 
-def _store_all(result, args, kwargs) -> bool:
+def _store_all(result, args, kwargs, key=None) -> bool:
     return True
 
 
