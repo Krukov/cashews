@@ -1,3 +1,4 @@
+import asyncio
 from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
@@ -27,10 +28,17 @@ class BackendNotAvailable(Exception):
     pass
 
 
-async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
-    if not backend.is_init:
-        await backend.init()
-    return await call(*args, **kwargs)
+def _create_auto_init():
+    lock = asyncio.Lock()
+
+    async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
+        async with lock:
+            if not backend.is_init:
+                await backend.init()
+
+        return await call(*args, **kwargs)
+
+    return _auto_init
 
 
 class Cache(Backend):
@@ -38,7 +46,7 @@ class Cache(Backend):
 
     def __init__(self, name=None):
         self._backends = {}
-        self._default_middlewares = (_is_disable_middleware, _auto_init, validation._invalidate_middleware)
+        self._default_middlewares = (_is_disable_middleware, _create_auto_init(), validation._invalidate_middleware)
         self._name = name
         self._default_fail_exceptions = Exception
 

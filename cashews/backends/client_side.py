@@ -121,7 +121,7 @@ class BcastClientSide(Redis):
         return await super().delete_match(self._prefix + pattern)
 
     async def expire(self, key, timeout):
-        # `expire` sends message to invalidate channel. This results in deleting key 
+        # `expire` sends message to invalidate channel. This results in deleting key
         # from local_cache. To avoid this we first capture original value, and then
         # set it again with appropriate `timeout`.
         local_value = await self._local_cache.get(key, default=_empty)

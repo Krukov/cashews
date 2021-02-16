@@ -42,10 +42,7 @@ class Cache(PickleSerializerMixin, DummyCache):
     pass
 
 
-@pytest.fixture(name="cache", params=[
-    "dummy",
-    pytest.param("redis", marks=pytest.mark.redis)
-])
+@pytest.fixture(name="cache", params=["dummy", pytest.param("redis", marks=pytest.mark.redis)])
 async def _cache(request, redis_dsn):
     if request.param == "redis":
         from cashews.backends.redis import Redis

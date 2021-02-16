@@ -7,7 +7,7 @@ from cashews.backends.memory import Memory
 from cashews.disable_control import ControlMixin
 from cashews.helpers import add_prefix
 from cashews.key import get_templates_for_func
-from cashews.wrapper import Cache, _auto_init
+from cashews.wrapper import Cache, _create_auto_init
 
 pytestmark = pytest.mark.asyncio
 
@@ -151,7 +151,7 @@ async def test_init(cache):
 
 async def test_auto_init(cache):
     target = Memory()
-    cache._backends[""] = target, (_auto_init,)
+    cache._backends[""] = target, (_create_auto_init(),)
     assert not target.is_init
     assert b"PONG" == await cache.ping()
     assert target.is_init
