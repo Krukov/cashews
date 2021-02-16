@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import Mock
+from unittest.mock import Mock, PropertyMock
 
 import pytest
 
@@ -150,11 +150,21 @@ async def test_init(cache):
 
 
 async def test_auto_init(cache):
-    target = Memory()
-    cache._backends[""] = target, (_create_auto_init(),)
-    assert not target.is_init
-    assert b"PONG" == await cache.ping()
-    assert target.is_init
+    target = Mock(wraps=Memory())
+    init = False
+
+    def set_init():
+        async def _set():
+            nonlocal init
+            await asyncio.sleep(0.01)
+            init = True
+        return _set()
+
+    type(target).is_init = PropertyMock(side_effect=lambda: init)
+    target.init.side_effect = set_init
+    cache._backends[""] = (target, (_create_auto_init(), ))
+    await asyncio.gather(cache.ping(), cache.ping(), cache.get("test"))
+    target.init.assert_called_once()
 
 
 async def test_add_prefix(cache: Cache, target):

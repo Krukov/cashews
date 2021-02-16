@@ -32,6 +32,8 @@ def _create_auto_init():
     lock = asyncio.Lock()
 
     async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
+        if backend.is_init:
+            return await call(*args, **kwargs)
         async with lock:
             if not backend.is_init:
                 await backend.init()
