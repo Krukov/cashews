@@ -1,7 +1,7 @@
 import pytest
 
 from cashews.backends.memory import Memory
-from cashews.wrapper import settings_url_parse, BackendNotAvailable
+from cashews.wrapper import BackendNotAvailable, settings_url_parse
 
 
 @pytest.mark.parametrize(
@@ -20,7 +20,7 @@ def test_url_but_backend_dependency_is_not_installed():
     url = "redis://localhost:9000/0"
     with pytest.raises(BackendNotAvailable) as excinfo:
         settings_url_parse(url)
-    
+
     assert str(excinfo.value) == "Redis backend requires `aioredis` to be installed."
 
 

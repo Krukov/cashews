@@ -1,5 +1,4 @@
 import asyncio
-import os
 import sys
 from unittest.mock import Mock
 
@@ -11,10 +10,7 @@ from cashews.backends.memory import Memory
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="cache", params=[
-    "memory",
-    pytest.param("redis", marks=pytest.mark.redis)
-])
+@pytest.fixture(name="cache", params=["memory", pytest.param("redis", marks=pytest.mark.redis)])
 async def _cache(request, redis_dsn):
     if request.param == "redis":
         from cashews.backends.redis import Redis

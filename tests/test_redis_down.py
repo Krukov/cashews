@@ -10,7 +10,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 @pytest.fixture
 def redis_backend():
     from cashews.backends.redis import Redis
-    
+
     return Redis
 
 

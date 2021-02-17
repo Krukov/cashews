@@ -1,5 +1,4 @@
 import asyncio
-import os
 from unittest.mock import Mock
 
 import pytest
@@ -16,10 +15,7 @@ class CustomError(Exception):
     pass
 
 
-@pytest.fixture(name="backend", params=[
-    "memory",
-    pytest.param("redis", marks=pytest.mark.redis)
-])
+@pytest.fixture(name="backend", params=["memory", pytest.param("redis", marks=pytest.mark.redis)])
 async def _backend(request, redis_dsn):
     if request.param == "redis":
         from cashews.backends.redis import Redis
