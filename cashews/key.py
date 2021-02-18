@@ -3,6 +3,7 @@ import inspect
 import json
 import re
 from datetime import timedelta
+from hashlib import md5, sha1, sha256
 from itertools import chain
 from string import Formatter
 from typing import Any, Callable, Dict, Optional, Tuple, Union
@@ -168,7 +169,6 @@ def _jwt_func(jwt: str, key: str):
 
 
 register_template_func("jwt", _jwt_func)
-from hashlib import md5, sha1, sha256
 
 
 def _hash_func(value: str, alg="md5") -> str:
