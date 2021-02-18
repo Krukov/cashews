@@ -8,6 +8,7 @@ from .decorators import (  # noqa
     fast_condition,
 )
 from .helpers import add_prefix  # noqa
+from .key import get_template_and_func_for, get_template_for_key, register_template_func  # noqa
 from .validation import set_invalidate_further  # noqa
 from .wrapper import Cache  # noqa
 

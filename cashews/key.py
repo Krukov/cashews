@@ -1,4 +1,6 @@
+import base64
 import inspect
+import json
 import re
 from datetime import timedelta
 from itertools import chain
@@ -33,7 +35,7 @@ def get_cache_key(
     key_values = get_call_values(func, args, kwargs)
     key_values = {k: v if v is not None else "" for k, v in key_values.items()}
     _key_template = template or get_cache_key_template(func)
-    return template_to_pattern(_key_template, _formatter=_Blank(""), **key_values).lower()
+    return template_to_pattern(_key_template, _formatter=default_formatter, **key_values).lower()
 
 
 def get_func_params(func):
@@ -124,6 +126,58 @@ class _Blank(Formatter):
             return super().get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
             return self.__default, None
+
+
+class _FuncFormatter(_Blank):
+    def __init__(self, *args, **kwargs):
+        self._functions = {}
+        super().__init__(*args, **kwargs)
+
+    def register(self, alias, function):
+        self._functions[alias] = function
+
+    def format_field(self, value, format_spec):
+        format_spec, args = self.parse_format_spec(format_spec)
+        value = super().format_field(value, format_spec if format_spec not in self._functions else "")
+        if format_spec in self._functions:
+            return str(self._functions[format_spec](value, *args))
+        return value
+
+    @staticmethod
+    def parse_format_spec(format_spec):
+        if not format_spec or "(" not in format_spec:
+            return format_spec, ()
+        format_spec, args = format_spec.split("(", 1)
+        return format_spec, args.replace(")", "").split(",")
+
+
+default_formatter = _FuncFormatter("")
+
+
+def register_template_func(alias: str, func: Callable):
+    default_formatter.register(alias, func)
+
+
+register_template_func("len", len)
+
+
+def _jwt_func(jwt: str, key: str):
+    _, payload, _ = jwt.split(".", 2)
+    payload_dict = json.loads(base64.b64decode(payload))
+    return payload_dict.get(key)
+
+
+register_template_func("jwt", _jwt_func)
+from hashlib import md5, sha1, sha256
+
+
+def _hash_func(value: str, alg="md5") -> str:
+    algs = {"sha1": sha1, "md5": md5, "sha256": sha256}
+    alg = algs[alg]
+    return alg(value.encode()).hexdigest()
+
+
+register_template_func("hash", _hash_func)
 
 
 class _CheckFormatter(Formatter):

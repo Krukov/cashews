@@ -55,6 +55,7 @@ async def cache_using_function(request):
 - [Available Backends](#available-backends)
 - [Basic API](#basic-api)
 - [Strategies](#strategies)
+  - [Keys templating](#templating-for-keys)
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
@@ -269,6 +270,52 @@ async def get(name):
     ...
 ```
 
+### Templating for keys
+
+Often, to compose a key, you need all the parameters of the function call. 
+So without specifying a key, Cashews will generate a key using the function name, module names and parameters
+```python
+from cashews import cache
+
+@cache(ttl=timedelta(hours=3))
+async def get_name(user, version="v1"):
+    ...
+
+# a key template will be "__module__.get_name:user:{user}:version:{version}"
+
+await get_name("me", version="v2") 
+# a key will be "__module__.get_name:user:me:version:v2"
+```
+
+But sometimes you need to format the parameters or define your
+ own template for the key and Cashews allows you to do this:
+```python
+@cache.fail(key="name:{user.uid}")
+async def get_name(user, version="v1"):
+    ...
+
+await get_name(user, version="v2") 
+# a key will be "fail:name:me"
+
+@cache.hit(key="user:{token:jwt(user_name)}", prefix="new")
+async def get_name(token):
+    ...
+
+await get_name(token) 
+# a key will be "new:user:alex"
+
+from cashews import register_template_func
+
+register_template_func("upper", lambda x: x.upper())
+
+@cache(key="name-{user:upper}")
+async def get_name(user):
+    ...
+
+await get_name("alex") 
+# a key will be "name-ALEX"
+```
+
 ### Cache invalidation
 
 Cache invalidation - one of the main Computer Science well known problem.
@@ -410,4 +457,3 @@ async def add_from_cache_headers(request: Request, call_next):
 ```
 
 - https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
-- Redis with https://github.com/NoneGG/aredis
