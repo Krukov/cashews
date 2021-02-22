@@ -173,9 +173,7 @@ class RedisDownException(Exception):
 
 
 @app.get("/rank")
-@mem.fail(
-    ttl=timedelta(minutes=5), exceptions=(Exception,), key=("accept_language",),
-)
+@mem.fail(ttl=timedelta(minutes=5), exceptions=(Exception,), key="{accept_language}")
 @cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1))
 @cache.early(ttl=timedelta(minutes=2), early_ttl=timedelta(minutes=1), key="{accept_language}")
 @cache.locked(key="{accept_language}")

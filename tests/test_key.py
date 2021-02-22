@@ -61,6 +61,16 @@ def test_cache_func_key_dict():
         (("a1",), {"arg2": 2, "kwarg1": "k1"}, "{arg2}-{kwarg1}-{kwarg3}", "2-k1-",),
         (("a1",), {"arg2": 2, "kwarg1": "k1", "kwarg3": "k3"}, "{arg2}:{kwarg1}:{kwarg3}", "2:k1:k3",),
         (("a1",), {"kwarg1": "k1", "arg2": 2}, "{arg2}:{kwarg1}:{kwarg3}", "2:k1:",),
+        (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:len}", "4"),
+        (("a1", "a2"), {"user": type("user", (), {"name": "test"})()}, "{user.name:len}", "4"),
+        (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:hash}", "098f6bcd4621d373cade4e832627b4f6"),
+        (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:hash(md5)}", "098f6bcd4621d373cade4e832627b4f6"),
+        (
+            ("a1", "a2"),
+            {"kwarg1": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoidGVzdCJ9.n75bSCIEuSemX5iop0sCF3HmXwMQWF1zI6TzckzHUKY"},
+            "{kwarg1:jwt(user)}",
+            "test",
+        ),
     ),
 )
 def test_cache_key_args_kwargs(args, kwargs, template, key):
@@ -68,17 +78,6 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
         ...
 
     assert get_cache_key(func, template, args=args, kwargs=kwargs) == key
-
-
-@pytest.mark.parametrize(
-    ("args", "func_args", "result"),
-    ((("a", "k"), ("a", "k"), "tests.test_key:func:a:a:k:k"), (("a",), ("a", "k"), "tests.test_key:func:a:a"),),
-)
-def atest_cache_key_key(args, func_args, result):
-    async def func(a="a1", k=None):
-        ...
-
-    assert get_cache_key(func, args=args, func_args=func_args) == result
 
 
 @pytest.mark.parametrize(

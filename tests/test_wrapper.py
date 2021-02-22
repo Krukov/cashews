@@ -158,11 +158,12 @@ async def test_auto_init(cache):
             nonlocal init
             await asyncio.sleep(0.01)
             init = True
+
         return _set()
 
     type(target).is_init = PropertyMock(side_effect=lambda: init)
     target.init.side_effect = set_init
-    cache._backends[""] = (target, (_create_auto_init(), ))
+    cache._backends[""] = (target, (_create_auto_init(),))
     await asyncio.gather(cache.ping(), cache.ping(), cache.get("test"))
     target.init.assert_called_once()
 
