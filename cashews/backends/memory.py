@@ -150,7 +150,7 @@ class Memory(Backend):
             return _get_obj_size(self.store[key])
         return 0
 
-    async def close(self):
+    def close(self):
         if self.__remove_expired_task is not None:
             self.__remove_expired_task.cancel()
         super().close()

@@ -11,15 +11,13 @@ pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture(name="cache", params=["memory", pytest.param("redis", marks=pytest.mark.redis)])
-async def _cache(request, redis_dsn):
+async def _cache(request, redis_dsn, backend_factory):
     if request.param == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis(redis_dsn, hash_key=None)
-        await redis.init()
-        await redis.clear()
-        return redis
-    return Memory()
+        yield await backend_factory(Redis, redis_dsn, hash_key=None)
+    else:
+        yield await backend_factory(Memory)
 
 
 async def test_set_get(cache):
@@ -140,8 +138,8 @@ async def test_get_size(cache: Backend):
     )  # 106 - ordered dict,  68 redis
 
 
-async def test_lru():
-    cache = Memory(size=10)
+async def test_lru(backend_factory):
+    cache = await backend_factory(Memory, size=10)
     # full cache
     for i in range(10):
         await cache.set(f"key:{i}", i)

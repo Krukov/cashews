@@ -16,17 +16,14 @@ class CustomError(Exception):
 
 
 @pytest.fixture(name="backend", params=["memory", pytest.param("redis", marks=pytest.mark.redis)])
-async def _backend(request, redis_dsn):
+async def _backend(request, redis_dsn, backend_factory):
     if request.param == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis(redis_dsn, hash_key=None)
-        await redis.init()
-        await redis.clear()
-        return redis
-    _cache = Memory()
-    await _cache.init()
-    return _cache
+        yield await backend_factory(Redis, redis_dsn, None)
+    else:
+        yield await backend_factory(backend_cls=Memory)
+
 
 
 async def test_fail_cache_simple(backend):

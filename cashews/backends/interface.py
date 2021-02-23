@@ -19,7 +19,7 @@ class Backend:
     def is_init(self):
         ...
 
-    async def close(self):
+    def close(self):
         ...
 
     async def set(
