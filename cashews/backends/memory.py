@@ -23,11 +23,12 @@ class Memory(Backend):
         self._check_interval = check_interval
         self.size = size
         self.__is_init = False
+        self.__remove_expired_task = None
         super().__init__()
 
     async def init(self):
         self.__is_init = True
-        asyncio.create_task(self._remove_expired())
+        self.__remove_expired_task = asyncio.create_task(self._remove_expired())
 
     @property
     def is_init(self):
@@ -148,3 +149,8 @@ class Memory(Backend):
         if key in self.store:
             return _get_obj_size(self.store[key])
         return 0
+
+    async def close(self):
+        if self.__remove_expired_task is not None:
+            self.__remove_expired_task.cancel()
+        super().close()
