@@ -127,6 +127,10 @@ class _Redis(Redis_):
                 return [0, []]
             return None
 
+    def close(self):
+        super().close()
+        self._pool_or_conn.close()
+
 
 class Redis(PickleSerializerMixin, _Redis, Backend):
     pass

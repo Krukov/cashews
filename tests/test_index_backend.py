@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from cashews.key import register_template
@@ -8,13 +6,10 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 
 
 @pytest.fixture(name="cache")
-async def _cache(redis_dsn):
+async def _cache(redis_dsn, backend_factory):
     from cashews.backends.index import IndexRedis
 
-    redis = IndexRedis(address=redis_dsn, hash_key=None, index_field="user", index_name="test")
-    await redis.init()
-    await redis.clear()
-    return redis
+    return await backend_factory(IndexRedis, address=redis_dsn, hash_key=None, index_field="user", index_name="test")
 
 
 async def test_set(cache):
