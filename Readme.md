@@ -7,6 +7,7 @@
 ```bash
 pip install cashews
 pip install cashews[redis]
+pip install cashews[diskcache]
 ```
 
 ---

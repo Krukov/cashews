@@ -21,7 +21,10 @@ def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
 
 
 def get_cache_key(
-    func: Callable, template: Optional[str] = None, args: Tuple[Any] = (), kwargs: Optional[Dict] = None,
+    func: Callable,
+    template: Optional[str] = None,
+    args: Tuple[Any] = (),
+    kwargs: Optional[Dict] = None,
 ) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs

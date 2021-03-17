@@ -16,6 +16,7 @@ class Backend:
     async def init(self):
         ...
 
+    @property
     def is_init(self):
         ...
 
@@ -66,7 +67,7 @@ class Backend:
         """
         ...
 
-    async def ping(self, message: Optional[bytes] = None) -> str:
+    async def ping(self, message: Optional[bytes] = None) -> bytes:
         ...
 
     async def clear(self):

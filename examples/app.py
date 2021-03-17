@@ -119,12 +119,18 @@ async def add_from_cache_headers(request: Request, call_next):
 
 @app.exception_handler(RateLimitException)
 async def rate_limit_handler(request, exc: RateLimitException):
-    return JSONResponse(status_code=429, content=ujson.dumps({"error": "too much"}),)
+    return JSONResponse(
+        status_code=429,
+        content=ujson.dumps({"error": "too much"}),
+    )
 
 
 @app.exception_handler(LockedException)
 async def rate_limit_handler(request, exc: LockedException):
-    return JSONResponse(status_code=500, content=ujson.dumps({"error": "LOCK"}),)
+    return JSONResponse(
+        status_code=500,
+        content=ujson.dumps({"error": "LOCK"}),
+    )
 
 
 @app.get("/")
@@ -154,7 +160,9 @@ async def get_token(auth: Auth):
             )
         }
     raise HTTPException(
-        status_code=HTTP_403_FORBIDDEN, detail="Could not validate credentials", headers={"WWW-Authenticate": ""},
+        status_code=HTTP_403_FORBIDDEN,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": ""},
     )
 
 

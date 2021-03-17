@@ -10,7 +10,11 @@ __all__ = ("cache",)
 
 
 def cache(
-    backend: Backend, ttl: int, key: Optional[str] = None, condition: CacheCondition = None, prefix: str = "",
+    backend: Backend,
+    ttl: int,
+    key: Optional[str] = None,
+    condition: CacheCondition = None,
+    prefix: str = "",
 ):
     """
     Simple cache strategy - trying to return cached result,
