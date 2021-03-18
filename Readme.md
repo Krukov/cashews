@@ -23,7 +23,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Easy to configurate and use
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
-- Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis))
+- Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
 - Client-side cache
 - Different cache invalidation techniques (time-based and function-call based)
 - Cache any objects securely with pickle (use [hash key](#redis))
@@ -88,7 +88,7 @@ Optionally, you can disable cache with `enable` parameter:
 ```python
 cache.setup("redis://redis/0?enable=1")
 cache.setup("mem://?size=500", enable=False)
-cache.setup("redis://redis?enable=True")
+cache.setup("disk://?directory=/tmp/cache&timeout=1")
 ```
 
 ### Available Backends
@@ -125,6 +125,28 @@ cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=0&hash_key=my_secret", prefix
 cache.setup("redis://0.0.0.0/?db=2", hash_key=None, prefix="super", index_name="user", index_field="user_uid")
 cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=1, hash_key="my_secret", client_side=True)
 ```
+
+#### DiskCache
+
+*Requires [diskcache](https://github.com/grantjenks/python-diskcache) package.*
+
+This will use local sqlite databases (with shards) as storage.
+
+It is a good choice if you don't want to use redis, but you need a shared storage, or your cache takes a lot of local memory.
+Also, it is good choice for client side local storage.
+
+You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache) 
+
+** Warning ** `cache.keys_match` does not work with this storage (works only is shards are disabled)
+
+```python
+cache.setup("disk://")
+cache.setup("disk://?directory=/tmp/cache&timeout=1&shards=0")  # disable shards
+Gb = 1073741824
+cache.setup("disk://", size_limit=3 * Gb, shards=12)
+```
+
+
 
 ### Basic API
 

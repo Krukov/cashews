@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional, Tuple, Union
 
-from diskcache import Cache, Lock
+from diskcache import Cache, FanoutCache
 
 from .interface import Backend
 
@@ -11,9 +11,14 @@ from .interface import Backend
 class DiskCache(Backend):
     name = "diskcache"
 
-    def __init__(self, *args, path=None, **kwargs):
+    def __init__(self, *args, directory=None, shards=8, **kwargs):
         self.__is_init = False
-        self._cache = Cache(path, timeout=1)
+        self._set_locks = {}
+        self._sharded = shards > 1
+        if not self._sharded:
+            self._cache = Cache(directory=directory, **kwargs)
+        else:
+            self._cache = FanoutCache(directory=directory, shards=shards, **kwargs)
         super().__init__()
 
     async def init(self):
@@ -31,7 +36,16 @@ class DiskCache(Backend):
     async def set(
         self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None
     ) -> bool:
-        return await self._run_in_executor(self._set, key, value, expire, exist)
+        future = self._run_in_executor(self._set, key, value, expire, exist)
+        if exist is not None:
+            # we should have async lock until value real set
+            lock = self._set_locks.setdefault(key, asyncio.Lock())
+            async with lock:
+                try:
+                    return await future
+                finally:
+                    self._set_locks.pop(key, None)
+        return await future
 
     def _set(self, key, value, expire=None, exist=None):
         if exist is not None:
@@ -61,7 +75,8 @@ class DiskCache(Backend):
         return key in self._cache
 
     async def keys_match(self, pattern: str):
-        return await self._run_in_executor(self._keys_match, pattern)
+        if not self._sharded:
+            return await self._run_in_executor(self._keys_match, pattern)
 
     def _keys_match(self, pattern: str):
         pattern = pattern.replace("*", ".*")
