@@ -24,11 +24,11 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
 - Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
+- Middlewares
 - Client-side cache
 - Different cache invalidation techniques (time-based and function-call based)
 - Cache any objects securely with pickle (use [hash key](#redis))
 - Cache usage API
-- Stats for usage
 
 ## Usage Example
 
@@ -60,6 +60,7 @@ async def cache_using_function(request):
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
+- [Middleware](#middleware)
 
 ### Configuration
 
@@ -88,7 +89,17 @@ Optionally, you can disable cache with `enable` parameter:
 ```python
 cache.setup("redis://redis/0?enable=1")
 cache.setup("mem://?size=500", enable=False)
-cache.setup("disk://?directory=/tmp/cache&timeout=1")
+```
+
+You can setup different Backends based on a prefix:
+
+```python
+cache.setup("redis://redis/0")
+cache.setup("mem://?size=500", prefix="user")
+
+await cache.get("accounts")  # will use redis backend
+await cache.get("user:1")  # will use memory backend
+
 ```
 
 ### Available Backends
@@ -479,4 +490,24 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-- https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
+
+### Middleware
+
+Cashews provide the interface for a "middleware" pattern:
+
+```python
+import logging
+from cashews import cache
+
+logger = logging.getLogger(__name__)
+
+
+async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
+    key = args[0] if args else kwargs.get("key", kwargs.get("pattern", ""))
+    logger.info("=> Cache request: %s ", cmd, extra={"command": cmd, "cache_key": key})
+    return await call(*args, **kwargs)
+
+
+cache.setup("mem://", middlewares=(logging_middleware, ))
+```
+
