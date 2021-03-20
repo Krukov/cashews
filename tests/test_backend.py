@@ -10,9 +10,21 @@ from cashews.backends.memory import Memory
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="cache", params=["memory", pytest.param("redis", marks=pytest.mark.redis)])
+@pytest.fixture(
+    name="cache",
+    params=[
+        "memory",
+        pytest.param("redis", marks=pytest.mark.redis),
+        pytest.param("diskcache", marks=pytest.mark.diskcache),
+    ],
+)
 async def _cache(request, redis_dsn, backend_factory):
-    if request.param == "redis":
+    if request.param == "diskcache":
+        from cashews.backends.diskcache import DiskCache
+
+        backend = await backend_factory(DiskCache, shards=0)
+        yield backend
+    elif request.param == "redis":
         from cashews.backends.redis import Redis
 
         yield await backend_factory(Redis, redis_dsn, hash_key=None)
@@ -135,7 +147,8 @@ async def test_get_size(cache: Backend):
     assert await cache.get_size("test") in (
         sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),
         68,
-    )  # 106 - ordered dict,  68 redis
+        -1,
+    )  # 106 - ordered dict,  68 redis, -1 for diskcache
 
 
 async def test_lru(backend_factory):

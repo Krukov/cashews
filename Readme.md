@@ -7,6 +7,7 @@
 ```bash
 pip install cashews
 pip install cashews[redis]
+pip install cashews[diskcache]
 ```
 
 ---
@@ -22,12 +23,12 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Easy to configurate and use
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
-- Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis))
+- Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
+- Middlewares
 - Client-side cache
 - Different cache invalidation techniques (time-based and function-call based)
 - Cache any objects securely with pickle (use [hash key](#redis))
 - Cache usage API
-- Stats for usage
 
 ## Usage Example
 
@@ -55,10 +56,11 @@ async def cache_using_function(request):
 - [Available Backends](#available-backends)
 - [Basic API](#basic-api)
 - [Strategies](#strategies)
-  - [Keys templating](#templating-for-keys)
+  - [Keys templating](#template-keys)
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
+- [Middleware](#middleware)
 
 ### Configuration
 
@@ -87,7 +89,17 @@ Optionally, you can disable cache with `enable` parameter:
 ```python
 cache.setup("redis://redis/0?enable=1")
 cache.setup("mem://?size=500", enable=False)
-cache.setup("redis://redis?enable=True")
+```
+
+You can setup different Backends based on a prefix:
+
+```python
+cache.setup("redis://redis/0")
+cache.setup("mem://?size=500", prefix="user")
+
+await cache.get("accounts")  # will use redis backend
+await cache.get("user:1")  # will use memory backend
+
 ```
 
 ### Available Backends
@@ -124,6 +136,28 @@ cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=0&hash_key=my_secret", prefix
 cache.setup("redis://0.0.0.0/?db=2", hash_key=None, prefix="super", index_name="user", index_field="user_uid")
 cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=1, hash_key="my_secret", client_side=True)
 ```
+
+#### DiskCache
+
+*Requires [diskcache](https://github.com/grantjenks/python-diskcache) package.*
+
+This will use local sqlite databases (with shards) as storage.
+
+It is a good choice if you don't want to use redis, but you need a shared storage, or your cache takes a lot of local memory.
+Also, it is good choice for client side local storage.
+
+You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache) 
+
+** Warning ** `cache.keys_match` does not work with this storage (works only if shards are disabled)
+
+```python
+cache.setup("disk://")
+cache.setup("disk://?directory=/tmp/cache&timeout=1&shards=0")  # disable shards
+Gb = 1073741824
+cache.setup("disk://", size_limit=3 * Gb, shards=12)
+```
+
+
 
 ### Basic API
 
@@ -270,10 +304,10 @@ async def get(name):
     ...
 ```
 
-### Templating for keys
+### Template Keys
 
 Often, to compose a key, you need all the parameters of the function call. 
-So without specifying a key, Cashews will generate a key using the function name, module names and parameters
+By default, Cashews will generate a key using the function name, module names and parameters
 ```python
 from cashews import cache
 
@@ -287,7 +321,7 @@ await get_name("me", version="v2")
 # a key will be "__module__.get_name:user:me:version:v2"
 ```
 
-But sometimes you need to format the parameters or define your
+Sometimes you need to format the parameters or define your
  own template for the key and Cashews allows you to do this:
 ```python
 @cache.fail(key="name:{user.uid}")
@@ -304,9 +338,12 @@ async def get_name(token):
 await get_name(token) 
 # a key will be "new:user:alex"
 
-from cashews import register_template_func
+from cashews import default_formatter, cache
 
-register_template_func("upper", lambda x: x.upper())
+@default_formatter.register("upper")
+def _upper(value):
+    return value.upper()
+
 
 @cache(key="name-{user:upper}")
 async def get_name(user):
@@ -456,4 +493,24 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-- https://www.datadoghq.com/blog/how-to-monitor-redis-performance-metrics/
+
+### Middleware
+
+Cashews provide the interface for a "middleware" pattern:
+
+```python
+import logging
+from cashews import cache
+
+logger = logging.getLogger(__name__)
+
+
+async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
+    key = args[0] if args else kwargs.get("key", kwargs.get("pattern", ""))
+    logger.info("=> Cache request: %s ", cmd, extra={"command": cmd, "cache_key": key})
+    return await call(*args, **kwargs)
+
+
+cache.setup("mem://", middlewares=(logging_middleware, ))
+```
+

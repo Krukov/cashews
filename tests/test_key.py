@@ -50,17 +50,42 @@ def test_cache_func_key_dict():
 @pytest.mark.parametrize(
     ("args", "kwargs", "template", "key"),
     (
-        (("a1", "a2", "a3"), {"kwarg1": "k1", "kwarg3": "k3"}, "{arg1}:{kwarg1}-{kwarg3}", "a1:k1-k3",),
+        (
+            ("a1", "a2", "a3"),
+            {"kwarg1": "k1", "kwarg3": "k3"},
+            "{arg1}:{kwarg1}-{kwarg3}",
+            "a1:k1-k3",
+        ),
         (
             ("a1", "a2", "a3"),
             {"kwarg1": "k1", "kwarg3": "k3"},
             None,
             "tests.test_key:func:arg1:a1:arg2:a2:kwarg1:k1:kwarg2:true",
         ),
-        (("a1", "a2", "a3"), None, "{arg1}-{kwarg1}-{kwarg3}", "a1--",),
-        (("a1",), {"arg2": 2, "kwarg1": "k1"}, "{arg2}-{kwarg1}-{kwarg3}", "2-k1-",),
-        (("a1",), {"arg2": 2, "kwarg1": "k1", "kwarg3": "k3"}, "{arg2}:{kwarg1}:{kwarg3}", "2:k1:k3",),
-        (("a1",), {"kwarg1": "k1", "arg2": 2}, "{arg2}:{kwarg1}:{kwarg3}", "2:k1:",),
+        (
+            ("a1", "a2", "a3"),
+            None,
+            "{arg1}-{kwarg1}-{kwarg3}",
+            "a1--",
+        ),
+        (
+            ("a1",),
+            {"arg2": 2, "kwarg1": "k1"},
+            "{arg2}-{kwarg1}-{kwarg3}",
+            "2-k1-",
+        ),
+        (
+            ("a1",),
+            {"arg2": 2, "kwarg1": "k1", "kwarg3": "k3"},
+            "{arg2}:{kwarg1}:{kwarg3}",
+            "2:k1:k3",
+        ),
+        (
+            ("a1",),
+            {"kwarg1": "k1", "arg2": 2},
+            "{arg2}:{kwarg1}:{kwarg3}",
+            "2:k1:",
+        ),
         (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:len}", "4"),
         (("a1", "a2"), {"user": type("user", (), {"name": "test"})()}, "{user.name:len}", "4"),
         (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:hash}", "098f6bcd4621d373cade4e832627b4f6"),

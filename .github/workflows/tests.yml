@@ -49,7 +49,11 @@ jobs:
         REDIS_PORT: 6379
       run: |
         tox -e py-redis
-    
+
+    - name: Diskcache Test Suit
+      run: |
+        tox -e py-diskcache
+
     - name: Intergational Test Suit
       run: |
         tox -e py-integration

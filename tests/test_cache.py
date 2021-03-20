@@ -15,15 +15,25 @@ class CustomError(Exception):
     pass
 
 
-@pytest.fixture(name="backend", params=["memory", pytest.param("redis", marks=pytest.mark.redis)])
+@pytest.fixture(
+    name="backend",
+    params=[
+        "memory",
+        pytest.param("redis", marks=pytest.mark.redis),
+        pytest.param("diskcache", marks=pytest.mark.diskcache),
+    ],
+)
 async def _backend(request, redis_dsn, backend_factory):
-    if request.param == "redis":
+    if request.param == "diskcache":
+        from cashews.backends.diskcache import DiskCache
+
+        yield await backend_factory(DiskCache)
+    elif request.param == "redis":
         from cashews.backends.redis import Redis
 
         yield await backend_factory(Redis, redis_dsn, None)
     else:
         yield await backend_factory(backend_cls=Memory)
-
 
 
 async def test_fail_cache_simple(backend):

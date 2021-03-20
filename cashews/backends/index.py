@@ -9,7 +9,7 @@ class IndexRedis(Redis):
     """
     Backend based on redis backend to have ability to invalidate the group of keys based on index
 
-    for example index == user_uid
+    for example index = user_uid
     hkey user:{user_uid} {"info": ..., "wallets": ...., "whatever": .....}
 
     accounts:{user_uid} -> index_name:{user_uid} {"accounts": ....}

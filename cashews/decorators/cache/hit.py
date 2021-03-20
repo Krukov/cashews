@@ -39,7 +39,8 @@ def hit(
         async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             result, hits = await asyncio.gather(
-                backend.get(_cache_key, default=_empty), backend.incr(_cache_key + ":counter"),
+                backend.get(_cache_key, default=_empty),
+                backend.incr(_cache_key + ":counter"),
             )
             if hits == 1:
                 asyncio.create_task(backend.expire(_cache_key + ":counter", ttl))

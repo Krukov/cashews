@@ -21,6 +21,14 @@ else:
 
     del aioredis
 
+try:
+    import diskcache
+except ImportError:
+    DiskCache = None
+else:
+    from .backends.diskcache import DiskCache
+
+
 #  pylint: disable=too-many-public-methods
 
 
@@ -250,7 +258,13 @@ class Cache(Backend):
     cache = __call__
 
     def invalidate(self, func, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
-        return self._wrap_on_enable("cache", validation.invalidate, target=func, args_map=args_map, defaults=defaults,)
+        return self._wrap_on_enable(
+            "cache",
+            validation.invalidate,
+            target=func,
+            args_map=args_map,
+            defaults=defaults,
+        )
 
     invalidate_func = validation.invalidate_func
 
@@ -421,6 +435,10 @@ def settings_url_parse(url):
         params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()
     elif parse_result.scheme == "mem":
         params["backend"] = Memory
+    elif parse_result.scheme == "disk":
+        if DiskCache is None:
+            raise BackendNotAvailable("Disk backend requires `diskcache` to be installed.")
+        params["backend"] = DiskCache
     elif parse_result.scheme == "":
         params["backend"] = Memory
         params["disable"] = True

@@ -176,7 +176,10 @@ async def test_add_prefix(cache: Cache, target):
 
     await cache.set(key="key", value="value")
     target.set.assert_called_once_with(
-        key="prefix!key", value="value", exist=None, expire=None,
+        key="prefix!key",
+        value="value",
+        exist=None,
+        expire=None,
     )
     await cache.ping()
     target.ping.assert_called_once_with(message=b"PING")

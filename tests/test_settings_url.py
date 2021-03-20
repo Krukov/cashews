@@ -16,12 +16,18 @@ def test_url(url, params):
     assert settings_url_parse(url) == params
 
 
-def test_url_but_backend_dependency_is_not_installed():
-    url = "redis://localhost:9000/0"
+@pytest.mark.parametrize(
+    ("url", "error"),
+    (
+        ("redis://localhost:9000/0", "Redis backend requires `aioredis` to be installed."),
+        ("disk://", "Disk backend requires `diskcache` to be installed."),
+    ),
+)
+def test_url_but_backend_dependency_is_not_installed(url, error):
     with pytest.raises(BackendNotAvailable) as excinfo:
         settings_url_parse(url)
 
-    assert str(excinfo.value) == "Redis backend requires `aioredis` to be installed."
+    assert str(excinfo.value) == error
 
 
 @pytest.mark.redis
@@ -53,4 +59,23 @@ def test_url_with_redis_as_backend(url, params):
     from cashews.backends.redis import Redis
 
     params["backend"] = Redis
+    assert settings_url_parse(url) == params
+
+
+@pytest.mark.diskcache
+@pytest.mark.parametrize(
+    ("url", "params"),
+    (
+        ("disk://", {"backend": None}),
+        ("disk://?size_limit=1000", {"backend": None, "size_limit": 1000}),
+        (
+            "disk://?directory=/tmp/cache&timeout=1&shards=0",
+            {"backend": None, "directory": "/tmp/cache", "timeout": 1, "shards": 0},
+        ),
+    ),
+)
+def test_url_with_diskcache_as_backend(url, params):
+    from cashews.backends.diskcache import DiskCache
+
+    params["backend"] = DiskCache
     assert settings_url_parse(url) == params
