@@ -56,7 +56,7 @@ async def cache_using_function(request):
 - [Available Backends](#available-backends)
 - [Basic API](#basic-api)
 - [Strategies](#strategies)
-  - [Keys templating](#templating-for-keys)
+  - [Keys templating](#template-keys)
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
@@ -304,10 +304,10 @@ async def get(name):
     ...
 ```
 
-### Templating for keys
+### Template Keys
 
 Often, to compose a key, you need all the parameters of the function call. 
-So without specifying a key, Cashews will generate a key using the function name, module names and parameters
+By default, Cashews will generate a key using the function name, module names and parameters
 ```python
 from cashews import cache
 
@@ -321,7 +321,7 @@ await get_name("me", version="v2")
 # a key will be "__module__.get_name:user:me:version:v2"
 ```
 
-But sometimes you need to format the parameters or define your
+Sometimes you need to format the parameters or define your
  own template for the key and Cashews allows you to do this:
 ```python
 @cache.fail(key="name:{user.uid}")
@@ -338,9 +338,12 @@ async def get_name(token):
 await get_name(token) 
 # a key will be "new:user:alex"
 
-from cashews import register_template_func
+from cashews import default_formatter, cache
 
-register_template_func("upper", lambda x: x.upper())
+@default_formatter.register("upper")
+def _upper(value):
+    return value.upper()
+
 
 @cache(key="name-{user:upper}")
 async def get_name(user):

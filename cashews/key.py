@@ -137,8 +137,14 @@ class _FuncFormatter(_Blank):
         self._functions = {}
         super().__init__(*args, **kwargs)
 
-    def register(self, alias, function):
+    def _register(self, alias, function):
         self._functions[alias] = function
+
+    def register(self, alias):
+        def _decorator(func):
+            self._register(alias, func)
+            return func
+        return _decorator
 
     def format_field(self, value, format_spec):
         format_spec, args = self.parse_format_spec(format_spec)
@@ -156,31 +162,21 @@ class _FuncFormatter(_Blank):
 
 
 default_formatter = _FuncFormatter("")
+default_formatter._register("len", len)
 
 
-def register_template_func(alias: str, func: Callable):
-    default_formatter.register(alias, func)
-
-
-register_template_func("len", len)
-
-
+@default_formatter.register("jwt")
 def _jwt_func(jwt: str, key: str):
     _, payload, _ = jwt.split(".", 2)
     payload_dict = json.loads(base64.b64decode(payload))
     return payload_dict.get(key)
 
 
-register_template_func("jwt", _jwt_func)
-
-
+@default_formatter.register("hash")
 def _hash_func(value: str, alg="md5") -> str:
     algs = {"sha1": sha1, "md5": md5, "sha256": sha256}
     alg = algs[alg]
     return alg(value.encode()).hexdigest()
-
-
-register_template_func("hash", _hash_func)
 
 
 class _CheckFormatter(Formatter):
