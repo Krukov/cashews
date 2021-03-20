@@ -148,7 +148,7 @@ Also, it is good choice for client side local storage.
 
 You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache) 
 
-** Warning ** `cache.keys_match` does not work with this storage (works only is shards are disabled)
+** Warning ** `cache.keys_match` does not work with this storage (works only if shards are disabled)
 
 ```python
 cache.setup("disk://")

@@ -27,6 +27,7 @@ class DiskCache(Backend):
     async def _run_in_executor(self, call, *args):
         return await asyncio.get_running_loop().run_in_executor(None, call, *args)
 
+    @property
     def is_init(self):
         return self.__is_init
 
