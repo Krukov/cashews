@@ -159,7 +159,7 @@ class _FuncFormatter(_ReplaceFormatter):
         return format_spec, args.replace(")", "").split(",")
 
 
-default_formatter = _FuncFormatter("")
+default_formatter = _FuncFormatter(lambda name: "")
 default_formatter._register("len", len)
 
 
