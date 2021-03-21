@@ -7,6 +7,7 @@ from hashlib import md5, sha1, sha256
 from itertools import chain
 from string import Formatter
 from typing import Any, Callable, Dict, Optional, Tuple, Union
+from unittest.mock import MagicMock
 
 from .typing import TTL
 
@@ -69,11 +70,17 @@ def get_cache_key_template(func: Callable, key: Optional[str] = None, prefix: st
 
 
 def _check_key_params(key, func_params):
-    func_params = {param: param for param in func_params}
-    check = _CheckFormatter()
+    func_params = {param: MagicMock(return_value="*") for param in func_params}
+    errors = []
+
+    def _default(name):
+        errors.append(name)
+        return "*"
+
+    check = _ReplaceFormatter(default=_default)
     check.format(key, **func_params)
-    if check.error:
-        raise WrongKeyException(f"Wrong parameter placeholder '{check.error}' in the key ")
+    if errors:
+        raise WrongKeyException(f"Wrong parameter placeholder '{errors}' in the key ")
 
 
 def get_call_values(func: Callable, args, kwargs) -> Dict:
@@ -107,21 +114,8 @@ def _get_call_values(func, args, kwargs):
     return result
 
 
-class _ReFormatter(Formatter):
-    def __init__(self, reg_field=lambda f: f):
-        self._reg_field = reg_field
-        super().__init__()
-
-    def get_field(self, field_name, args, kwargs):
-        try:
-            return super().get_field(field_name, args, kwargs)
-        except (KeyError, AttributeError):
-            self._reg_field(field_name)
-            return f"(?P<{field_name.replace('.', '_')}>[^:]*)", None
-
-
-class _Blank(Formatter):
-    def __init__(self, default="*"):
+class _ReplaceFormatter(Formatter):
+    def __init__(self, default=lambda field: "*"):
         self.__default = default
         super().__init__()
 
@@ -129,10 +123,13 @@ class _Blank(Formatter):
         try:
             return super().get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
-            return self.__default, None
+            return self.__default(field_name), None
+
+    def format_field(self, value, format_spec):
+        return format(value)
 
 
-class _FuncFormatter(_Blank):
+class _FuncFormatter(_ReplaceFormatter):
     def __init__(self, *args, **kwargs):
         self._functions = {}
         super().__init__(*args, **kwargs)
@@ -144,6 +141,7 @@ class _FuncFormatter(_Blank):
         def _decorator(func):
             self._register(alias, func)
             return func
+
         return _decorator
 
     def format_field(self, value, format_spec):
@@ -179,42 +177,31 @@ def _hash_func(value: str, alg="md5") -> str:
     return alg(value.encode()).hexdigest()
 
 
-class _CheckFormatter(Formatter):
-    def __init__(self):
-        self.error = False
-        super().__init__()
-
-    def get_field(self, field_name, args, kwargs):
-        try:
-            return super().get_field(field_name, args, kwargs)
-        except KeyError:
-            self.error = field_name
-            return "", None
-        except AttributeError:
-            return "", None
-
-
-def template_to_pattern(template: str, _formatter=_Blank(), **values) -> str:
+def template_to_pattern(template: str, _formatter=_ReplaceFormatter(), **values) -> str:
     return _formatter.format(template, **values)
 
 
+def _re_default(field_name):
+    return f"(?P<{field_name.replace('.', '_')}>[^:]*)"
+
+
+_re_formatter = _ReplaceFormatter(default=_re_default)
 _REGISTER = {}
 
 
 def register_template(func, template: str):
-    fields = []
-    pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_ReFormatter(fields.append)) + "$"
+    pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_re_formatter) + "$"
     compile_pattern = re.compile(pattern, flags=re.MULTILINE)
-    _REGISTER.setdefault((func.__module__ or "", func.__name__), set()).add((template, compile_pattern, tuple(fields)))
+    _REGISTER.setdefault((func.__module__ or "", func.__name__), set()).add((template, compile_pattern))
 
 
 def get_templates_for_func(func):
-    return (template for template, _, _ in _REGISTER.get((func.__module__ or "", func.__name__), set()))
+    return (template for template, _ in _REGISTER.get((func.__module__ or "", func.__name__), set()))
 
 
 def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callable]]:
     for func, templates in _REGISTER.items():
-        for template, compile_pattern, _ in templates:
+        for template, compile_pattern in templates:
             if compile_pattern.fullmatch(key):
                 return template_to_pattern(template), func
     return None, None
@@ -222,7 +209,7 @@ def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callabl
 
 def get_template_for_key(key: str) -> Tuple[Optional[str], Optional[dict]]:
     for func, templates in _REGISTER.items():
-        for template, compile_pattern, _ in templates:
+        for template, compile_pattern in templates:
             match = compile_pattern.fullmatch(key)
             if match:
                 return template, match.groupdict()

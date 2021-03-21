@@ -11,11 +11,17 @@ async def func2(a, k=None, **kwargs):
     ...
 
 
+async def func3(a, k="test"):
+    ...
+
+
 TEPLATE_FUNC1 = "func1:{a}"
 TEPLATE_FUNC2 = "func2:{k}:user:{user}"
+TEPLATE_FUNC3 = "func3:{k:len}"
 
 register_template(func1, TEPLATE_FUNC1)
 register_template(func2, TEPLATE_FUNC2)
+register_template(func3, TEPLATE_FUNC3)
 
 
 @pytest.mark.parametrize(
@@ -25,6 +31,7 @@ register_template(func2, TEPLATE_FUNC2)
         ("func1:", TEPLATE_FUNC1.format(a="*")),
         ("prefix:func1:test", TEPLATE_FUNC1.format(a="*")),
         ("func2:-:user:1", TEPLATE_FUNC2.format(k="*", user="*")),
+        ("func3:2", "func3:*"),
         ("func:1", None),
         ("prefix:func2:test:user:1:1", None),
         ("func2:user:1", None),
@@ -110,7 +117,9 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
     (
         (func1, None, "tests.test_key:func1:a:{a}"),
         (func2, None, "tests.test_key:func2:a:{a}:k:{k}"),
+        (func3, None, "tests.test_key:func3:a:{a}:k:{k}"),
         (func2, "key:{k}", "key:{k}"),
+        (func3, "key:{k:len}:{k:hash(md5)}", "key:{k:len}:{k:hash(md5)}"),
     ),
 )
 def test_get_key_template(func, key, template):
