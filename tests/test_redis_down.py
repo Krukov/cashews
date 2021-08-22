@@ -17,12 +17,11 @@ def redis_backend():
 async def test_safe_redis(redis_backend):
     redis = redis_backend(safe=True, address="redis://localhost:9223", hash_key=None)
     await redis.init()
-    assert await redis.clear() is False
     assert await redis.set("test", "test") is False
 
     assert await redis.set_lock("test", "test", 1) is False
     assert await redis.unlock("test", "test") is None
-    assert await redis.is_locked("test") is None
+    assert await redis.is_locked("test") is False
 
     assert await redis.get("test", default="no") == "no"
     assert await redis.get("test") is None
