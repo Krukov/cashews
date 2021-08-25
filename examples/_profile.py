@@ -4,10 +4,12 @@ sys.path.append("/Users/dmitry.kryukov/Projects/my/cashews")
 import asyncio
 from datetime import timedelta
 
-from cashews import default_formatter, cache
+from cashews import default_formatter, cache, context_cache_detect
 
-# import yappi
 from pyinstrument import Profiler
+
+import uvloop
+
 
 
 INT_TO_STR_MAP = {
@@ -34,25 +36,36 @@ def _human(value):
     return res
 
 
-cache.setup("disk://")
+cache.setup("disk://?directory=/tmp/cache")
 
 
+# @profile(precision=4)
 @cache.cache(ttl=timedelta(minutes=20), key="mul:{a:human}")
 async def example(a):
-    return [{"1": "a" * i for _ in range(i)} for i in range(a)]
+    return {"1": "2"}
+#
+# from guppy import hpy
+# hp = hpy()
 
 
 async def main():
-    # await cache.init()
+    await cache.init()
     p = Profiler(async_mode='disabled')
     with p:
-        for _ in range(10000):
-            await asyncio.gather(
-                example(random.randint(10, 100)),
-                example(random.randint(10, 100)),
-                example(random.randint(10, 100)),
-            )
+            # before = hp.heap()
+            for _ in range(100000):
+                with context_cache_detect:
+                    await asyncio.gather(
+                        example(random.randint(10, 1000)),
+                        example(random.randint(10, 10000)),
+                        example(random.randint(10, 1000)),
+                    )
+            # after = hp.heap()
+
+            # lo = after - before
+            # import ipdb; ipdb.set_trace()
     p.print()
 
+# uvloop.install()
 asyncio.run(main())
 

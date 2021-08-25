@@ -18,6 +18,7 @@ end
 
 class _Redis(Backend):
     name = "redis"
+
     def __init__(self, address, safe=False, **kwargs):
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)

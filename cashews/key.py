@@ -33,7 +33,14 @@ def get_cache_key(
     args: Tuple[Any] = (),
     kwargs: Optional[Dict] = None,
 ) -> str:
-    return __get_cache_key(func, template, args, HDict(kwargs) if kwargs else None)
+    if not kwargs:
+        return _get_cache_key(func, template, args, kwargs)
+    try:
+        kwargs = HDict(kwargs)
+    except TypeError:
+        return __get_cache_key(func, template, args, kwargs)
+    else:
+        return _get_cache_key(func, template, args, kwargs)
 
 
 @lru_cache(maxsize=100)
@@ -42,6 +49,15 @@ def __get_cache_key(
     template: Optional[str] = None,
     args: Tuple[Any] = (),
     kwargs: Optional[HDict] = None,
+):
+    return _get_cache_key(func, template, args, kwargs)
+
+
+def _get_cache_key(
+    func: Callable,
+    template: Optional[str] = None,
+    args: Tuple[Any] = (),
+    kwargs: Optional[Dict] = None,
 ) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs

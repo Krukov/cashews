@@ -185,6 +185,7 @@ async def test_early_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
+@pytest.mark.skip
 @pytest.mark.redis
 async def test_early_cache_parallel(backend):
 
