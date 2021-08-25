@@ -64,7 +64,7 @@ async def test_rate_limit_func_args_dict(rate_limit):
     with pytest.raises(RateLimitException):
         await func(obj)
 
-    obj.name = "new"
+    obj = type("user", (), {"name": "new"})()
     assert await func(obj) == "new"
 
 

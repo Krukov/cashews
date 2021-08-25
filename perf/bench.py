@@ -4,9 +4,9 @@ import random
 import asyncio
 from statistics import mean, pstdev
 
-from cashews.backends import redis, client_side
+from cashews.backends import redis, client_side, diskcache
 from cashews import Cache
-from aiocache import caches
+# from aiocache import caches
 
 prefix = str(uuid.uuid4())
 loop = asyncio.new_event_loop()
@@ -21,8 +21,8 @@ def _key_random():
     return f"{prefix}:{random.randint(1, 1000)}"
 
 
-async def  set_big(backend, key):
-    return await backend.set(key, [{"name": f"name_{i}", "id": i} for i in range(100)])
+def _big():
+    return [{"name": f"name_{i}", "id": i} for i in range(300)]
 
 
 async def _get_latency(func, *args, **kwargs) -> float:
@@ -43,7 +43,10 @@ async def run(target, test, iters=1000):
     method = getattr(target, method)
     await target.clear()
     if _options.get("init"):
-        await target.set(_options.pop("init"), _options.get("value", "no_value"))
+        value = _options.pop("value", "no_value")
+        if callable(value):
+            value = value()
+        await target.set(_options.pop("init"), value)
 
     async def execute():
         options = dict(_options)
@@ -55,28 +58,28 @@ async def run(target, test, iters=1000):
     latencies = []
     for _ in range(iters):
         latencies.append(await execute())
-    print("      max         ", "         mean        ", "      pstdev       ", )
+    print("      max         ", "         mean        ", "      pstdev       ",  len(latencies))
     print(max(latencies), mean(latencies), pstdev(latencies))
 
-caches.set_config({
-    "default": {
-        'cache':    "aiocache.RedisCache",
-        'endpoint': "127.0.0.1",
-        'port':     6379,
-    },
-    'redis_pickle': {
-        'cache': "aiocache.RedisCache",
-        'endpoint': "127.0.0.1",
-        'port': 6379,
-        'serializer': {
-            'class': "aiocache.serializers.PickleSerializer"
-        },
-        'plugins': [
-            {'class': "aiocache.plugins.HitMissRatioPlugin"},
-            {'class': "aiocache.plugins.TimingPlugin"}
-        ]
-    }
-})
+# caches.set_config({
+#     "default": {
+#         'cache':    "aiocache.RedisCache",
+#         'endpoint': "127.0.0.1",
+#         'port':     6379,
+#     },
+#     'redis_pickle': {
+#         'cache': "aiocache.RedisCache",
+#         'endpoint': "127.0.0.1",
+#         'port': 6379,
+#         'serializer': {
+#             'class': "aiocache.serializers.PickleSerializer"
+#         },
+#         'plugins': [
+#             {'class': "aiocache.plugins.HitMissRatioPlugin"},
+#             {'class': "aiocache.plugins.TimingPlugin"}
+#         ]
+#     }
+# })
 
 if __name__ == '__main__':
     choices = input("""
@@ -87,14 +90,16 @@ if __name__ == '__main__':
     4) cashews no hash 
     5) cashews with client side
     6) cashews with client side wrapper 
-    """) or "2 4 6"
+    """) or "2 3"
     backends = {
-        1: ("aiocache simple", caches.get("default")),
-        2: ("aiocache pickle", caches.get("redis_pickle")),
+        # 1: ("aiocache simple", caches.get("default")),
+        # 2: ("aiocache pickle", caches.get("redis_pickle")),
+        2: ("cashews disk", diskcache.DiskCache()),
         3: ("cashews hash", redis.Redis("redis://localhost/", hash_key=b"f34feyhg;s2")),
         4: ("cashews no hash", redis.Redis("redis://localhost/", hash_key=None)),
         5: ("cashews with client side", client_side.BcastClientSide("redis://localhost/", hash_key=None)),
         6: ("cashews full", Cache().setup("redis://localhost/", hash_key="test",  client_side=True)),
+        7: ("cashews full disk", Cache().setup("redis://localhost/", hash_key="test",  client_side=True, local_cache=diskcache.DiskCache())),
     }
     targets = []
     for choice in choices.split():
@@ -113,7 +118,7 @@ if __name__ == '__main__':
         9) del static key
         10) del random key
         11) get big object
-    """) or "1 2 3 4 5 6"
+    """) or "1 2 3 4 5 11"
     _tests = {
         1: ("get", lambda: "test", {"init": "test"}),
         2: ("get", _key_random, {"set": "test"}),
@@ -125,13 +130,13 @@ if __name__ == '__main__':
         8: ("incr", _key_random, {}),
         9: ("delete", _key_static, {}),
         10: ("delete", _key_random, {}),
-        11: ("get", _key_static, {"init": set_big}),
+        11: ("get", _key_static, {"init": _key_static(), "value": _big}),
     }
     tests = []
     for choice in choices.split():
         tests.append((choice, _tests.get(int(choice))))
 
-    iters = int(input("Iters: ") or "5000")
+    iters = int(input("Iters: ") or "10000")
 
     for test in tests:
         print("=" * 100)

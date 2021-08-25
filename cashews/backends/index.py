@@ -30,23 +30,23 @@ class IndexRedis(Redis):
     def set(self, key: str, value, *args, **kwargs):
         index, key = self._get_index_and_key(key)
         if index:
-            return self.hset(index, key, value)
+            return self._client.hset(index, key, value)
         return super().set(key, value, *args, **kwargs)
 
     def get(self, key: str, *args, **kwargs):
         index, key = self._get_index_and_key(key)
         if index:
-            return self.hget(index, key)
+            return self._client.hget(index, key)
         return super().get(key)
 
     def delete(self, key):
         index, key = self._get_index_and_key(key)
         if index:
-            return self.hdel(index, key)
+            return self._client.hdel(index, key)
         return super().delete(key)
 
     def delete_match(self, pattern: str):
         index, key = self._get_index_and_key(pattern)
         if index:
-            return self.unlink(index)
+            return self._client.unlink(index)
         return super().delete_match(pattern)

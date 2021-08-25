@@ -50,7 +50,7 @@ def test_cache_func_key_dict():
 
     assert get_cache_key(func, template="test_key:{user.name}", args=(obj,)) == "test_key:test"
 
-    obj.name = "new"
+    obj = type("user", (), {"name": "new", "one": True})()
     assert get_cache_key(func, template="test_key:{user.name}", args=(obj,)) == "test_key:new"
 
 

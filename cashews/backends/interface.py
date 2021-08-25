@@ -87,6 +87,9 @@ class Backend:
         identifier = str(uuid.uuid4())
         lock = await self.set_lock(key, identifier, expire=expire)
         if not lock:
+            # we need to check the connection by ping because
+            # if for example a redis unavailable and a backend have flag `safe`
+            # we will have a brake lock
             try:
                 await self.ping(b"TEST")
             except Exception:

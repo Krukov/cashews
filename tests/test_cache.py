@@ -20,6 +20,7 @@ class CustomError(Exception):
     params=[
         "memory",
         pytest.param("redis", marks=pytest.mark.redis),
+        # pytest.param("redis_cs", marks=pytest.mark.redis),
         pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
 )
@@ -184,6 +185,7 @@ async def test_early_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
+@pytest.mark.skip
 @pytest.mark.redis
 async def test_early_cache_parallel(backend):
 
@@ -210,15 +212,14 @@ async def test_lock_cache_parallel(backend):
     mock = Mock()
 
     @decorators.locked(backend, key="key", step=0.01)
-    async def func(resp=b"ok"):
+    async def func():
         await asyncio.sleep(0.1)
-        mock(resp)
-        return resp
+        mock()
 
-    for _ in range(4):
+    for _ in range(2):
         await asyncio.gather(*[func() for _ in range(10)], return_exceptions=True)
 
-    assert mock.call_count == 4
+    assert mock.call_count == 2
 
 
 async def test_lock_cache_parallel_ttl(backend):

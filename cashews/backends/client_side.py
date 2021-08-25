@@ -62,26 +62,25 @@ class BcastClientSide(Redis):
         while True:
             try:
                 await self._listen_invalidate()
-            except (aioredis.errors.ConnectionClosedError, ConnectionRefusedError):
+            except (aioredis.ConnectionError, ConnectionRefusedError):
                 await self._local_cache.clear()
                 await asyncio.sleep(_RECONNECT_WAIT)
 
-    async def _get_channel(self) -> aioredis.Channel:
-        conn = aioredis.Redis(await self.connection.acquire())
-        client_id = await conn.execute(b"CLIENT", b"ID")
-        await conn.execute(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
-        channel, *_ = await conn.subscribe(_REDIS_INVALIDATE_CHAN)
-        return channel
+    async def _get_channel(self) -> aioredis.client.PubSub:
+        async with self._client.client() as conn:
+            client_id = await conn.execute_command(b"CLIENT", b"ID")
+            await conn.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
+        pubsub = self._client.pubsub()
+        await pubsub.subscribe(_REDIS_INVALIDATE_CHAN)
+        return pubsub
 
     async def _listen_invalidate(self):
         channel = await self._get_channel()
-        while await channel.wait_message():
-            message = await channel.get()
-            if message is None:
+        while True:
+            message = await channel.get_message(ignore_subscribe_messages=True)
+            if message is None or not message.get("data"):
                 continue
-            key, *_ = message
-            if key == b"\x00":
-                continue
+            key = message["data"][0]
             key = key.decode().lstrip(self._prefix)
             await self._local_cache.delete(key)
 
@@ -148,4 +147,5 @@ class BcastClientSide(Redis):
     def close(self):
         if self.__listen_task is not None:
             self.__listen_task.cancel()
+            self.__listen_task = None
         super().close()

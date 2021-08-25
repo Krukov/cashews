@@ -4,6 +4,7 @@ import json
 import re
 from datetime import timedelta
 from hashlib import md5, sha1, sha256
+from functools import lru_cache
 from itertools import chain
 from string import Formatter
 from typing import Any, Callable, Dict, Optional, Tuple, Union
@@ -16,12 +17,43 @@ class WrongKeyException(ValueError):
     pass
 
 
+class HDict(dict):
+    def __hash__(self):
+        return hash(frozenset(self.items()))
+
+
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
     timeout = ttl() if callable(ttl) else ttl
     return timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
 
 
 def get_cache_key(
+    func: Callable,
+    template: Optional[str] = None,
+    args: Tuple[Any] = (),
+    kwargs: Optional[Dict] = None,
+) -> str:
+    if not kwargs:
+        return _get_cache_key(func, template, args, kwargs)
+    try:
+        kwargs = HDict(kwargs)
+    except TypeError:
+        return __get_cache_key(func, template, args, kwargs)
+    else:
+        return _get_cache_key(func, template, args, kwargs)
+
+
+@lru_cache(maxsize=100)
+def __get_cache_key(
+    func: Callable,
+    template: Optional[str] = None,
+    args: Tuple[Any] = (),
+    kwargs: Optional[HDict] = None,
+):
+    return _get_cache_key(func, template, args, kwargs)
+
+
+def _get_cache_key(
     func: Callable,
     template: Optional[str] = None,
     args: Tuple[Any] = (),
@@ -44,7 +76,7 @@ def get_cache_key(
 
 
 def get_func_params(func):
-    signature = inspect.signature(func)
+    signature = _get_func_signature(func)
     for param_name, param in signature.parameters.items():
         if param.kind not in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]:
             yield param_name
@@ -99,8 +131,13 @@ def get_call_values(func: Callable, args, kwargs) -> Dict:
     return key_values
 
 
+@lru_cache(maxsize=100)
+def _get_func_signature(func):
+    return inspect.signature(func)
+
+
 def _get_call_values(func, args, kwargs):
-    signature = inspect.signature(func).bind(*args, **kwargs)
+    signature = _get_func_signature(func).bind(*args, **kwargs)
     signature.apply_defaults()
     result = {}
     for _name, _value in signature.arguments.items():
