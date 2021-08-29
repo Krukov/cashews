@@ -1,5 +1,6 @@
 import asyncio
 from functools import partial, wraps
+from contextlib import contextmanager
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
@@ -68,6 +69,12 @@ class Cache(Backend):
 
     def enable(self, *cmds, prefix=""):
         return self._get_backend(prefix).enable(*cmds)
+
+    @contextmanager
+    def disabling(self, *cmds):
+        self.disable(*cmds)
+        yield
+        self.enable(*cmds)
 
     def is_disable(self, *cmds, prefix=""):
         return self._get_backend(prefix).is_disable(*cmds)
@@ -187,10 +194,10 @@ class Cache(Backend):
 
     def _wrap_on_enable(self, name, decorator_fabric, **decor_kwargs):
         def _decorator(func):
-            return decorator_fabric(self, **decor_kwargs)(func)
+            result_func = decorator_fabric(self, **decor_kwargs)(func)
+            result_func.direct = func
+            return result_func
 
-        _decorator.disable = lambda: self.disable("set", prefix=name)
-        _decorator.enable = lambda: self.enable("set", prefix=name)
         return _decorator
 
     def _wrap_on_enable_with_condition(self, name, decorator_fabric, condition, **decor_kwargs):
@@ -211,11 +218,9 @@ class Cache(Backend):
 
                     # decorators.context_cache_detect.merge(detect)
                 return result
-
+            _call.direct = func
             return _call
 
-        _decorator.disable = lambda: self.disable("set", prefix=name)
-        _decorator.enable = lambda: self.enable("set", prefix=name)
         return _decorator
 
     # DecoratorS
@@ -287,8 +292,6 @@ class Cache(Backend):
             prefix=prefix,
         )
 
-    fail = failover
-
     def circuit_breaker(
         self,
         errors_rate: int,
@@ -334,7 +337,7 @@ class Cache(Backend):
         self,
         ttl: TTL,
         cache_hits: int,
-        update_before: int = 0,
+        update_after: int = 0,
         key: Optional[str] = None,
         condition: CacheCondition = None,
         prefix: str = "hit",
@@ -346,7 +349,7 @@ class Cache(Backend):
             upper,
             ttl=ttl_to_seconds(ttl),
             cache_hits=cache_hits,
-            update_before=update_before,
+            update_after=update_after,
             key=key,
             condition=condition,
             prefix=prefix,
@@ -366,27 +369,9 @@ class Cache(Backend):
             upper,
             ttl=ttl_to_seconds(ttl),
             cache_hits=3,
-            update_before=2,
+            update_after=1,
             key=key,
             condition=condition,
-            prefix=prefix,
-        )
-
-    def perf(
-        self,
-        ttl: TTL,
-        key: Optional[str] = None,
-        trace_size: int = 10,
-        perf_condition: Optional[Callable[[float, Iterable[float]], bool]] = None,
-        prefix: str = "perf",
-    ):
-        return self._wrap_on_enable(
-            prefix,
-            decorators.perf,
-            ttl=ttl_to_seconds(ttl),
-            key=key,
-            trace_size=trace_size,
-            perf_condition=perf_condition,
             prefix=prefix,
         )
 

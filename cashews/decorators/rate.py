@@ -3,7 +3,8 @@ from functools import wraps
 from typing import Callable, Optional
 
 from ..backends.interface import Backend
-from ..key import get_cache_key, get_cache_key_template, register_template
+from ..key import get_cache_key, get_cache_key_template
+from ..formatter import register_template
 
 logger = logging.getLogger(__name__)
 

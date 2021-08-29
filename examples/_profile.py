@@ -8,9 +8,6 @@ from cashews import default_formatter, cache, context_cache_detect
 
 from pyinstrument import Profiler
 
-import uvloop
-
-
 
 INT_TO_STR_MAP = {
     "0": "zero",
@@ -27,45 +24,45 @@ INT_TO_STR_MAP = {
 
 
 @default_formatter.register("human")
-def _human(value):
+def _human(value, upper=False):
     res = ""
     for char in value:
         if res:
             res += "-"
         res += INT_TO_STR_MAP.get(char)
+    if upper:
+        return res.upper()
     return res
 
 
-cache.setup("disk://?directory=/tmp/cache")
+# cache.setup("disk://?directory=/tmp/cache")
+# cache.setup("mem://")
+cache.setup("redis://?max_connections=5")
 
 
 # @profile(precision=4)
-@cache.cache(ttl=timedelta(minutes=20), key="mul:{a:human}")
+@cache.failover(ttl=timedelta(minutes=20), key="mul:{a:human}:hit")
+@cache.failover(ttl=timedelta(minutes=1), key="mul2:{a:hash}:hit")
+# @cache(ttl=timedelta(minutes=20), key="mul:{a:human(true)}")
+# @cache.hit(ttl=timedelta(minutes=20), key="mul:{a:human(true)}:hit", cache_hits=1000, update_after=900)
+# @cache.hit(ttl=timedelta(minutes=20), key="mul:{a}:hit", cache_hits=1000, update_after=900)
+# @cache.early(ttl=timedelta(minutes=20), key="mul:{a}:hit", early_ttl=timedelta(minutes=5))
+# @cache.locked(ttl=timedelta(minutes=20), key="mul:{a:human(true)}:hit")
 async def example(a):
     return {"1": "2"}
-#
-# from guppy import hpy
-# hp = hpy()
 
 
 async def main():
     await cache.init()
     p = Profiler(async_mode='disabled')
     with p:
-            # before = hp.heap()
-            for _ in range(100000):
-                with context_cache_detect:
-                    await asyncio.gather(
-                        example(random.randint(10, 1000)),
-                        example(random.randint(10, 10000)),
-                        example(random.randint(10, 1000)),
-                    )
-            # after = hp.heap()
-
-            # lo = after - before
-            # import ipdb; ipdb.set_trace()
+            for _ in range(10_000):
+                await asyncio.gather(
+                    example(random.randint(10, 1000)),
+                    example(random.randint(10, 10000)),
+                    example(random.randint(10, 1000)),
+                )
     p.print()
 
-# uvloop.install()
 asyncio.run(main())
 

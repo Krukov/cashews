@@ -274,48 +274,22 @@ async def test_hit_cache(backend):
 async def test_hit_cache_early(backend):
     mock = Mock()
 
-    @decorators.hit(backend, ttl=10, cache_hits=1, key="test", update_before=0)
+    @decorators.hit(backend, ttl=10, cache_hits=5, key="test", update_after=1)
     async def func(resp=b"ok"):
         mock(resp)
         return resp
 
-    assert await func(b"1") == b"1"  # cache
+    assert await func(b"1") == b"1"  # nocache
     assert mock.call_count == 1
 
-    assert await func(b"2") == b"1"  # cache
+    assert await func(b"2") == b"1"  # cache and update
     assert mock.call_count == 1
 
     await asyncio.sleep(0.01)
-    assert await func(b"3") == b"2"  # cache
     assert mock.call_count == 2
-
-
-async def test_perf_cache(backend):
-    mock = Mock()
-
-    @decorators.perf(backend, key="test", ttl=0.2)
-    async def func(s=0.01):
-        await asyncio.sleep(s)
-        mock()
-        return "res"
-
-    await asyncio.gather(*[func() for _ in range(10)])
-    assert mock.call_count == 10
-    await func(0.04)
-    assert mock.call_count == 11
-    with pytest.raises(decorators.PerfDegradationException):
-        await func(0.001)  # long
-        assert mock.call_count == 11
-    await asyncio.sleep(0.05)
-    # prev was slow so no hits
-    with pytest.raises(decorators.PerfDegradationException):
-        await asyncio.gather(*[func() for _ in range(100)])
-
-    assert mock.call_count == 11
-    await asyncio.sleep(0.2)
-
-    await func(0.009)
-    assert mock.call_count == 12
+    assert await func(b"3") == b"2"  # cache from prev and also update
+    await asyncio.sleep(0.01)
+    assert mock.call_count == 3
 
 
 async def test_cache_detect_simple(backend):

@@ -42,9 +42,8 @@ async def test_cache_decorators_on_redis_down(redis_backend):
     cache._add_backend(redis_backend, safe=True, address="redis://localhost:9223", hash_key=None)
 
     @cache(ttl=1)
-    @cache.fail(1)
+    @cache.failover(1)
     @cache.hit(ttl=1, cache_hits=1)
-    @cache.perf(ttl=1)
     @cache.circuit_breaker(ttl=1, errors_rate=1, period=1)
     @cache.rate_limit(ttl=1, limit=1, period=1)
     @cache.early(ttl=1)

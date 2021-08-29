@@ -3,8 +3,9 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
-from cashews.backends.interface import Backend
-from cashews.key import get_call_values, get_func_params, get_templates_for_func, template_to_pattern
+from .backends.interface import Backend
+from .key import get_call_values, get_func_params
+from .formatter import get_templates_for_func, template_to_pattern
 
 
 async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None):

@@ -3,7 +3,8 @@ from functools import wraps
 from typing import Optional
 
 from ...backends.interface import Backend
-from ...key import get_cache_key, get_cache_key_template, register_template
+from ...key import get_cache_key, get_cache_key_template
+from ...formatter import register_template
 from ...typing import CacheCondition
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
@@ -14,7 +15,7 @@ def hit(
     backend: Backend,
     ttl: int,
     cache_hits: int,
-    update_before: Optional[int] = None,
+    update_after: Optional[int] = None,
     key: Optional[str] = None,
     condition: CacheCondition = None,
     prefix: str = "hit",
@@ -24,7 +25,7 @@ def hit(
     :param backend: cache backend
     :param ttl: duration in seconds to store a result
     :param cache_hits: number of cache hits till cache will dropped
-    :param update_before: number of cache hits before cache will update
+    :param update_after: number of cache hits after cache will update
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'hit'
@@ -46,7 +47,7 @@ def hit(
                 asyncio.create_task(backend.expire(_cache_key + ":counter", ttl))
             if result is not _empty and hits and hits <= cache_hits:
                 _from_cache._set(_cache_key, ttl=ttl, cache_hits=cache_hits, name="hit", backend=backend.name)
-                if update_before is not None and cache_hits - hits <= update_before:
+                if update_after and hits == update_after:
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, store))
                 return result
             return await _get_and_save(func, args, kwargs, backend, _cache_key, ttl, store)
@@ -59,7 +60,9 @@ def hit(
 async def _get_and_save(func, args, kwargs, backend, key, ttl, store):
     result = await func(*args, **kwargs)
     if store(result, args, kwargs, key=key):
-        await backend.delete(key + ":counter")
-        await backend.set(key, result, expire=ttl)
+        await asyncio.gather(
+            backend.delete(key + ":counter"),
+            backend.set(key, result, expire=ttl),
+        )
 
     return result

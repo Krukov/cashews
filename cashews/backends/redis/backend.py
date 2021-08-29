@@ -4,6 +4,7 @@ from typing import Any, Union, Optional
 
 from ..interface import Backend
 from .client import SafeRedis
+from aioredis import Redis
 
 _UNLOCK = """
 if redis.call("get",KEYS[1]) == ARGV[1] then
@@ -19,13 +20,20 @@ end
 class _Redis(Backend):
     name = "redis"
 
-    def __init__(self, address, safe=False, **kwargs):
+    def __init__(self, address, safe=True, **kwargs):
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)
         kwargs.setdefault("client_name", "cashews")
-        self._client = SafeRedis.from_url(address, **kwargs)
-        if safe:
-            self._client.set_safe()
+        kwargs.setdefault("health_check_interval", 1)
+        kwargs.setdefault("max_connections", 10)
+        kwargs.setdefault("socket_keepalive", True)
+        kwargs.setdefault("retry_on_timeout", False)
+        kwargs.setdefault("socket_timeout", 0.5)
+        kwargs["decode_responses"] = False
+        if not safe:
+            self._client = Redis.from_url(address, **kwargs)
+        else:
+            self._client = SafeRedis.from_url(address, **kwargs)
         self._sha = {}
         self.__is_init = False
 

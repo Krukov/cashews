@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from cashews.key import get_template_for_key
+from cashews.formatter import get_template_for_key
 
 from .redis import Redis
 

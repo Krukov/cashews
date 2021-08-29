@@ -6,7 +6,7 @@ import pytest
 from cashews.backends.memory import Memory
 from cashews.disable_control import ControlMixin
 from cashews.helpers import add_prefix
-from cashews.key import get_templates_for_func
+from cashews.formatter import get_templates_for_func
 from cashews.wrapper import Cache, _create_auto_init
 
 pytestmark = pytest.mark.asyncio
@@ -80,9 +80,8 @@ async def test_disable_decorators(cache: Cache, target):
     data = (i for i in range(10))
 
     @cache(ttl=1)
-    @cache.fail(ttl=1)
+    @cache.failover(ttl=1)
     @cache.hit(ttl=1, cache_hits=1)
-    @cache.perf(ttl=1)
     @cache.circuit_breaker(ttl=1, errors_rate=1, period=1)
     @cache.rate_limit(ttl=1, limit=1, period=1)
     @cache.early(ttl=1)

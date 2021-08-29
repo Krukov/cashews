@@ -124,17 +124,13 @@ This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module
 values, but the cashes can store values with sha1-keyed hash.
 Use `hash_key` parameter to protect your application from security vulnerabilities.
 
-To supress any connections errors use `safe` parameter.
-
-You can set parameters for [redis pool](https://aioredis.readthedocs.io/en/v1.3.0/api_reference.html#aioredis.create_pool)
-with `minsize` or `maxsize` parameters.
-
+Any connections errors are suppressed, to disable it use `safe=False`
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
 
 ```python
-cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=0&hash_key=my_secret", prefix="func")
+cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=false&hash_key=my_secret", prefix="func")
 cache.setup("redis://0.0.0.0/?db=2", hash_key=None, prefix="super", index_name="user", index_field="user_uid")
-cache.setup("redis://0.0.0.0/", db=1, password="my_pass", create_connection_timeout=0.1, safe=1, hash_key="my_secret", client_side=True)
+cache.setup("redis://0.0.0.0/", db=1, password="my_pass", socket_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
 ```
 
 #### DiskCache
@@ -173,6 +169,8 @@ await cache.get("key")  # -> Any
 await cache.get_many("key1", "key2")
 await cache.incr("key") # -> int
 await cache.delete("key")
+await cache.delete_match("pattern:*")
+await cache.keys_match("pattern:*") # -> List[str]
 await cache.expire("key", timeout=10)
 await cache.get_expire("key")  # -> int seconds to expire
 await cache.ping(message=None)  # -> bytes
@@ -215,10 +213,10 @@ Return cache result, if one of the given exceptions is raised (at least one func
 call should be succeed prior that).
 
 ```python
-from cashews import cache  # or: from cashews import fail
+from cashews import cache  # or: from cashews import failover
 
 # note: the key will be "__module__.get_status:name:{name}"
-@cache.fail(ttl=timedelta(hours=2), exceptions=(ValueError, MyException))  
+@cache.failover(ttl=timedelta(hours=2), exceptions=(ValueError, MyException))  
 async def get_status(name):
     value = await api_call()
     return {"status": value}
@@ -231,22 +229,9 @@ Expire cache after given numbers of call `cache_hits`.
 ```python
 from cashews import cache  # or: from cashews import hit
 
-@cache.hit(ttl=timedelta(hours=2), cache_hits=100, update_before=2)
+@cache.hit(ttl=timedelta(hours=2), cache_hits=100, update_after=2)
 async def get(name):
     ...
-```
-
-#### Performance downgrade detection
-
-Trace time execution of target and throw exception if it downgrades to given condition
-
-```python
-from cashews import cache   # or: from cashews import perf
-
-@cache.perf(ttl=timedelta(hours=2))
-async def get(name):
-    value = await api_call()
-    return {"status": value}
 ```
 
 #### Locked
@@ -324,7 +309,7 @@ await get_name("me", version="v2")
 Sometimes you need to format the parameters or define your
  own template for the key and Cashews allows you to do this:
 ```python
-@cache.fail(key="name:{user.uid}")
+@cache.failover(key="name:{user.uid}")
 async def get_name(user, version="v1"):
     ...
 

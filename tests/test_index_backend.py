@@ -1,6 +1,6 @@
 import pytest
 
-from cashews.key import register_template
+from cashews.formatter import register_template
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 

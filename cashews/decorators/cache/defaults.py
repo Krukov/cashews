@@ -1,6 +1,6 @@
 import random
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, Dict
 
 from ...typing import CacheCondition
 
@@ -36,13 +36,16 @@ class CacheDetect:
     def keys(self):
         return dict(self._value)
 
+    def clear(self):
+        self._value = {}
+
 
 _level = ContextVar("level", default=0)
 
 
 class _ContextCacheDetect:
     def __init__(self):
-        self._levels = {}
+        self._levels: Dict[int, CacheDetect] = {}
 
     @property
     def level(self):
@@ -64,7 +67,7 @@ class _ContextCacheDetect:
     def _set(self, key: str, **kwargs):
         level = self.level
         while level:
-            var: CacheDetect = self._levels.get(level)
+            var = self._levels.get(level)
             if var is None:
                 return
             var._set(key, **kwargs)

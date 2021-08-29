@@ -23,6 +23,7 @@ def locked(
     :param backend: cache backend
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param ttl: duration to lock wrapped function call
+    :param max_lock_ttl: custom prefix for key, default 'lock'
     :param prefix: custom prefix for key, default 'lock'
     """
 

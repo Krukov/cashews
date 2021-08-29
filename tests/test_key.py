@@ -1,6 +1,7 @@
 import pytest
 
-from cashews.key import get_cache_key, get_cache_key_template, get_template_and_func_for, register_template
+from cashews.key import get_cache_key, get_cache_key_template
+from cashews.formatter import register_template, get_template_and_func_for
 
 
 async def func1(a):
