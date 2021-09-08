@@ -52,7 +52,7 @@ def failover(
             except exceptions as exc:
                 cached = await backend.get(_cache_key, default=_empty)
                 if cached is not _empty:
-                    _from_cache._set(_cache_key, ttl=ttl, exc=exc, name="fail", backend=backend.name)
+                    _from_cache._set(_cache_key, ttl=ttl, exc=exc, name="failover", template=_key_template)
                     return cached
                 raise exc
             else:

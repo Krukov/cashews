@@ -48,7 +48,7 @@ def circuit_breaker(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             if await backend.is_locked(_cache_key + ":open"):
                 if half_open_ttl:
-                    await backend.set(_cache_key + ":halfopen", value=1, expire=half_open_ttl)
+                    await backend.set(_cache_key + ":halfopen", value=1, expire=half_open_ttl, exist=False)
                 raise CircuitBreakerOpen()
             if await backend.exists(_cache_key + ":halfopen") and random.randint(0, 1):
                 raise CircuitBreakerOpen()

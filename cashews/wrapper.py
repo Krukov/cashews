@@ -56,10 +56,13 @@ class Cache(Backend):
     default_prefix = ""
 
     def __init__(self, name=None):
-        self._backends = {}
+        self._backends = {}  # {key: (backend, middleware)}
         self._default_middlewares = (_is_disable_middleware, _create_auto_init(), validation._invalidate_middleware)
         self._name = name
         self._default_fail_exceptions = Exception
+        self._add_backend(Memory)
+
+    detect = decorators.context_cache_detect
 
     def set_default_fail_exceptions(self, exc: Union[Type[Exception], Iterable[Type[Exception]]]):
         self._default_fail_exceptions = exc
@@ -67,14 +70,22 @@ class Cache(Backend):
     def disable(self, *cmds, prefix=""):
         return self._get_backend(prefix).disable(*cmds)
 
+    def disable_all(self, *cmds):
+        for backend, _ in self._backends.values():
+            backend.disable(*cmds)
+
     def enable(self, *cmds, prefix=""):
         return self._get_backend(prefix).enable(*cmds)
 
+    def enable_all(self, *cmds):
+        for backend, _ in self._backends.values():
+            backend.enable(*cmds)
+
     @contextmanager
-    def disabling(self, *cmds):
-        self.disable(*cmds)
+    def disabling(self, *cmds, prefix=""):
+        self.disable(*cmds, prefix=prefix)
         yield
-        self.enable(*cmds)
+        self.enable(*cmds, prefix=prefix)
 
     def is_disable(self, *cmds, prefix=""):
         return self._get_backend(prefix).is_disable(*cmds)
@@ -86,9 +97,9 @@ class Cache(Backend):
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):
                 return self._backends[prefix]
-        return self._backends.get(self.default_prefix, (None, None))
+        return self._backends[self.default_prefix]
 
-    def _get_backend(self, key) -> Optional[Backend]:
+    def _get_backend(self, key) -> Backend:
         backend, _ = self._get_backend_and_config(key)
         return backend
 
@@ -119,6 +130,9 @@ class Cache(Backend):
 
     def _with_middlewares(self, cmd: str, key):
         backend, middlewares = self._get_backend_and_config(key)
+        return self._with_middlewares_for_backend(cmd, backend, middlewares)
+
+    def _with_middlewares_for_backend(self, cmd: str, backend, middlewares):
         call = getattr(backend, cmd)
         for middleware in middlewares:
             call = partial(middleware, call, cmd=cmd, backend=backend)
@@ -175,24 +189,22 @@ class Cache(Backend):
 
     async def clear(self):
         for backend, _ in self._backends.values():
-            if not backend.is_init:
-                await backend.init()
-            await backend.clear()
+            await self._with_middlewares_for_backend("clear", backend, self._default_middlewares)()
 
-    async def close(self):
+    def close(self):
         for backend, _ in self._backends.values():
-            await backend.close()
+            backend.close()
 
     def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
         return self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
-    def _wrap_on(self, name, decorator_fabric, upper, **decor_kwargs):
+    def _wrap_on(self, decorator_fabric, upper, **decor_kwargs):
         wrapper = self._wrap_on_enable
         if upper:
             wrapper = self._wrap_on_enable_with_condition
-        return wrapper(name, decorator_fabric, **decor_kwargs)
+        return wrapper(decorator_fabric, **decor_kwargs)
 
-    def _wrap_on_enable(self, name, decorator_fabric, **decor_kwargs):
+    def _wrap_on_enable(self, decorator_fabric, **decor_kwargs):
         def _decorator(func):
             result_func = decorator_fabric(self, **decor_kwargs)(func)
             result_func.direct = func
@@ -200,7 +212,7 @@ class Cache(Backend):
 
         return _decorator
 
-    def _wrap_on_enable_with_condition(self, name, decorator_fabric, condition, **decor_kwargs):
+    def _wrap_on_enable_with_condition(self, decorator_fabric, condition, **decor_kwargs):
         def _decorator(func):
             decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
@@ -216,7 +228,6 @@ class Cache(Backend):
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
                     result = await decorator(func)(*args, **kwargs)
 
-                    # decorators.context_cache_detect.merge(detect)
                 return result
             _call.direct = func
             return _call
@@ -233,7 +244,6 @@ class Cache(Backend):
         prefix="rate_limit",
     ):  # pylint: disable=too-many-arguments
         return self._wrap_on_enable(
-            "rate_limit",
             decorators.rate_limit,
             limit=limit,
             period=ttl_to_seconds(period),
@@ -251,7 +261,6 @@ class Cache(Backend):
         upper: bool = False,
     ):
         return self._wrap_on(
-            prefix or "cache",
             decorators.cache,
             upper,
             ttl=ttl_to_seconds(ttl),
@@ -264,7 +273,6 @@ class Cache(Backend):
 
     def invalidate(self, func, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
         return self._wrap_on_enable(
-            "cache",
             validation.invalidate,
             target=func,
             args_map=args_map,
@@ -283,7 +291,6 @@ class Cache(Backend):
     ):
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_on_enable_with_condition(
-            prefix,
             decorators.failover,
             ttl=ttl_to_seconds(ttl),
             exceptions=exceptions,
@@ -303,7 +310,6 @@ class Cache(Backend):
     ):
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_on_enable(
-            prefix,
             decorators.circuit_breaker,
             errors_rate=errors_rate,
             period=ttl_to_seconds(period),
@@ -323,7 +329,6 @@ class Cache(Backend):
         upper: bool = False,
     ):
         return self._wrap_on(
-            prefix,
             decorators.early,
             upper,
             ttl=ttl_to_seconds(ttl),
@@ -344,7 +349,6 @@ class Cache(Backend):
         upper: bool = False,
     ):
         return self._wrap_on(
-            prefix,
             decorators.hit,
             upper,
             ttl=ttl_to_seconds(ttl),
@@ -364,7 +368,6 @@ class Cache(Backend):
         upper: bool = False,
     ):
         return self._wrap_on(
-            prefix,
             decorators.hit,
             upper,
             ttl=ttl_to_seconds(ttl),
@@ -383,7 +386,7 @@ class Cache(Backend):
         prefix: str = "locked",
     ):
         return self._wrap_on_enable(
-            prefix, decorators.locked, ttl=ttl_to_seconds(ttl), key=key, step=step, prefix=prefix
+            decorators.locked, ttl=ttl_to_seconds(ttl), key=key, step=step, prefix=prefix
         )
 
 

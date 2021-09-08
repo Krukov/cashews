@@ -32,7 +32,7 @@ async def _backend(request, redis_dsn, backend_factory):
     elif request.param == "redis":
         from cashews.backends.redis import Redis
 
-        yield await backend_factory(Redis, redis_dsn, None)
+        yield await backend_factory(Redis, redis_dsn, max_connections=20)
     else:
         yield await backend_factory(backend_cls=Memory)
 

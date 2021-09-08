@@ -5,7 +5,6 @@ import hashlib
 import time
 
 from datetime import datetime, timedelta
-import ujson
 
 from fastapi import FastAPI, Depends, HTTPException, Header
 from starlette.requests import Request
@@ -16,9 +15,8 @@ from pydantic import BaseModel
 
 from cashews import (
     cache,
-    mem,
     RateLimitException,
-    context_cache_detect,
+    cache_detect,
     utils,
     LockedException,
 )
@@ -32,7 +30,8 @@ database = databases.Database("sqlite:///db.sqlite")
 metadata = sqlalchemy.MetaData()
 app = FastAPI()
 
-cache.setup("redis://?hash_key=test&safe=True&maxsize=20&create_connection_timeout=0.01", client_side=True)
+cache.setup("redis://", client_side=True)
+cache.setup("mem://1", prefix="fail")
 
 SECRET_KEY = "test"
 ALGORITHM = "HS256"
@@ -109,11 +108,12 @@ async def add_process_time_header(request: Request, call_next):
 
 @app.middleware("http")
 async def add_from_cache_headers(request: Request, call_next):
-    with context_cache_detect as detector:
+    with cache.detect as detector:
         response = await call_next(request)
-        if detector.keys:
-            key = list(detector.keys.keys())[0]
-            response.headers["X-From-Cache"] = key
+        if request.method.lower() != "get":
+            return response
+        response.headers["X-Detect-Debug"] = str(detector.calls)
+        response.headers["X-From-Cache-keys"] = ";".join(detector.calls.keys())
     return response
 
 
@@ -121,20 +121,20 @@ async def add_from_cache_headers(request: Request, call_next):
 async def rate_limit_handler(request, exc: RateLimitException):
     return JSONResponse(
         status_code=429,
-        content=ujson.dumps({"error": "too much"}),
+        content={"error": "too much"},
     )
 
 
 @app.exception_handler(LockedException)
-async def rate_limit_handler(request, exc: LockedException):
+async def lock_handler(request, exc: LockedException):
     return JSONResponse(
         status_code=500,
-        content=ujson.dumps({"error": "LOCK"}),
+        content={"error": "LOCK"},
     )
 
 
 @app.get("/")
-@cache(ttl=timedelta(minutes=1))
+@cache(ttl=timedelta(minutes=1), prefix="test")
 async def root():
     await asyncio.sleep(1)
     return "".join([random.choice(string.ascii_letters) for _ in range(10)])
@@ -181,10 +181,9 @@ class RedisDownException(Exception):
 
 
 @app.get("/rank")
-@mem.fail(ttl=timedelta(minutes=5), exceptions=(Exception,), key="{accept_language}")
+@cache.failover(ttl=timedelta(minutes=5), key="{accept_language}")
 @cache.rate_limit(limit=100, period=timedelta(seconds=2), ttl=timedelta(minutes=1))
 @cache.early(ttl=timedelta(minutes=2), early_ttl=timedelta(minutes=1), key="{accept_language}")
-@cache.locked(key="{accept_language}")
 async def get_rang(accept_language: str = Header("en"), user_agent: str = Header("No")):
     rank = 0
     for user in await User.objects.filter(language=accept_language).all():

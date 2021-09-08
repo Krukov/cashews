@@ -11,6 +11,7 @@ from .formatter import default_formatter, get_template_and_func_for, get_templat
 from .validation import set_invalidate_further  # noqa
 from .wrapper import Cache  # noqa
 
+cache_detect = context_cache_detect
 # pylint: disable=invalid-name
 cache = Cache(name="default")
 rate_limit = cache.rate_limit

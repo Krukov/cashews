@@ -24,6 +24,8 @@ def _get_cache_condition(condition: CacheCondition):
 
 
 class CacheDetect:
+    __slots__ = ("_value", "_unset_token", "_previous_level")
+
     def __init__(self, previous_level=0, unset_token=None):
         self._value = {}
         self._unset_token = unset_token
@@ -33,8 +35,10 @@ class CacheDetect:
         self._value.setdefault(key, []).append(kwargs)
 
     @property
-    def keys(self):
+    def calls(self):
         return dict(self._value)
+
+    keys = calls  # backward compatibility
 
     def clear(self):
         self._value = {}
@@ -76,6 +80,7 @@ class _ContextCacheDetect:
     def _stop(self):
         if self.level in self._levels:
             token = self._levels[self.level]._unset_token
+            self._levels[self.level].clear()
             del self._levels[self.level]
             _level.reset(token)
 

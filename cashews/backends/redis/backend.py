@@ -30,11 +30,11 @@ class _Redis(Backend):
         kwargs.setdefault("retry_on_timeout", False)
         kwargs.setdefault("socket_timeout", 0.5)
         kwargs["decode_responses"] = False
-        if not safe:
-            self._client = Redis.from_url(address, **kwargs)
-        else:
-            self._client = SafeRedis.from_url(address, **kwargs)
+        self._client = None
         self._sha = {}
+        self._safe = safe
+        self._kwargs = kwargs
+        self._address = address
         self.__is_init = False
 
     @property
@@ -42,6 +42,10 @@ class _Redis(Backend):
         return self.__is_init
 
     async def init(self):
+        if not self._safe:
+            self._client = Redis.from_url(self._address, **self._kwargs)
+        else:
+            self._client = SafeRedis.from_url(self._address, **self._kwargs)
         self.__is_init = True
 
     async def get_many(self, *keys: str):
@@ -138,4 +142,6 @@ class _Redis(Backend):
     def close(self):
         del self._client
         self._client = None
+        self.__is_init = False
 
+    __del__ = close

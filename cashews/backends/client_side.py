@@ -46,6 +46,7 @@ class BcastClientSide(Redis):
     Subscribe with broadcasting by prefix for invalidate by redis>=6
     https://redis.io/topics/client-side-caching
     """
+    name = "redis_mem"
 
     def __init__(self, *args, local_cache=None, prefix=_DEFAULT_PREFIX, **kwargs):
         self._local_cache = Memory() if local_cache is None else local_cache
