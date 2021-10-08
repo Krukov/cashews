@@ -55,7 +55,8 @@ def set_invalidate_further():
 
 async def _invalidate_middleware(call, *args, key=None, backend=None, cmd=None, **kwargs):
     if _INVALIDATE_FURTHER.get() and key is not None and cmd != "delete":
-        await backend.delete(key)
+        asyncio.create_task(backend.delete(key))
+        _INVALIDATE_FURTHER.set(False)
         return None
     if key is None:
         return await call(*args, **kwargs)

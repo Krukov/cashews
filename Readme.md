@@ -129,8 +129,8 @@ If you would like to use [client-side cache](https://redis.io/topics/client-side
 
 ```python
 cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=false&hash_key=my_secret", prefix="func")
-cache.setup("redis://0.0.0.0/?db=2", hash_key=None, prefix="super", index_name="user", index_field="user_uid")
-cache.setup("redis://0.0.0.0/", db=1, password="my_pass", socket_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
+cache.setup("redis://0.0.0.0/2", hash_key=None, prefix="super", index_name="user", index_field="user_uid")
+cache.setup("redis://0.0.0.0/2", password="my_pass", socket_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
 ```
 
 #### DiskCache
@@ -499,3 +499,7 @@ async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
 cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
 
+
+# string ttl 
+# Xfetch
+# rate limit with floating window 

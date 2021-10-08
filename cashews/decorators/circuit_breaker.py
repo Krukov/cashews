@@ -63,7 +63,7 @@ def circuit_breaker(
                 if total_in_bucket < min_calls:
                     raise
                 fails = await backend.incr(_cache_key + ":fails")
-                total = total_in_bucket + await _get_buckets_values(backend, segments=_SEGMENTS, except_number=bucket)
+                total = total_in_bucket + await _get_buckets_values(backend, _cache_key, segments=_SEGMENTS, except_number=bucket)
                 if fails * 100 / total >= errors_rate:
                     await backend.set_lock(_cache_key + ":open", value=1, expire=ttl)
                 raise
@@ -77,6 +77,6 @@ def _get_bucket_number(period: int, segments: int) -> int:
     return int((datetime.utcnow().timestamp() % period) / segments)
 
 
-async def _get_buckets_values(backend: Backend, segments: int, except_number: int) -> int:
-    keys = [str(key) for key in range(segments) if key != except_number]
+async def _get_buckets_values(backend: Backend, key, segments: int, except_number: int) -> int:
+    keys = [f"{key}:total:{bucket}" for bucket in range(segments) if bucket != except_number]
     return sum([v for v in await backend.get_many(*keys) if v])
