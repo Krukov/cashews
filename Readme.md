@@ -216,7 +216,7 @@ call should be succeed prior that).
 from cashews import cache  # or: from cashews import failover
 
 # note: the key will be "__module__.get_status:name:{name}"
-@cache.failover(ttl=timedelta(hours=2), exceptions=(ValueError, MyException))  
+@cache.failover(ttl="2h", exceptions=(ValueError, MyException))  
 async def get_status(name):
     value = await api_call()
     return {"status": value}
@@ -229,7 +229,7 @@ Expire cache after given numbers of call `cache_hits`.
 ```python
 from cashews import cache  # or: from cashews import hit
 
-@cache.hit(ttl=timedelta(hours=2), cache_hits=100, update_after=2)
+@cache.hit(ttl="2h", cache_hits=100, update_after=2)
 async def get(name):
     ...
 ```
@@ -243,7 +243,7 @@ This guarantees exactly one function call for given ttl.
 ```python
 from cashews import cache  # or: from cashews import locked
 
-@cache.locked(ttl=timedelta(minutes=10))
+@cache.locked(ttl="10m")
 async def get(name):
     value = await api_call()
     return {"status": value}
@@ -500,6 +500,5 @@ cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
 
 
-# string ttl 
 # Xfetch
 # rate limit with floating window 

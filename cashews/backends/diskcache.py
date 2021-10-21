@@ -35,7 +35,11 @@ class DiskCache(Backend):
         self._cache.close()
 
     async def set(
-        self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None
+        self,
+        key: str,
+        value: Any,
+        expire: Union[None, float, int] = None,
+        exist: Optional[bool] = None,
     ) -> bool:
         future = self._run_in_executor(self._set, key, value, expire, exist)
         if exist is not None:
@@ -123,7 +127,12 @@ class DiskCache(Backend):
     async def set_lock(self, key: str, value: Any, expire: Union[float, int]) -> bool:
         return await self.set(key, value, expire=expire, exist=False)
 
-    async def is_locked(self, key: str, wait: Union[None, int, float] = None, step: Union[int, float] = 0.1) -> bool:
+    async def is_locked(
+        self,
+        key: str,
+        wait: Union[None, int, float] = None,
+        step: Union[int, float] = 0.1,
+    ) -> bool:
         if wait is None:
             return await self.exists(key)
         while wait > 0:

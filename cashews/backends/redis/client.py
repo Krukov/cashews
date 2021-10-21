@@ -1,15 +1,13 @@
 import asyncio
-import socket
 import logging
+import socket
 
-from aioredis import Redis, ConnectionError
-
+from aioredis import ConnectionError, Redis
 
 logger = logging.getLogger(__name__)
 
 
 class SafeRedis(Redis):
-
     async def execute_command(self, command, *args, **kwargs):
         try:
             return await super().execute_command(command, *args, **kwargs)

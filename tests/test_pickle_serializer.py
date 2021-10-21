@@ -87,7 +87,12 @@ async def test_serialize_collections_value(value, cache):
 
 
 @pytest.mark.parametrize(
-    "value", (datetime(year=2000, month=1, day=10, hour=10), timedelta(days=10), date(year=2020, month=12, day=31))
+    "value",
+    (
+        datetime(year=2000, month=1, day=10, hour=10),
+        timedelta(days=10),
+        date(year=2020, month=12, day=31),
+    ),
 )
 async def test_serialize_dates_value(value, cache):
     await cache.set("key", value)
@@ -95,7 +100,15 @@ async def test_serialize_dates_value(value, cache):
 
 
 @pytest.mark.parametrize(
-    "value", (["test", "to"], (TestDC("hay", _=2),), {"test"}, [(1, 2), (3, 4)], {1, 2, 5}, [{"test": True}])
+    "value",
+    (
+        ["test", "to"],
+        (TestDC("hay", _=2),),
+        {"test"},
+        [(1, 2), (3, 4)],
+        {1, 2, 5},
+        [{"test": True}],
+    ),
 )
 async def test_serialize_array_value(value, cache):
     await cache.set("key", value)
@@ -104,7 +117,14 @@ async def test_serialize_array_value(value, cache):
 
 
 @pytest.mark.parametrize(
-    "value", (["test", b"to"], (TestDC("hay", _=2), Decimal("10.1")), {"test", 1}, [], [{1: True}, Decimal("0.1")])
+    "value",
+    (
+        ["test", b"to"],
+        (TestDC("hay", _=2), Decimal("10.1")),
+        {"test", 1},
+        [],
+        [{1: True}, Decimal("0.1")],
+    ),
 )
 async def test_serialize_array_diff_value(value, cache):
     await cache.set("key", value)
@@ -140,7 +160,10 @@ async def test_replace_values(cache):
 
 
 async def test_pickle_error_value(cache):
-    await cache.set_row("key", cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data")
+    await cache.set_row(
+        "key",
+        cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data",
+    )
     assert await cache.get("key") is None
     assert not await cache.get_row("key")
 

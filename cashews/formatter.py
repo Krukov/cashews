@@ -2,7 +2,6 @@ import base64
 import json
 import re
 from hashlib import md5, sha1, sha256
-
 from string import Formatter
 from typing import Callable, Optional, Tuple
 

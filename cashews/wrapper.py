@@ -1,6 +1,6 @@
 import asyncio
-from functools import partial, wraps
 from contextlib import contextmanager
+from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
@@ -57,7 +57,11 @@ class Cache(Backend):
 
     def __init__(self, name=None):
         self._backends = {}  # {key: (backend, middleware)}
-        self._default_middlewares = (_is_disable_middleware, _create_auto_init(), validation._invalidate_middleware)
+        self._default_middlewares = (
+            _is_disable_middleware,
+            _create_auto_init(),
+            validation._invalidate_middleware,
+        )
         self._name = name
         self._default_fail_exceptions = Exception
         self._add_backend(Memory)
@@ -120,7 +124,10 @@ class Cache(Backend):
         class _backend_class(ControlMixin, backend_class):
             pass
 
-        self._backends[prefix] = (_backend_class(**params), self._default_middlewares + middlewares)
+        self._backends[prefix] = (
+            _backend_class(**params),
+            self._default_middlewares + middlewares,
+        )
 
     async def init(self, *args, **kwargs):
         if args or kwargs:
@@ -138,7 +145,13 @@ class Cache(Backend):
             call = partial(middleware, call, cmd=cmd, backend=backend)
         return call
 
-    def set(self, key: str, value: Any, expire: Union[float, None, TTL] = None, exist: Optional[bool] = None):
+    def set(
+        self,
+        key: str,
+        value: Any,
+        expire: Union[float, None, TTL] = None,
+        exist: Optional[bool] = None,
+    ):
         return self._with_middlewares("set", key)(key=key, value=value, expire=ttl_to_seconds(expire), exist=exist)
 
     def set_row(self, key: str, value: Any, **kwargs):
@@ -195,7 +208,12 @@ class Cache(Backend):
         for backend, _ in self._backends.values():
             backend.close()
 
-    def is_locked(self, key: str, wait: Union[float, None, TTL] = None, step: Union[int, float] = 0.1) -> bool:
+    def is_locked(
+        self,
+        key: str,
+        wait: Union[float, None, TTL] = None,
+        step: Union[int, float] = 0.1,
+    ) -> bool:
         return self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
     def _wrap_on(self, decorator_fabric, upper, **decor_kwargs):
@@ -229,6 +247,7 @@ class Cache(Backend):
                     result = await decorator(func)(*args, **kwargs)
 
                 return result
+
             _call.direct = func
             return _call
 
@@ -271,7 +290,12 @@ class Cache(Backend):
 
     cache = __call__
 
-    def invalidate(self, func, args_map: Optional[Dict[str, str]] = None, defaults: Optional[Dict] = None):
+    def invalidate(
+        self,
+        func,
+        args_map: Optional[Dict[str, str]] = None,
+        defaults: Optional[Dict] = None,
+    ):
         return self._wrap_on_enable(
             validation.invalidate,
             target=func,
@@ -386,7 +410,11 @@ class Cache(Backend):
         prefix: str = "locked",
     ):
         return self._wrap_on_enable(
-            decorators.locked, ttl=ttl_to_seconds(ttl), key=key, step=step, prefix=prefix
+            decorators.locked,
+            ttl=ttl_to_seconds(ttl),
+            key=key,
+            step=step,
+            prefix=prefix,
         )
 
 

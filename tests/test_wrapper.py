@@ -5,8 +5,8 @@ import pytest
 
 from cashews.backends.memory import Memory
 from cashews.disable_control import ControlMixin
-from cashews.helpers import add_prefix
 from cashews.formatter import get_templates_for_func
+from cashews.helpers import add_prefix
 from cashews.wrapper import Cache, _create_auto_init
 
 pytestmark = pytest.mark.asyncio

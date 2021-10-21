@@ -3,8 +3,8 @@ from functools import wraps
 from typing import Optional
 
 from ...backends.interface import Backend
-from ...key import get_cache_key, get_cache_key_template
 from ...formatter import register_template
+from ...key import get_cache_key, get_cache_key_template
 from ...typing import CacheCondition
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
@@ -46,7 +46,14 @@ def hit(
             if hits == 1:
                 asyncio.create_task(backend.expire(_cache_key + ":counter", ttl))
             if result is not _empty and hits and hits <= cache_hits:
-                _from_cache._set(_cache_key, ttl=ttl, cache_hits=cache_hits, name="hit", backend=backend.name, template=_key_template)
+                _from_cache._set(
+                    _cache_key,
+                    ttl=ttl,
+                    cache_hits=cache_hits,
+                    name="hit",
+                    backend=backend.name,
+                    template=_key_template,
+                )
                 if update_after and hits == update_after:
                     asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, store))
                 return result

@@ -5,8 +5,8 @@ from itertools import chain
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 from unittest.mock import MagicMock
 
+from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
 from .typing import TTL
-from .formatter import default_formatter, template_to_pattern, _ReplaceFormatter
 
 
 class WrongKeyException(ValueError):
@@ -20,7 +20,35 @@ class HDict(dict):
 
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
     timeout = ttl() if callable(ttl) else ttl
-    return timeout.total_seconds() if isinstance(timeout, timedelta) else timeout
+    if isinstance(timeout, timedelta):
+        return timeout.total_seconds()
+    if isinstance(timeout, str):
+        return _ttl_from_str(timeout)
+    return timeout
+
+
+_STR_TO_DELTA = {
+    "h": timedelta(hours=1),
+    "m": timedelta(minutes=1),
+    "s": timedelta(seconds=1),
+    "d": timedelta(days=1),
+}
+
+
+def _ttl_from_str(ttl: str) -> int:
+    result = 0
+    mul = ""
+    for char in ttl.strip().lower():
+        if char.isdigit():
+            mul += char
+        elif char in _STR_TO_DELTA:
+            result += int(mul) * _STR_TO_DELTA[char].total_seconds()
+            mul = ""
+        else:
+            raise ValueError(f"ttl '{ttl}' has wrong string representation")
+    if mul != "" and not result:
+        return int(mul)
+    return result
 
 
 def get_cache_key(
@@ -74,7 +102,10 @@ def _get_cache_key(
 def get_func_params(func):
     signature = _get_func_signature(func)
     for param_name, param in signature.parameters.items():
-        if param.kind not in [inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL]:
+        if param.kind not in [
+            inspect.Parameter.VAR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+        ]:
             yield param_name
 
 

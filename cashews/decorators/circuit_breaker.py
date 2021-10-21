@@ -8,7 +8,7 @@ from ..key import get_cache_key, get_cache_key_template
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
 
-_SEGMENTS = 100
+_SEGMENTS = 30
 
 
 class CircuitBreakerOpen(Exception):
@@ -21,7 +21,7 @@ def circuit_breaker(
     period: int,
     ttl: int,
     half_open_ttl: Optional[int] = None,
-    min_calls: int = 10,
+    min_calls: int = 1,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
     prefix: str = "circuit_breaker",
@@ -48,23 +48,28 @@ def circuit_breaker(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             if await backend.is_locked(_cache_key + ":open"):
                 if half_open_ttl:
-                    await backend.set(_cache_key + ":halfopen", value=1, expire=half_open_ttl, exist=False)
+                    await backend.set(
+                        _cache_key + ":halfopen",
+                        value=1,
+                        expire=half_open_ttl,
+                        exist=False,
+                    )
                 raise CircuitBreakerOpen()
             if await backend.exists(_cache_key + ":halfopen") and random.randint(0, 1):
                 raise CircuitBreakerOpen()
             bucket = _get_bucket_number(period, segments=_SEGMENTS)
-            total_in_bucket = await backend.incr(_cache_key + f":total:{bucket}") or 0
-            if total_in_bucket == 1:
+            in_bucket = await backend.incr(_cache_key + f":total:{bucket}") or 0
+            if in_bucket == 1:
                 await backend.expire(key=_cache_key + f":total:{bucket}", timeout=period)
                 await backend.set(key=_cache_key + ":fails", value=0, expire=period)
             try:
                 return await func(*args, **kwargs)
             except exceptions:
-                if total_in_bucket < min_calls:
-                    raise
                 fails = await backend.incr(_cache_key + ":fails")
-                total = total_in_bucket + await _get_buckets_values(backend, _cache_key, segments=_SEGMENTS, except_number=bucket)
-                if fails * 100 / total >= errors_rate:
+                total = in_bucket + await _get_buckets_values(
+                    backend, _cache_key, segments=_SEGMENTS, except_number=bucket
+                )
+                if not total < min_calls and fails * 100 / total >= errors_rate:
                     await backend.set_lock(_cache_key + ":open", value=1, expire=ttl)
                 raise
 

@@ -46,6 +46,7 @@ class BcastClientSide(Redis):
     Subscribe with broadcasting by prefix for invalidate by redis>=6
     https://redis.io/topics/client-side-caching
     """
+
     name = "redis_mem"
 
     def __init__(self, *args, local_cache=None, prefix=_DEFAULT_PREFIX, **kwargs):
@@ -78,7 +79,7 @@ class BcastClientSide(Redis):
     async def _listen_invalidate(self):
         channel = await self._get_channel()
         while True:
-            message = await channel.get_message(ignore_subscribe_messages=True)
+            message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
             if message is None or not message.get("data"):
                 continue
             key = message["data"][0]
@@ -104,13 +105,17 @@ class BcastClientSide(Redis):
 
     async def get_many(self, *keys):
         values = await self._local_cache.get_many(*keys)
-        missed_keys = [key for key, value in zip(keys, values) if value is not None]
+        missed_keys = [self._prefix + key for key, value in zip(keys, values) if value is None]
         missed_values = await super().get_many(*missed_keys)
         missed = dict(zip(missed_keys, missed_values))
+        for key, value in zip(keys, values):
+            if value is not None and missed.get(self._prefix + key):
+                await self._local_cache.set(key, missed.get(self._prefix + key))
         return [missed.get(key, value) for key, value in zip(keys, values)]
 
-    def incr(self, key):
-        return super().incr(self._prefix + key)
+    async def incr(self, key):
+        await self._local_cache.incr(key)
+        return await super().incr(self._prefix + key)
 
     async def delete(self, key: str):
         await self._local_cache.delete(key)
@@ -140,6 +145,21 @@ class BcastClientSide(Redis):
 
     async def exists(self, key) -> bool:
         return await self._local_cache.exists(key) or await super().exists(self._prefix + key)
+
+    async def set_lock(self, key: str, value, expire):
+        await self._local_cache.set_lock(key, value, expire)
+        pexpire = None
+        if isinstance(expire, float):
+            pexpire = int(expire * 1000)
+            expire = None
+        return bool(await self._client.set(self._prefix + key, value, ex=expire, px=pexpire, nx=True))
+
+    async def unlock(self, key, value):
+        await self._local_cache.unlock(key, value)
+        return await super().unlock(self._prefix + key, value)
+
+    async def get_size(self, key: str) -> int:
+        return await super().get_size(self._prefix + key)
 
     async def clear(self):
         await self._local_cache.clear()

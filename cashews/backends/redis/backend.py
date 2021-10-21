@@ -1,10 +1,10 @@
 import asyncio
-from typing import Any, Union, Optional
+from typing import Any, Optional, Union
 
+from aioredis import Redis
 
 from ..interface import Backend
 from .client import SafeRedis
-from aioredis import Redis
 
 _UNLOCK = """
 if redis.call("get",KEYS[1]) == ARGV[1] then
@@ -24,7 +24,7 @@ class _Redis(Backend):
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)
         kwargs.setdefault("client_name", "cashews")
-        kwargs.setdefault("health_check_interval", 1)
+        kwargs.setdefault("health_check_interval", 10)
         kwargs.setdefault("max_connections", 10)
         kwargs.setdefault("socket_keepalive", True)
         kwargs.setdefault("retry_on_timeout", False)

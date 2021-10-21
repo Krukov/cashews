@@ -2,8 +2,8 @@ from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
 from ...backends.interface import Backend
-from ...key import get_cache_key, get_cache_key_template
 from ...formatter import register_template
+from ...key import get_cache_key, get_cache_key_template
 from ...typing import CacheCondition
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
@@ -52,7 +52,13 @@ def failover(
             except exceptions as exc:
                 cached = await backend.get(_cache_key, default=_empty)
                 if cached is not _empty:
-                    _from_cache._set(_cache_key, ttl=ttl, exc=exc, name="failover", template=_key_template)
+                    _from_cache._set(
+                        _cache_key,
+                        ttl=ttl,
+                        exc=exc,
+                        name="failover",
+                        template=_key_template,
+                    )
                     return cached
                 raise exc
             else:

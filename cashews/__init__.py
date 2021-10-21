@@ -6,8 +6,8 @@ from .decorators import (  # noqa
     context_cache_detect,
     fast_condition,
 )
-from .helpers import add_prefix  # noqa
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key  # noqa
+from .helpers import add_prefix  # noqa
 from .validation import set_invalidate_further  # noqa
 from .wrapper import Cache  # noqa
 

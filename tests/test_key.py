@@ -1,7 +1,9 @@
+from datetime import timedelta
+
 import pytest
 
-from cashews.key import get_cache_key, get_cache_key_template
-from cashews.formatter import register_template, get_template_and_func_for
+from cashews.formatter import get_template_and_func_for, register_template
+from cashews.key import get_cache_key, get_cache_key_template, ttl_to_seconds
 
 
 async def func1(a):
@@ -95,9 +97,24 @@ def test_cache_func_key_dict():
             "2:k1:",
         ),
         (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:len}", "4"),
-        (("a1", "a2"), {"user": type("user", (), {"name": "test"})()}, "{user.name:len}", "4"),
-        (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:hash}", "098f6bcd4621d373cade4e832627b4f6"),
-        (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:hash(md5)}", "098f6bcd4621d373cade4e832627b4f6"),
+        (
+            ("a1", "a2"),
+            {"user": type("user", (), {"name": "test"})()},
+            "{user.name:len}",
+            "4",
+        ),
+        (
+            ("a1", "a2"),
+            {"kwarg1": "test"},
+            "{kwarg1:hash}",
+            "098f6bcd4621d373cade4e832627b4f6",
+        ),
+        (
+            ("a1", "a2"),
+            {"kwarg1": "test"},
+            "{kwarg1:hash(md5)}",
+            "098f6bcd4621d373cade4e832627b4f6",
+        ),
         (
             ("a1", "a2"),
             {"kwarg1": "eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoidGVzdCJ9.n75bSCIEuSemX5iop0sCF3HmXwMQWF1zI6TzckzHUKY"},
@@ -131,3 +148,22 @@ def test_get_key_template_error():
     with pytest.raises(ValueError) as exc:
         get_cache_key_template(func1, "key:{wrong_key}:{a}")
     exc.match("wrong_key")
+
+
+@pytest.mark.parametrize(
+    ("ttl", "expect"),
+    (
+        (timedelta(seconds=10), 10),
+        (lambda: timedelta(hours=1), 60 * 60),
+        (10, 10),
+        (100.1, 100.1),
+        ("10s", 10),
+        ("1m10s", 60 + 10),
+        ("10m1s", 60 * 10 + 1),
+        ("1", 1),
+        ("80", 80),
+        (lambda: "1h", 60 * 60),
+    ),
+)
+def test_ttl_to_seconds(ttl, expect):
+    assert ttl_to_seconds(ttl) == expect

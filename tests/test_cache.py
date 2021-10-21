@@ -75,7 +75,13 @@ async def test_circuit_breaker_simple(backend):
 
 async def test_circuit_breaker_half_open(backend):
     @decorators.circuit_breaker(
-        backend, ttl=EXPIRE, half_open_ttl=0.1, errors_rate=1, min_calls=0, period=1, key="test"
+        backend,
+        ttl=EXPIRE,
+        half_open_ttl=0.1,
+        errors_rate=1,
+        min_calls=0,
+        period=1,
+        key="test",
     )
     async def func(fail=False):
         if fail:

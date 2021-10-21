@@ -17,6 +17,7 @@ class Memory(Backend):
     """
     Inmemory backend lru with ttl
     """
+
     name = "mem"
 
     def __init__(self, size: int = 1000, check_interval=1):

@@ -24,7 +24,11 @@ class Backend:
         ...
 
     async def set(
-        self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None
+        self,
+        key: str,
+        value: Any,
+        expire: Union[None, float, int] = None,
+        exist: Optional[bool] = None,
     ) -> bool:
         ...
 
@@ -76,7 +80,12 @@ class Backend:
     async def set_lock(self, key: str, value: Any, expire: Union[float, int]) -> bool:
         ...
 
-    async def is_locked(self, key: str, wait: Union[None, int, float] = None, step: Union[int, float] = 0.1) -> bool:
+    async def is_locked(
+        self,
+        key: str,
+        wait: Union[None, int, float] = None,
+        step: Union[int, float] = 0.1,
+    ) -> bool:
         ...
 
     async def unlock(self, key, value) -> bool:
@@ -113,7 +122,13 @@ class ProxyBackend(Backend):
     def is_init(self):
         return self._target.is_init
 
-    def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist: Optional[bool] = None) -> bool:
+    def set(
+        self,
+        key: str,
+        value: Any,
+        expire: Union[None, float, int] = None,
+        exist: Optional[bool] = None,
+    ) -> bool:
         return self._target.set(key, value, expire=expire, exist=exist)
 
     def set_row(self, key: str, value: Any, **kwargs):
@@ -160,7 +175,12 @@ class ProxyBackend(Backend):
     def set_lock(self, key: str, value: Any, expire: Union[float, int]) -> bool:
         return self._target.set_lock(key, value, expire)
 
-    def is_locked(self, key: str, wait: Union[int, float, None] = None, step: Union[int, float] = 0.1) -> bool:
+    def is_locked(
+        self,
+        key: str,
+        wait: Union[int, float, None] = None,
+        step: Union[int, float] = 0.1,
+    ) -> bool:
         return self._target.is_locked(key, wait=wait, step=step)
 
     def unlock(self, key: str, value: str) -> bool:

@@ -9,7 +9,13 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 async def _cache(redis_dsn, backend_factory):
     from cashews.backends.index import IndexRedis
 
-    return await backend_factory(IndexRedis, address=redis_dsn, hash_key=None, index_field="user", index_name="test")
+    return await backend_factory(
+        IndexRedis,
+        address=redis_dsn,
+        hash_key=None,
+        index_field="user",
+        index_name="test",
+    )
 
 
 async def test_set(cache):

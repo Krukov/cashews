@@ -5,8 +5,8 @@ from functools import wraps
 from typing import Optional
 
 from ...backends.interface import Backend
-from ...key import get_cache_key, get_cache_key_template
 from ...formatter import register_template
+from ...key import get_cache_key, get_cache_key_template
 from ...typing import CacheCondition
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
@@ -46,14 +46,33 @@ def early(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                _from_cache._set(_cache_key, ttl=ttl, early_ttl=early_ttl, name="early", template=_key_template)
+                _from_cache._set(
+                    _cache_key,
+                    ttl=ttl,
+                    early_ttl=early_ttl,
+                    name="early",
+                    template=_key_template,
+                )
                 early_expire_at, result = cached
                 if early_expire_at <= datetime.utcnow() and await backend.set(
                     _cache_key + ":hit", "1", expire=early_ttl, exist=False
                 ):
-                    logger.info("Recalculate cache for %s (exp_at %s)", _cache_key, early_expire_at)
+                    logger.info(
+                        "Recalculate cache for %s (exp_at %s)",
+                        _cache_key,
+                        early_expire_at,
+                    )
                     asyncio.create_task(
-                        _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, early_ttl, store)
+                        _get_result_for_early(
+                            backend,
+                            func,
+                            args,
+                            kwargs,
+                            _cache_key,
+                            ttl,
+                            early_ttl,
+                            store,
+                        )
                     )
                 return result
             return await _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, early_ttl, store)
