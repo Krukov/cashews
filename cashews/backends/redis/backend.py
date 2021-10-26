@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any, Optional, Union
 
-from aioredis import Redis
+from aioredis import Redis, BlockingConnectionPool
 
 from ..interface import Backend
 from .client import SafeRedis
@@ -28,8 +28,12 @@ class _Redis(Backend):
         kwargs.setdefault("max_connections", 10)
         kwargs.setdefault("socket_keepalive", True)
         kwargs.setdefault("retry_on_timeout", False)
-        kwargs.setdefault("socket_timeout", 0.5)
+        kwargs.setdefault("socket_timeout", 0.1)
         kwargs["decode_responses"] = False
+
+        self._pool_class = kwargs.pop("connection_pool_class", BlockingConnectionPool)
+        if self._pool_class == BlockingConnectionPool:
+            kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 0.1)
         self._client = None
         self._sha = {}
         self._safe = safe
@@ -43,9 +47,10 @@ class _Redis(Backend):
 
     async def init(self):
         if not self._safe:
-            self._client = Redis.from_url(self._address, **self._kwargs)
+            client_class = Redis
         else:
-            self._client = SafeRedis.from_url(self._address, **self._kwargs)
+            client_class = SafeRedis
+        self._client = client_class(connection_pool=self._pool_class.from_url(self._address, **self._kwargs))
         self.__is_init = True
 
     async def get_many(self, *keys: str):
