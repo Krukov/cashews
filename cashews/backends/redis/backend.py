@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any, Optional, Union
 
-from aioredis import Redis, BlockingConnectionPool
+from aioredis import BlockingConnectionPool, Redis
 
 from ..interface import Backend
 from .client import SafeRedis
