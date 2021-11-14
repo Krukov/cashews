@@ -2,13 +2,14 @@ import asyncio
 import logging
 import socket
 
-from .compat import Redis, RedisConnectionError, AIOREDIS_IS_VERSION_1
+from .compat import AIOREDIS_IS_VERSION_1, Redis, RedisConnectionError
 
 logger = logging.getLogger(__name__)
 
 
 class SafeRedis(Redis):
     if AIOREDIS_IS_VERSION_1:
+
         async def execute(self, command, *args, **kwargs):
             try:
                 return await super().execute(command, *args, **kwargs)
@@ -21,6 +22,7 @@ class SafeRedis(Redis):
                 return None
 
     else:
+
         async def execute_command(self, command, *args, **kwargs):
             try:
                 return await super().execute_command(command, *args, **kwargs)
@@ -31,7 +33,6 @@ class SafeRedis(Redis):
                 if command.lower() == "scan":
                     return [0, []]
                 return None
-
 
         async def initialize(self):
             try:

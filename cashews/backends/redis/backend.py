@@ -1,9 +1,9 @@
 import asyncio
 from typing import Any, Optional, Union
 
-from .compat import BlockingConnectionPool, Redis, AIOREDIS_IS_VERSION_1
 from ..interface import Backend
 from .client import SafeRedis
+from .compat import AIOREDIS_IS_VERSION_1, BlockingConnectionPool, Redis
 
 _UNLOCK = """
 if redis.call("get",KEYS[1]) == ARGV[1] then
@@ -74,6 +74,7 @@ class _Redis(Backend):
         return await self._client.flushdb()
 
     if AIOREDIS_IS_VERSION_1:
+
         async def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist=None):
             if exist is True:
                 exist = Redis.SET_IF_EXIST
@@ -86,6 +87,7 @@ class _Redis(Backend):
             return await self._client.set(key, value, expire=expire, pexpire=pexpire, exist=exist)
 
     else:
+
         async def set(self, key: str, value: Any, expire: Union[None, float, int] = None, exist=None):
             nx = xx = None
             if exist is True:
@@ -110,7 +112,9 @@ class _Redis(Backend):
             pexpire = int(expire * 1000)
             expire = None
         if AIOREDIS_IS_VERSION_1:
-            return bool(await self._client.set(key, value, expire=expire, pexpire=pexpire, exist=Redis.SET_IF_NOT_EXIST))
+            return bool(
+                await self._client.set(key, value, expire=expire, pexpire=pexpire, exist=Redis.SET_IF_NOT_EXIST)
+            )
         return bool(await self._client.set(key, value, ex=expire, px=pexpire, nx=True))
 
     async def is_locked(self, key: str, wait=None, step=0.1):

@@ -31,7 +31,9 @@ import aioredis
 
 from .memory import Memory
 from .redis import Redis
-from .redis.compat import AIOREDIS_IS_VERSION_1, RedisConnectionError, Redis as _Redis
+from .redis.compat import AIOREDIS_IS_VERSION_1
+from .redis.compat import Redis as _Redis
+from .redis.compat import RedisConnectionError
 
 _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
@@ -78,6 +80,7 @@ class BcastClientSide(Redis):
                 await asyncio.sleep(_RECONNECT_WAIT)
 
     if AIOREDIS_IS_VERSION_1:
+
         async def _get_channel(self):
             conn = await self._client.connection.acquire()
             conn = _Redis(conn)
@@ -102,6 +105,7 @@ class BcastClientSide(Redis):
                     await self._recently_update.delete(key)
 
     else:
+
         async def _get_channel(self):
             async with self._client.client() as conn:
                 client_id = await conn.execute_command(b"CLIENT", b"ID")
