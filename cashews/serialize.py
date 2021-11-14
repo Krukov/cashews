@@ -21,17 +21,13 @@ class PickleSerializerMixin:
         b"sha256": hashlib.sha256,
     }
 
-    def __init__(self, *args, hash_key=None, digestmod=b"md5", **kwargs):
+    def __init__(self, *args, hash_key=None, digestmod=b"md5", check_repr=True, **kwargs):
         super().__init__(*args, **kwargs)
         if hash_key is None:
             digestmod = BLANK_DIGEST
-        if isinstance(hash_key, str):
-            hash_key = hash_key.encode()
-
-        self._hash_key = hash_key
-        if isinstance(digestmod, str):
-            digestmod = digestmod.encode()
-        self._digestmod = digestmod
+        self._hash_key = _to_bytes(hash_key)
+        self._digestmod = _to_bytes(digestmod)
+        self._check_repr = check_repr
 
     async def get(self, key, default=None):
         return await self._get_value(await super().get(key), key, default=default)
@@ -60,7 +56,8 @@ class PickleSerializerMixin:
         if expected_sign != sign:
             raise UnSecureDataError()
         value = pickle.loads(value, fix_imports=False, encoding="bytes")
-        repr(value)
+        if self._check_repr:
+            repr(value)
         if value is none:
             return None
         return value
@@ -100,3 +97,9 @@ class PickleSerializerMixin:
 
     def get_row(self, *args, **kwargs):
         return super().get(*args, **kwargs)
+
+
+def _to_bytes(value) -> bytes:
+    if isinstance(value, str):
+        value = value.encode()
+    return value

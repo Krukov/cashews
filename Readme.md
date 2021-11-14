@@ -20,15 +20,16 @@ scalable and reliable applications. This library intends to make it easy to impl
 
 ## Features
 
-- Easy to configurate and use
+- Easy to configure and use
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
 - Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
+- Set ttl with string (2h5m) or with `timedelta`
 - Middlewares
-- Client-side cache
+- Client-side cache (10x faster than simple cache with redis)
 - Different cache invalidation techniques (time-based and function-call based)
 - Cache any objects securely with pickle (use [hash key](#redis))
-- Cache usage API
+- 2x faster then `aiocache`
 
 ## Usage Example
 
@@ -64,15 +65,15 @@ async def cache_using_function(request):
 
 ### Configuration
 
-`cashews` provides a default cache, that you can setup in a two different ways:
+`cashews` provides a default cache, that you can setup in two different ways:
 
 ```python
 from cashews import cache
 
 # via url
-cache.setup("redis://0.0.0.0/?db=1&create_connection_timeout=0.5&safe=0&hash_key=my_secret&enable=1")
+cache.setup("redis://0.0.0.0/?db=1&socket_connect_timeout=0.5&safe=0&hash_key=my_secret&enable=1")
 # or via kwargs
-cache.setup("redis://0.0.0.0/", db=1, create_connection_timeout=0.5, safe=False, hash_key=b"my_key", enable=True)
+cache.setup("redis://0.0.0.0/", db=1, wait_for_connection_timeout=0.5, safe=False, hash_key=b"my_key", enable=True)
 ```
 
 Alternatively, you can create cache instance yourself:
@@ -129,8 +130,7 @@ If you would like to use [client-side cache](https://redis.io/topics/client-side
 
 ```python
 cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=false&hash_key=my_secret", prefix="func")
-cache.setup("redis://0.0.0.0/2", hash_key=None, prefix="super", index_name="user", index_field="user_uid")
-cache.setup("redis://0.0.0.0/2", password="my_pass", socket_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
+cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
 ```
 
 #### DiskCache
@@ -187,9 +187,8 @@ await cache.unlock("key", "value")  # -> bool
 - [Simple cache](#simple-cache)
 - [Fail cache (Failover cache)](#fail-cache-failover-cache)
 - [Hit cache](#hit-cache)
-- [Performance downgrade detection](#performance-downgrade-detection)
-- [Locked](#locked)
 - [Early](#early)
+- [Locked](#locked)
 - [Rate limit](#rate-limit)
 - [Circuit breaker](#circuit-breaker)
 
@@ -221,6 +220,11 @@ async def get_status(name):
     value = await api_call()
     return {"status": value}
 ```
+If exceptions didn't get will catch all exceptions or use default if it set by:
+```python
+cache.set_default_fail_exceptions(ValueError, MyException)
+```
+
 
 #### Hit cache
 
@@ -233,6 +237,23 @@ from cashews import cache  # or: from cashews import hit
 async def get(name):
     ...
 ```
+
+
+#### Early
+
+Cache strategy that tries to solve [Cache stampede problem](https://en.wikipedia.org/wiki/Cache_stampede)
+with a hot cache recalculating result in a background.
+
+```python
+from cashews import cache  # or: from cashews import early
+
+# if you call this function after 7 min, cache will be updated in a background 
+@cache.early(ttl="10m", early_ttl="7m")  
+async def get(name):
+    value = await api_call()
+    return {"status": value}
+```
+
 
 #### Locked
 
@@ -249,20 +270,6 @@ async def get(name):
     return {"status": value}
 ```
 
-#### Early
-
-Cache strategy that tries to solve [Cache stampede problem](https://en.wikipedia.org/wiki/Cache_stampede)
-with a hot cache recalculating result in a background.
-
-```python
-from cashews import cache  # or: from cashews import early
-
-# if you call this function after 7 min, cache will be updated in a background 
-@cache.early(ttl=timedelta(minutes=10), early_ttl=timedelta(minutes=7))  
-async def get(name):
-    value = await api_call()
-    return {"status": value}
-```
 
 #### Rate limit
 
@@ -284,7 +291,7 @@ Circuit breaker
 ```python
 from cashews import cache  # or: from cashews import circuit_breaker
 
-@cache.circuit_breaker(errors_rate=10, period=timedelta(minutes=1), ttl=timedelta(minutes=5))
+@cache.circuit_breaker(errors_rate=10, period="1m", ttl="5m")
 async def get(name):
     ...
 ```

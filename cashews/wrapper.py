@@ -68,7 +68,7 @@ class Cache(Backend):
 
     detect = decorators.context_cache_detect
 
-    def set_default_fail_exceptions(self, exc: Union[Type[Exception], Iterable[Type[Exception]]]):
+    def set_default_fail_exceptions(self, *exc: Type[Exception]):
         self._default_fail_exceptions = exc
 
     def disable(self, *cmds, prefix=""):

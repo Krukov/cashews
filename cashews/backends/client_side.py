@@ -25,17 +25,20 @@ https://redis.io/topics/client-side-caching
 """
 
 import asyncio
+import logging
 
 import aioredis
 
 from .memory import Memory
 from .redis import Redis
+from .redis.compat import AIOREDIS_IS_VERSION_1, RedisConnectionError, Redis as _Redis
 
 _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
 _RECONNECT_WAIT = 10
 _DEFAULT_PREFIX = "cashews:"
 BCAST_ON = "CLIENT TRACKING on REDIRECT {client_id} BCAST PREFIX {prefix} NOLOOP"
+logger = logging.getLogger(__name__)
 
 
 class BcastClientSide(Redis):
@@ -52,39 +55,73 @@ class BcastClientSide(Redis):
     def __init__(self, *args, local_cache=None, prefix=_DEFAULT_PREFIX, **kwargs):
         self._local_cache = Memory() if local_cache is None else local_cache
         self._prefix = prefix
+        self._recently_update = Memory(size=500, check_interval=5)
         self.__listen_task = None
         super().__init__(*args, **kwargs)
 
     async def init(self):
         await self._local_cache.init()
+        await self._recently_update.init()
         await super().init()
         self.__listen_task = asyncio.create_task(self._listen_invalidate_forever())
+
+    async def _mark_as_recently_updated(self, key: str):
+        await self._recently_update.set(key, True, expire=1)
 
     async def _listen_invalidate_forever(self):
         while True:
             try:
                 await self._listen_invalidate()
-            except (aioredis.ConnectionError, ConnectionRefusedError):
+            except (RedisConnectionError, ConnectionRefusedError):
+                logger.error("broken connection with redis. Clearing client side storage")
                 await self._local_cache.clear()
                 await asyncio.sleep(_RECONNECT_WAIT)
 
-    async def _get_channel(self) -> aioredis.client.PubSub:
-        async with self._client.client() as conn:
-            client_id = await conn.execute_command(b"CLIENT", b"ID")
-            await conn.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
-        pubsub = self._client.pubsub()
-        await pubsub.subscribe(_REDIS_INVALIDATE_CHAN)
-        return pubsub
+    if AIOREDIS_IS_VERSION_1:
+        async def _get_channel(self):
+            conn = await self._client.connection.acquire()
+            conn = _Redis(conn)
+            client_id = await conn.execute(b"CLIENT", b"ID")
+            await conn.execute(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
+            channel, *_ = await conn.subscribe(_REDIS_INVALIDATE_CHAN)
+            return channel
 
-    async def _listen_invalidate(self):
-        channel = await self._get_channel()
-        while True:
-            message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
-            if message is None or not message.get("data"):
-                continue
-            key = message["data"][0]
-            key = key.decode().lstrip(self._prefix)
-            await self._local_cache.delete(key)
+        async def _listen_invalidate(self):
+            channel = await self._get_channel()
+            while await channel.wait_message():
+                message = await channel.get()
+                if message is None:
+                    continue
+                key, *_ = message
+                if key == b"\x00":
+                    continue
+                key = key.decode().lstrip(self._prefix)
+                if not await self._recently_update.get(key):
+                    await self._local_cache.delete(key)
+                else:
+                    await self._recently_update.delete(key)
+
+    else:
+        async def _get_channel(self):
+            async with self._client.client() as conn:
+                client_id = await conn.execute_command(b"CLIENT", b"ID")
+                await conn.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
+            pubsub = self._client.pubsub()
+            await pubsub.subscribe(_REDIS_INVALIDATE_CHAN)
+            return pubsub
+
+        async def _listen_invalidate(self):
+            channel = await self._get_channel()
+            while True:
+                message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
+                if message is None or not message.get("data"):
+                    continue
+                key = message["data"][0]
+                key = key.decode().lstrip(self._prefix)
+                if not await self._recently_update.get(key):
+                    await self._local_cache.delete(key)
+                else:
+                    await self._recently_update.delete(key)
 
     async def get(self, key: str, default=None):
         value = await self._local_cache.get(key, default=_empty)
@@ -101,6 +138,7 @@ class BcastClientSide(Redis):
             # If value in current client_cache - skip resetting
             return 0
         await self._local_cache.set(key, value, *args, **kwargs)  # not async by the way
+        await self._mark_as_recently_updated(key)
         return await super().set(self._prefix + key, value, *args, **kwargs)
 
     async def get_many(self, *keys):
@@ -115,6 +153,7 @@ class BcastClientSide(Redis):
 
     async def incr(self, key):
         await self._local_cache.incr(key)
+        await self._mark_as_recently_updated(key)
         return await super().incr(self._prefix + key)
 
     async def delete(self, key: str):
@@ -147,6 +186,7 @@ class BcastClientSide(Redis):
         return await self._local_cache.exists(key) or await super().exists(self._prefix + key)
 
     async def set_lock(self, key: str, value, expire):
+        await self._mark_as_recently_updated(key)
         await self._local_cache.set_lock(key, value, expire)
         pexpire = None
         if isinstance(expire, float):
@@ -169,4 +209,6 @@ class BcastClientSide(Redis):
         if self.__listen_task is not None:
             self.__listen_task.cancel()
             self.__listen_task = None
+        self._local_cache.close()
+        self._recently_update.close()
         super().close()
