@@ -34,14 +34,12 @@ scalable and reliable applications. This library intends to make it easy to impl
 ## Usage Example
 
 ```python
-from datetime import timedelta
-
 from cashews import cache
 
 cache.setup("mem://")  # configure as in-memory cache, but redis is also supported
 
 # use a decorator-based API
-@cache(ttl=timedelta(hours=3), key="user:{request.user.uid}")
+@cache(ttl="3h", key="user:{request.user.uid}")
 async def long_running_function(request):
     ...
 
@@ -476,9 +474,7 @@ async def add_from_cache_headers(request: Request, call_next):
         if detector.keys:
             key = list(detector.keys.keys())[0]
             response.headers["X-From-Cache"] = key
-            expire = await mem.get_expire(key)
-            if expire == -1:
-                expire = await cache.get_expire(key)
+            expire = await cache.get_expire(key)
             response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
             if "exc" in detector.keys[key]:
                 response.headers["X-From-Cache-Exc"] = str(detector.keys[key]["exc"])
@@ -505,7 +501,3 @@ async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
 
 cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
-
-
-# Xfetch
-# rate limit with floating window 
