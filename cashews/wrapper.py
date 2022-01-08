@@ -444,7 +444,7 @@ def settings_url_parse(url):
     parse_result = urlparse(url)
     params.update(dict(parse_qsl(parse_result.query)))
     params = _fix_params_types(params)
-    if parse_result.scheme == "redis":
+    if parse_result.scheme == "redis" or parse_result.scheme == "rediss":
         if Redis is None:
             raise BackendNotAvailable("Redis backend requires `aioredis` to be installed.")
         params["backend"] = Redis
