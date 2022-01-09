@@ -131,6 +131,12 @@ cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=false&hash_key=my_secret", pr
 cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
 ```
 
+For using secure connections to redis (over ssl) uri should have `rediss` as schema
+
+```python
+cache.setup("rediss://0.0.0.0/", ssl_ca_certs="path/to/ca.crt", ssl_keyfile="path/to/client.key",ssl_certfile="path/to/client.crt",)
+```
+
 #### DiskCache
 
 *Requires [diskcache](https://github.com/grantjenks/python-diskcache) package.*
