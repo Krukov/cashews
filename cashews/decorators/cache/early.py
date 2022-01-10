@@ -12,6 +12,7 @@ from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_d
 
 __all__ = ("early",)
 logger = logging.getLogger(__name__)
+_LOCK_SUFFIX = ":lock"
 
 
 def early(
@@ -55,7 +56,7 @@ def early(
                 )
                 early_expire_at, result = cached
                 if early_expire_at <= datetime.utcnow() and await backend.set(
-                    _cache_key + ":hit", "1", expire=early_ttl, exist=False
+                    _cache_key + _LOCK_SUFFIX, "1", expire=early_ttl, exist=False
                 ):
                     logger.info(
                         "Recalculate cache for %s (exp_at %s)",
@@ -75,16 +76,24 @@ def early(
                         )
                     )
                 return result
-            return await _get_result_for_early(backend, func, args, kwargs, _cache_key, ttl, early_ttl, store)
+            return await _get_result_for_early(
+                backend, func, args, kwargs, _cache_key, ttl, early_ttl, store, unlock=True
+            )
 
         return _wrap
 
     return _decor
 
 
-async def _get_result_for_early(backend: Backend, func, args, kwargs, key, ttl: int, early_ttl: int, condition):
-    result = await func(*args, **kwargs)
-    if condition(result, args, kwargs, key):
-        early_expire_at = datetime.utcnow() + timedelta(seconds=early_ttl)
-        await backend.set(key, [early_expire_at, result], expire=ttl)
-    return result
+async def _get_result_for_early(
+    backend: Backend, func, args, kwargs, key, ttl: int, early_ttl: int, condition, unlock=False
+):
+    try:
+        result = await func(*args, **kwargs)
+        if condition(result, args, kwargs, key):
+            early_expire_at = datetime.utcnow() + timedelta(seconds=early_ttl)
+            await backend.set(key, [early_expire_at, result], expire=ttl)
+        return result
+    finally:
+        if unlock:
+            asyncio.create_task(backend.delete(key + _LOCK_SUFFIX))
