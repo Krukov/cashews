@@ -117,16 +117,30 @@ class _Redis(Backend):
             )
         return bool(await self._client.set(key, value, ex=expire, px=pexpire, nx=True))
 
-    async def is_locked(self, key: str, wait=None, step=0.1):
-        if wait is None:
-            return await self.exists(key)
-        async with self._client.client() as conn:
+    if AIOREDIS_IS_VERSION_1:
+
+        async def is_locked(self, key: str, wait=None, step=0.1):
+            if wait is None:
+                return await self.exists(key)
             while wait > 0.0:
-                if not await conn.exists(key):
+                if not await self.exists(key):
                     return False
                 wait -= step
                 await asyncio.sleep(step)
-        return True
+            return True
+
+    else:
+
+        async def is_locked(self, key: str, wait=None, step=0.1):
+            if wait is None:
+                return await self.exists(key)
+            async with self._client.client() as conn:
+                while wait > 0.0:
+                    if not await conn.exists(key):
+                        return False
+                    wait -= step
+                    await asyncio.sleep(step)
+            return True
 
     async def unlock(self, key, value):
         if "UNLOCK" not in self._sha:

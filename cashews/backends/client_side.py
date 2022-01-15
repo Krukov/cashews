@@ -27,8 +27,6 @@ https://redis.io/topics/client-side-caching
 import asyncio
 import logging
 
-import aioredis
-
 from .memory import Memory
 from .redis import Redis
 from .redis.compat import AIOREDIS_IS_VERSION_1

@@ -12,11 +12,6 @@ class WrongKeyException(ValueError):
     pass
 
 
-class HDict(dict):
-    def __hash__(self):
-        return hash(frozenset(self.items()))
-
-
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
     timeout = ttl() if callable(ttl) else ttl
     if isinstance(timeout, timedelta):
@@ -56,23 +51,6 @@ def get_cache_key(
     args: Tuple[Any] = (),
     kwargs: Optional[Dict] = None,
 ) -> str:
-    if not kwargs:
-        return _get_cache_key(func, template, args, kwargs)
-    try:
-        kwargs = HDict(kwargs)
-    except TypeError:
-        return __get_cache_key(func, template, args, kwargs)
-    else:
-        return _get_cache_key(func, template, args, kwargs)
-
-
-@lru_cache(maxsize=100)
-def __get_cache_key(
-    func: Callable,
-    template: Optional[str] = None,
-    args: Tuple[Any] = (),
-    kwargs: Optional[HDict] = None,
-):
     return _get_cache_key(func, template, args, kwargs)
 
 
@@ -116,10 +94,13 @@ def get_cache_key_template(func: Callable, key: Optional[str] = None, prefix: st
     :param key: template for key, may contain alias to args or kwargs passed to a call
     :return: cache key template
     """
-    func_params = get_func_params(func)
+    func_params = list(get_func_params(func))
     if key is None:
+        name = [func.__module__, func.__name__]
+        if func_params and func_params[0] == "self":
+            name = [func.__module__, func.__qualname__]
         params = {param_name: "{" + param_name + "}" for param_name in func_params}
-        key = ":".join([func.__module__, func.__name__, *chain(*params.items())]).lower()
+        key = ":".join([*name, *chain(*params.items())]).lower()
     else:
         _check_key_params(key, func_params)
     if prefix:

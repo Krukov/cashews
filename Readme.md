@@ -34,14 +34,12 @@ scalable and reliable applications. This library intends to make it easy to impl
 ## Usage Example
 
 ```python
-from datetime import timedelta
-
 from cashews import cache
 
 cache.setup("mem://")  # configure as in-memory cache, but redis is also supported
 
 # use a decorator-based API
-@cache(ttl=timedelta(hours=3), key="user:{request.user.uid}")
+@cache(ttl="3h", key="user:{request.user.uid}")
 async def long_running_function(request):
     ...
 
@@ -131,6 +129,12 @@ If you would like to use [client-side cache](https://redis.io/topics/client-side
 ```python
 cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=false&hash_key=my_secret", prefix="func")
 cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
+```
+
+For using secure connections to redis (over ssl) uri should have `rediss` as schema
+
+```python
+cache.setup("rediss://0.0.0.0/", ssl_ca_certs="path/to/ca.crt", ssl_keyfile="path/to/client.key",ssl_certfile="path/to/client.crt",)
 ```
 
 #### DiskCache
@@ -476,9 +480,7 @@ async def add_from_cache_headers(request: Request, call_next):
         if detector.keys:
             key = list(detector.keys.keys())[0]
             response.headers["X-From-Cache"] = key
-            expire = await mem.get_expire(key)
-            if expire == -1:
-                expire = await cache.get_expire(key)
+            expire = await cache.get_expire(key)
             response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
             if "exc" in detector.keys[key]:
                 response.headers["X-From-Cache-Exc"] = str(detector.keys[key]["exc"])
@@ -505,7 +507,3 @@ async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
 
 cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
-
-
-# Xfetch
-# rate limit with floating window 
