@@ -5,11 +5,11 @@ from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
 from . import decorators, validation
+from ._typing import TTL, CacheCondition
 from .backends.interface import Backend
 from .backends.memory import Memory
 from .disable_control import ControlMixin, _is_disable_middleware
 from .key import ttl_to_seconds
-from .typing import TTL, CacheCondition
 
 try:
     import aioredis

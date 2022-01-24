@@ -2,7 +2,7 @@ import random
 from contextvars import ContextVar
 from typing import Any, Dict
 
-from ...typing import CacheCondition
+from ..._typing import CacheCondition
 
 _empty = object()
 

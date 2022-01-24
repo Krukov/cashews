@@ -58,7 +58,9 @@ async def _cache(request, redis_dsn):
     (
         "test",
         b"test",
+        "1_1",
         b"1_1",
+        b"1_1_1",
         0,
         1,
         2,
@@ -131,15 +133,25 @@ async def test_serialize_array_diff_value(value, cache):
     assert type(await cache.get("key")) == type(value)
 
 
-async def test_unsecure_value(cache):
-    await cache.set_row("key", b"cos\nsystem\n(S'echo hello world'\ntR.")
+@pytest.mark.parametrize(
+    "value",
+    (
+        b"_cos\nsystem\n(S'echo hello world'\ntR.",
+        b":_cos\nsystem\n(S'echo hello world'\ntR.",
+        b"md5:_cos\nsystem\n(S'echo hello world'\ntR.",
+        b"sha1:_cos\nsystem\n(S'echo hello world'\ntR.",
+        b"__cos\nsystem\n(S'echo hello world'\ntR.",
+    ),
+)
+async def test_unsecure_value(value, cache):
+    await cache.set_row("key", value)
     with pytest.raises(UnSecureDataError):
         await cache.get("key")
     assert not await cache.get_row("key")
 
 
 async def test_unsecure_value_many(cache):
-    await cache.set_row("key", b"cos\nsystem\n(S'echo hello world'\ntR.")
+    await cache.set_row("key", b"_cos\nsystem\n(S'echo hello world'\ntR.")
     with pytest.raises(UnSecureDataError):
         await cache.get_many("key")
     assert not await cache.get_row("key")

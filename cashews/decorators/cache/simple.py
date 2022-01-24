@@ -1,10 +1,10 @@
 from functools import wraps
 from typing import Optional
 
+from ..._typing import CacheCondition
 from ...backends.interface import Backend
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from ...typing import CacheCondition
 from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
 
 __all__ = ("cache",)

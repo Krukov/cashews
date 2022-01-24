@@ -4,8 +4,8 @@ from functools import lru_cache
 from itertools import chain
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
+from ._typing import TTL
 from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
-from .typing import TTL
 
 
 class WrongKeyException(ValueError):

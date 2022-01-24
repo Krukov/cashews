@@ -1,7 +1,6 @@
 import asyncio
 import uuid
 from functools import partial
-from operator import attrgetter
 from unittest.mock import Mock
 
 import pytest
