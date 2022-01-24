@@ -125,10 +125,12 @@ Use `hash_key` parameter to protect your application from security vulnerabiliti
 
 Any connections errors are suppressed, to disable it use `safe=False`
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
+Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
 
 ```python
 cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=false&hash_key=my_secret", prefix="func")
-cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, hash_key="my_secret", client_side=True)
+cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, hash_key="my_secret")
+cache.setup("redis://0.0.0.0", client_side=True, client_side_prefix="my_prefix:")
 ```
 
 For using secure connections to redis (over ssl) uri should have `rediss` as schema

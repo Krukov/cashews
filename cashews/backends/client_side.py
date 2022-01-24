@@ -52,9 +52,9 @@ class BcastClientSide(Redis):
 
     name = "redis_mem"
 
-    def __init__(self, *args, local_cache=None, prefix=_DEFAULT_PREFIX, **kwargs):
+    def __init__(self, *args, local_cache=None, client_side_prefix=_DEFAULT_PREFIX, **kwargs):
         self._local_cache = Memory() if local_cache is None else local_cache
-        self._prefix = prefix
+        self._prefix = client_side_prefix
         self._recently_update = Memory(size=500, check_interval=5)
         self.__listen_task = None
         super().__init__(*args, **kwargs)
@@ -89,6 +89,7 @@ class BcastClientSide(Redis):
 
         async def _listen_invalidate(self):
             channel = await self._get_channel()
+            await self._local_cache.clear()
             while await channel.wait_message():
                 message = await channel.get()
                 if message is None:
@@ -114,6 +115,7 @@ class BcastClientSide(Redis):
 
         async def _listen_invalidate(self):
             channel = await self._get_channel()
+            await self._local_cache.clear()
             while True:
                 message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
                 if message is None or not message.get("data"):
