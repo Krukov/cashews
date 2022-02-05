@@ -19,6 +19,23 @@ def add_prefix(prefix: str):
     return _middleware
 
 
+def all_keys_lower():
+    async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
+        if cmd.lower() == "get_many":
+            return await call(*[key.lower() for key in args])
+        call_values = get_call_values(call, args, kwargs)
+        as_key = "key"
+        if cmd == "delete_match":
+            as_key = "pattern"
+        key = call_values.get(as_key)
+        if key:
+            call_values[as_key] = key.lower()
+            return await call(**call_values)
+        return await call(*args, **kwargs)
+
+    return _middleware
+
+
 def memory_limit(min=0, max=None):
     async def _memory_middleware(call, *args, backend=None, cmd=None, **kwargs):
         if cmd != "set":
