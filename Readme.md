@@ -170,20 +170,21 @@ from cashews import cache
 
 cache.setup("mem://")  # configure as in-memory cache
 
-await cache.set(key="key", value={"any": True}, expire=60, exist=None)  # -> bool
+await cache.set(key="key", value=90, expire=60, exist=None)  # -> bool
 await cache.get("key")  # -> Any
 await cache.get_many("key1", "key2")
 await cache.incr("key") # -> int
 await cache.delete("key")
 await cache.delete_match("pattern:*")
-await cache.keys_match("pattern:*") # -> List[str]
+async for key in cache.keys_match("pattern:*"):
+    ...
 await cache.expire("key", timeout=10)
 await cache.get_expire("key")  # -> int seconds to expire
 await cache.ping(message=None)  # -> bytes
 await cache.clear()
 await cache.is_locked("key", wait=60)  # -> bool
 async with cache.lock("key", expire=10):
-   ...
+    ...
 await cache.set_lock("key", value="value", expire=60)  # -> bool
 await cache.unlock("key", "value")  # -> bool
 ```
