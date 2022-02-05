@@ -165,9 +165,26 @@ async def test_get_size(cache: Backend):
     )  # 106 - ordered dict,  68 redis, -1 for diskcache
 
 
+async def test_bits(cache: Backend):
+    assert await cache.get_bits("test", 0, 2, 10, 50000, size=1) == (0, 0, 0, 0)
+    assert await cache.get_bits("test", 0, 1, 3, size=15) == (
+        0,
+        0,
+        0,
+    )
+
+    await cache.incr_bits("test", 0, 1, 4)
+    assert await cache.get_bits("test", 0, 1, 2, 3, 4) == (1, 1, 0, 0, 1)
+
+
+async def test_bits_size(cache: Backend):
+    await cache.incr_bits("test", 0, 1, 4, size=5, by=3)
+    assert await cache.get_bits("test", 0, 1, 2, 3, 4, size=5) == (3, 3, 0, 0, 3)
+
+
 async def test_lru(backend_factory):
     cache = await backend_factory(Memory, size=10)
-    # full cache
+    # fill cache
     for i in range(10):
         await cache.set(f"key:{i}", i)
 
@@ -186,3 +203,26 @@ async def test_lru(backend_factory):
 
     for i in range(6, 10):
         assert await cache.get(f"key:{i}") == None
+
+
+async def test_lru2(backend_factory):
+    cache = await backend_factory(Memory, size=10)
+    # fill cache
+    for i in range(10):
+        await cache.set(f"key:{i}", i)
+
+    # use only 5 last
+    for i in range(6, 10):
+        await cache.get(f"key:{i}")
+
+    # add 5 more keys
+    for i in range(5):
+        await cache.set(f"key:{i}:new", i)
+
+    assert len(cache.store) == 10
+
+    for i in range(5):
+        assert await cache.get(f"key:{i}") == None
+
+    for i in range(6, 10):
+        assert await cache.get(f"key:{i}") == i

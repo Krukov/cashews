@@ -484,4 +484,6 @@ def settings_url_parse(url):
     elif parse_result.scheme == "":
         params["backend"] = Memory
         params["disable"] = True
+    else:
+        raise BackendNotAvailable(f"wrong backend alias {parse_result.scheme}")
     return params

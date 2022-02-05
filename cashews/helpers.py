@@ -1,5 +1,5 @@
 from .key import get_call_values
-from .utils import _get_obj_size
+from .utils import get_obj_size
 
 
 def add_prefix(prefix: str):
@@ -41,7 +41,7 @@ def memory_limit(min=0, max=None):
         if cmd != "set":
             return await call(*args, **kwargs)
         call_values = get_call_values(call, args, kwargs)
-        value_size = _get_obj_size(call_values["value"])
+        value_size = get_obj_size(call_values["value"])
         if max and value_size > max or value_size < min:
             return None
         return await call(*args, **kwargs)
