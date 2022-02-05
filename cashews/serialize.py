@@ -10,10 +10,6 @@ class UnSecureDataError(Exception):
     pass
 
 
-class none:
-    pass
-
-
 class PickleSerializerMixin:
     _digestmods = {
         b"sha1": hashlib.sha1,
@@ -47,7 +43,9 @@ class PickleSerializerMixin:
     def _process_value(self, value: Union[bytes, None, int, str], key, default=None):
         if value is None:
             return default
-        if isinstance(value, int) or value.isdigit():
+        if isinstance(value, int):
+            return value
+        if value.isdigit():
             return int(value)
         try:
             sign, value = value.split(b"_", 1)
@@ -60,8 +58,6 @@ class PickleSerializerMixin:
         value = pickle.loads(value, fix_imports=False, encoding="bytes")
         if self._check_repr:
             repr(value)
-        if value is none:
-            return None
         return value
 
     async def get_many(self, *keys):
@@ -86,8 +82,6 @@ class PickleSerializerMixin:
         return sign, digestmod
 
     async def set(self, key: str, value, *args, **kwargs):
-        if value is None:
-            value = none
         if isinstance(value, int) and not isinstance(value, bool):
             return await super().set(key, value, *args, **kwargs)
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)
