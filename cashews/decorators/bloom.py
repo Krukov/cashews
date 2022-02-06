@@ -1,29 +1,30 @@
-
+import asyncio
 import math
 from functools import wraps
-from typing import Optional
+from typing import Optional, Union
+
+from cashews.utils import get_hashes
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template
-from cashews.utils import get_hashes
 
 __all__ = ("bloom",)
 
 
 def bloom(
     backend: Backend,
+    name: Optional[str] = None,
     index_size: Optional[int] = None,
     number_of_hashes: Optional[int] = None,
-    false_positives: Optional[int] = 0.3,
+    false_positives: Optional[Union[float, int]] = 1,
     capacity: Optional[int] = None,
-    name: Optional[str] = None,
     check_false_positive: bool = True,
     prefix: str = "bloom",
 ):
     """
     Decorator that can help you to use bloom filter algorithm
 
-    @bloom(**params_for(1_000_000, 0.1), name="user_name:{name}")
+    @bloom(name="user_name:{name}", false_positives=1, capacity=10_000)
     async def is_user_exists(name):
         return name in ....
 
@@ -31,8 +32,16 @@ def bloom(
     :param name: custom cache key
     :param index_size: size of bloom filter
     :param number_of_hashes: the same as k
+    :param capacity: the same as n - number of elements
+    :param false_positives: Percents of false positive results
+    :param check_false_positive: do we need to check if we have positive result
     :param prefix: custom prefix for key, default 'bloom'
     """
+
+    if index_size is None:
+        assert false_positives and capacity
+        assert 0 < false_positives < 100
+        index_size, number_of_hashes = params_for(capacity, false_positives / 100)
 
     def _decor(func):
         _name = get_cache_key_template(func, key=name)
@@ -58,6 +67,7 @@ def bloom(
             if result:
                 await backend.incr_bits(_cache_key, *hashes)
             return result
+
         _wrap.set = _set
 
         return _wrap
@@ -65,22 +75,105 @@ def bloom(
     return _decor
 
 
-def bloom_count(
+def dual_bloom(
     backend: Backend,
-    index_size: int,
-    number_of_hashes: int,
     name: Optional[str] = None,
-    prefix: str = "bloom_count",
+    index_size: Optional[int] = None,
+    number_of_hashes: Optional[int] = None,
+    false_positives: Optional[Union[float, int]] = 1,
+    capacity: Optional[int] = None,
+    prefix: str = "dual_bloom",
 ):
     """
-    Decorator that can help you to use bloom count filter algorithm
+    Decorator that can help you to use bloom filter algorithm
+     but this implementation with 2 bloom filters - one for true and 1 for false
+
+    @dual_bloom(name="user_name:{name}", false_positives=1, capacity=10_000)
+    async def is_user_exists(name):
+        return name in ....
 
     :param backend: cache backend
     :param name: custom cache key
     :param index_size: size of bloom filter
     :param number_of_hashes: the same as k
-    :param prefix: custom prefix for key, default 'bloom'
+    :param capacity: the same as n - number of elements
+    :param false_positives: Percents of false positive results
+    :param prefix: custom prefix for key, default 'dual_bloom'
     """
+
+    if index_size is None:
+        assert false_positives and capacity
+        assert 0 < false_positives < 100
+        index_size, number_of_hashes = params_for(capacity, false_positives / 100)
+
+    def _decor(func):
+        _name = get_cache_key_template(func, key=name)
+        __cache_key = prefix + name + f":{index_size}"
+        _true_bloom_key = __cache_key + ":true"
+        _false_bloom_key = __cache_key + ":false"
+
+        @wraps(func)
+        async def _wrap(*args, **kwargs):
+            _bloom_key = get_cache_key(func, _name, args, kwargs)
+            hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
+            true_values, false_values = await asyncio.gather(
+                backend.get_bits(_true_bloom_key, *hashes),
+                backend.get_bits(_false_bloom_key, *hashes),
+            )
+            if not all(true_values) and not all(false_values):
+                # not set yet
+                result = await func(*args, **kwargs)
+                if result:
+                    await backend.incr_bits(_true_bloom_key, *hashes)
+                else:
+                    await backend.incr_bits(_false_bloom_key, *hashes)
+                return result
+            if not all(true_values):
+                return False
+            if not all(false_values):
+                return True
+            return await func(*args, **kwargs)
+
+        async def _delete(*args, **kwargs):
+            _bloom_key = get_cache_key(func, _name, args, kwargs)
+            hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
+            await asyncio.gather(
+                backend.incr_bits(_true_bloom_key, *hashes, by=-1),
+                backend.incr_bits(_false_bloom_key, *hashes, by=-1),
+            )
+
+        _wrap.delete = _delete
+
+        return _wrap
+
+    return _decor
+
+
+def counting_bloom(
+    backend: Backend,
+    name: Optional[str] = None,
+    index_size: Optional[int] = None,
+    number_of_hashes: Optional[int] = None,
+    false_positives: Optional[Union[float, int]] = 1,
+    capacity: Optional[int] = None,
+    prefix: str = "counting_bloom",
+):
+    """
+    Decorator that can help you to use bloom count filter algorithm
+    https://en.wikipedia.org/wiki/Counting_Bloom_filter
+
+    :param backend: cache backend
+    :param name: custom cache key
+    :param index_size: size of bloom filter
+    :param number_of_hashes: the same as k
+    :param capacity: the same as n - number of elements
+    :param false_positives: Percents of false positive results
+    :param prefix: custom prefix for key, default 'counting_bloom'
+    """
+    if index_size is None:
+        assert false_positives and capacity
+        assert 0 < false_positives < 100
+        index_size, number_of_hashes = params_for(capacity, false_positives / 100)
 
     def _decor(func):
         _name = get_cache_key_template(func, key=name)
@@ -93,14 +186,14 @@ def bloom_count(
             values = await backend.get_bits(_cache_key, *hashes, size=2)
             if all((v == 3 for v in values)):
                 return True
-            if all((v >= 2 for v in values)):
+            if all((v >= 1 for v in values)):
                 return False
             result = await func(*args, **kwargs)
             assert isinstance(result, bool)
             if result:
                 await backend.incr_bits(_cache_key, *hashes, size=2, by=3)
             else:
-                await backend.incr_bits(_cache_key, *hashes, size=2, by=2)
+                await backend.incr_bits(_cache_key, *hashes, size=2, by=1)
             return result
 
         async def _delete(*args, **kwargs):
@@ -127,7 +220,7 @@ def params_for(size: int, false_positives: float = 0.01):
     """
     m = _count_m(size, false_positives)
     k = _count_k(m, size)
-    return {"index_size": m, "number_of_hashes": k}
+    return m, k
 
 
 def _count_k(m, n):
@@ -139,12 +232,7 @@ def _count_k_from_p(p):
 
 
 def _count_m(n, p=0.1):
-    # k = _count_k_from_p(p)
-    # return int(math.ceil(
-    #         (n * abs(math.log(p))) /
-    #         (k * (math.log(2) ** 2))))
     return int(math.ceil(-1 * n * math.log(p) / math.log(2) ** 2))
-    # return - math.ceil(n * math.log(p) / math.pow(math.log(2), 2))
 
 
 def _count_probability(n, m, k):

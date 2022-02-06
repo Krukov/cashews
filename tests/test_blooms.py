@@ -1,28 +1,108 @@
-import asyncio
-import uuid
-from functools import partial
+from unittest.mock import Mock
 
 import pytest
 
 from cashews.backends.memory import Memory
-from cashews.decorators.bloom import bloom as _bloom, bloom_count, params_for, _count_k
+from cashews.decorators.bloom import bloom, counting_bloom, dual_bloom
 
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="bloom")
-async def __bloom():
-    return partial(_bloom, backend=Memory())
+@pytest.fixture(
+    name="backend",
+    params=[
+        "memory",
+        pytest.param("redis", marks=pytest.mark.redis),
+        pytest.param("diskcache", marks=pytest.mark.diskcache),
+    ],
+)
+async def _cache(request, redis_dsn, backend_factory):
+    if request.param == "diskcache":
+        from cashews.backends.diskcache import DiskCache
+
+        backend = await backend_factory(DiskCache, shards=0)
+        yield backend
+    elif request.param == "redis":
+        from cashews.backends.redis import Redis
+
+        yield await backend_factory(Redis, redis_dsn, hash_key=None)
+    else:
+        yield await backend_factory(Memory)
 
 
-@pytest.mark.parametrize("n", list(range(10, 300, 20)))
-async def test_bloom_simple(bloom, n):
+async def test_bloom_simple(backend):
+    n = 100
+    call = Mock()
 
-    @bloom(name="name:{k}", index_size=int(n / 10), number_of_hashes=_count_k(n / 10, n))
+    @bloom(backend=backend, name="name:{k}", false_positives=1, capacity=n)
     async def func(k):
+        call(k)
         return k > (n / 2)
 
     for i in range(n):
         await func.set(i)
-        assert await func(i) is (i > (n / 2))
 
+    for i in range(n):
+        call.reset_mock()
+        assert await func(i) is (i > (n / 2))
+        if i > (n / 2):
+            call.assert_called_with(i)
+        else:
+            call.assert_not_called()
+
+
+async def test_bloom_simple_big_size(backend):
+    n = 1_000_000
+    call = Mock()
+
+    @bloom(backend=backend, name="name:{k}", false_positives=1, capacity=n)
+    async def func(k):
+        call(k)
+        return k > (n / 2)
+
+    await func.set(900_000)
+    await func.set(400_000)
+
+    call.reset_mock()
+    assert await func(900_000)
+    call.assert_called_with(900_000)
+
+    call.reset_mock()
+    assert not await func(400_000)
+    call.assert_not_called()
+
+
+async def test_bloom_dual(backend):
+    n = 100
+    call = Mock()
+
+    @dual_bloom(backend=backend, name="name:{k}", false_positives=1, capacity=n)
+    async def func(k):
+        call(k)
+        return k > (n / 2)
+
+    for i in range(n):
+        await func(i)
+
+    call.reset_mock()
+    for i in range(n):
+        assert await func(i) is (i > (n / 2))
+        call.assert_not_called()
+
+
+async def test_bloom_counting(backend):
+    n = 100
+    call = Mock()
+
+    @counting_bloom(backend=backend, name="name:{k}", false_positives=0.1, capacity=n)
+    async def func(k):
+        call(k)
+        return k > (n / 2)
+
+    for i in range(n):
+        await func(i)
+
+    call.reset_mock()
+    for i in range(n):
+        assert await func(i) is (i > (n / 2))
+        call.assert_not_called()

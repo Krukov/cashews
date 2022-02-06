@@ -1,11 +1,11 @@
 class Bitarray:
-    __slots__ = ("_value", )
+    __slots__ = ("_value",)
 
     def __init__(self, value, base=10):
         self._value = int(value, base)
 
     def get(self, index: int, size: int = 1) -> int:
-        str_all = f"{self._value:b}"
+        str_all = f"{self._value:{size*(index + 1)}b}".replace(" ", "0")
         if (index + 1) * size > len(str_all):
             return 0
         end = len(str_all)
@@ -13,9 +13,7 @@ class Bitarray:
         return int(str_int, 2)
 
     def incr(self, index: int, size: int = 1, by: int = 1):
-        str_all = f"{self._value:b}"
-        while (index + 1) * size > len(str_all):
-            str_all = f"{0:0{size}b}" + str_all
+        str_all = f"{self._value:{size*(index + 1)}b}".replace(" ", "0")
         end = len(str_all)
         str_int = str_all[end - (index + 1) * size : end - index * size]
         max_value = 2 ** size - 1

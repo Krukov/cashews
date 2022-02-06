@@ -185,6 +185,21 @@ class _Redis(Backend):
     async def incr(self, key: str):
         return await self._client.incr(key)
 
+    async def get_bits(self, key: str, *indexes: int, size: int = 1):
+        """
+        https://redis.io/commands/bitfield
+        """
+        bitops = self._client.bitfield(key)
+        for index in indexes:
+            bitops.get(fmt=f"u{size}", offset=f"#{index}")
+        return tuple(await bitops.execute())
+
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
+        bitops = self._client.bitfield(key)
+        for index in indexes:
+            bitops.incrby(fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT")
+        return tuple(await bitops.execute())
+
     async def ping(self, message: Optional[bytes] = None) -> bytes:
         pong = await self._client.ping()
         if pong and message:

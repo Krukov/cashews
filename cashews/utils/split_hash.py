@@ -23,4 +23,3 @@ def _get_string_int_hash(key):
 def _split_string_for_chunks(value: str, chunks: int):
     chunk_size = len(value) // chunks
     return [value[i : i + chunk_size] for i in range(0, chunk_size * chunks, chunk_size)]
-

@@ -165,7 +165,7 @@ async def test_get_size(cache: Backend):
     )  # 106 - ordered dict,  68 redis, -1 for diskcache
 
 
-async def test_bits(cache: Backend):
+async def test_get_bits(cache: Backend):
     assert await cache.get_bits("test", 0, 2, 10, 50000, size=1) == (0, 0, 0, 0)
     assert await cache.get_bits("test", 0, 1, 3, size=15) == (
         0,
@@ -173,6 +173,8 @@ async def test_bits(cache: Backend):
         0,
     )
 
+
+async def test_incr_bits(cache: Backend):
     await cache.incr_bits("test", 0, 1, 4)
     assert await cache.get_bits("test", 0, 1, 2, 3, 4) == (1, 1, 0, 0, 1)
 

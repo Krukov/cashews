@@ -110,14 +110,17 @@ class Memory(Backend):
         return b"PONG" if message in (None, b"PING") else message
 
     async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
-        array: Bitarray = self._get(key, default=Bitarray(0))
+        array: Bitarray = self._get(key, default=Bitarray("0"))
         result = []
         for index in indexes:
             result.append(array.get(index, size))
         return tuple(result)
 
     async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
-        array: Bitarray = self._get(key, default=Bitarray(0))
+        array: Bitarray = self._get(key)
+        if array is None:
+            array = Bitarray("0")
+            self._set(key, array)
         result = []
         for index in indexes:
             array.incr(index, size, by)
