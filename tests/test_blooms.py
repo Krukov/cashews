@@ -53,6 +53,8 @@ async def test_bloom_simple(backend):
 
 async def test_bloom_simple_big_size(backend):
     n = 1_000_000
+    if backend.name == "diskcache":
+        n = 10_000
     call = Mock()
 
     @bloom(backend=backend, name="name:{k}", false_positives=1, capacity=n)
@@ -61,14 +63,14 @@ async def test_bloom_simple_big_size(backend):
         return k > (n / 2)
 
     await func.set(900_000)
-    await func.set(400_000)
+    await func.set(1_000)
 
     call.reset_mock()
     assert await func(900_000)
     call.assert_called_with(900_000)
 
     call.reset_mock()
-    assert not await func(400_000)
+    assert not await func(1_000)
     call.assert_not_called()
 
 

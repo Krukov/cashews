@@ -5,6 +5,8 @@ from typing import Any, Optional, Tuple, Union
 
 from diskcache import Cache, FanoutCache
 
+from cashews.utils import Bitarray
+
 from .interface import Backend
 
 
@@ -90,6 +92,24 @@ class DiskCache(Backend):
         for key in self._cache.iterkeys():
             if regexp.fullmatch(key):
                 yield key
+
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+        value = await self.get(key, default=0)
+        array = Bitarray(str(value))
+        result = []
+        for index in indexes:
+            result.append(array.get(index, size))
+        return tuple(result)
+
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+        value = await self.get(key, default=0)
+        array = Bitarray(str(value))
+        result = []
+        for index in indexes:
+            array.incr(index, size, by)
+            result.append(array.get(index, size))
+        await self.set(key, array.to_int())
+        return tuple(result)
 
     async def incr(self, key: str) -> int:
         return await self._run_in_executor(self._cache.incr, key)
