@@ -252,6 +252,10 @@ async def test_smoke_cmds(cache: Cache, target):
     await cache.exists("key")
     target.exists.assert_called_once_with(key="key")
 
+    [key async for key in cache.keys_match("key:*")]
+
+    target.keys_match.assert_called_once_with("key:*")
+
 
 async def test_disable_cache_on_fail_return(cache: Cache):
     assert await cache.get("key") is None

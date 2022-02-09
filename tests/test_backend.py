@@ -142,6 +142,20 @@ async def test_delete_match(cache: Backend):
     assert await cache.get("pref:test:tests") is not None
 
 
+async def test_keys_match(cache: Backend):
+    await cache.set("pref:test:test", b"value")
+    await cache.set("pref:value:test", b"value2")
+    await cache.set("pref:-:test", b"-")
+    await cache.set("pref:*:test", b"*")
+
+    await cache.set("ppref:test:test", b"value3")
+    await cache.set("pref:test:tests", b"value3")
+
+    keys = [key async for key in cache.keys_match("pref:*:test")]
+
+    assert len(keys) == 4
+
+
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
     assert await cache.get_size("test") in (

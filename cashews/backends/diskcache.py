@@ -81,7 +81,8 @@ class DiskCache(Backend):
 
     async def keys_match(self, pattern: str):
         if not self._sharded:
-            return await self._run_in_executor(self._keys_match, pattern)
+            for key in await self._run_in_executor(self._keys_match, pattern):
+                yield key
 
     def _keys_match(self, pattern: str):
         pattern = pattern.replace("*", ".*")
