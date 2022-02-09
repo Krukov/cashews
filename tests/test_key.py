@@ -61,10 +61,10 @@ def test_cache_func_key_dict():
     ("args", "kwargs", "template", "key"),
     (
         (
-            ("a1", "a2", "a3"),
-            {"kwarg1": "k1", "kwarg3": "k3"},
+            ("A1", "a2", "a3"),
+            {"kwarg1": "k1", "kwarg3": True},
             "{arg1}:{kwarg1}-{kwarg3}",
-            "a1:k1-k3",
+            "A1:k1-true",
         ),
         (
             ("a1", "a2", "a3"),
@@ -92,9 +92,9 @@ def test_cache_func_key_dict():
         ),
         (
             ("a1",),
-            {"kwarg1": "k1", "arg2": 2},
+            {"kwarg1": "K1", "arg2": 2},
             "{arg2}:{kwarg1}:{kwarg3}",
-            "2:k1:",
+            "2:K1:",
         ),
         (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:len}", "4"),
         (

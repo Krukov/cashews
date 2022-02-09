@@ -18,7 +18,7 @@ class _ReplaceFormatter(Formatter):
             return self.__default(field_name), None
 
     def format_field(self, value, format_spec):
-        return format(value)
+        return format(format_value(value))
 
 
 class _FuncFormatter(_ReplaceFormatter):
@@ -38,9 +38,9 @@ class _FuncFormatter(_ReplaceFormatter):
 
     def format_field(self, value, format_spec):
         format_spec, args = self.parse_format_spec(format_spec)
-        value = super().format_field(value, format_spec if format_spec not in self._functions else "")
         if format_spec in self._functions:
-            return str(self._functions[format_spec](value, *args))
+            value = str(self._functions[format_spec](value, *args))
+        value = super().format_field(value, format_spec if format_spec not in self._functions else "")
         return value
 
     @staticmethod
@@ -49,6 +49,14 @@ class _FuncFormatter(_ReplaceFormatter):
             return format_spec, ()
         format_spec, args = format_spec.split("(", 1)
         return format_spec, args.replace(")", "").split(",")
+
+
+def format_value(value):
+    if value is None:
+        return ""
+    elif isinstance(value, bool):
+        return str(value).lower()
+    return value
 
 
 default_formatter = _FuncFormatter(lambda name: "")

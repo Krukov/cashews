@@ -11,7 +11,7 @@ from .key import get_call_values, get_func_params
 async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None):
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
     for template in get_templates_for_func(func):
-        del_template = template_to_pattern(template, **values).lower()
+        del_template = template_to_pattern(template, **values)
         await backend.delete_match(del_template)
 
 

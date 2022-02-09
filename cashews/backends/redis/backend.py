@@ -198,8 +198,5 @@ class _Redis(Backend):
         return await self._client.get(key)
 
     def close(self):
-        del self._client
         self._client = None
         self.__is_init = False
-
-    __del__ = close

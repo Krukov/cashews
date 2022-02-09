@@ -71,9 +71,8 @@ def _get_cache_key(
     """
     kwargs = kwargs or {}
     key_values = get_call_values(func, args, kwargs)
-    key_values = {k: v if v is not None else "" for k, v in key_values.items()}
     _key_template = template or get_cache_key_template(func)
-    return template_to_pattern(_key_template, _formatter=default_formatter, **key_values).lower()
+    return template_to_pattern(_key_template, _formatter=default_formatter, **key_values)
 
 
 def get_func_params(func):
@@ -100,7 +99,7 @@ def get_cache_key_template(func: Callable, key: Optional[str] = None, prefix: st
         if func_params and func_params[0] == "self":
             name = [func.__module__, func.__qualname__]
         params = {param_name: "{" + param_name + "}" for param_name in func_params}
-        key = ":".join([*name, *chain(*params.items())]).lower()
+        key = ":".join([*name, *chain(*params.items())])
     else:
         _check_key_params(key, func_params)
     if prefix:
