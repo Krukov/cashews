@@ -10,6 +10,9 @@ from ..key import get_cache_key, get_cache_key_template
 
 __all__ = ("bloom",)
 
+all_zeros = all
+at_least_one_zero = lambda values: not all(values)
+
 
 def bloom(
     backend: Backend,
@@ -45,14 +48,14 @@ def bloom(
 
     def _decor(func):
         _name = get_cache_key_template(func, key=name)
-        _cache_key = prefix + name + f":{index_size}"
+        _cache_key = prefix + _name + f":{index_size}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _bloom_key = get_cache_key(func, _name, args, kwargs)
             hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
             values = await backend.get_bits(_cache_key, *hashes)
-            if all(values):  # if all bits is set
+            if all_zeros(values):  # if all bits is set
                 # false positive
                 if check_false_positive:
                     return await func(*args, **kwargs)
@@ -104,34 +107,36 @@ def dual_bloom(
     if index_size is None:
         assert false_positives and capacity
         assert 0 < false_positives < 100
-        index_size, number_of_hashes = params_for(capacity, false_positives / 100)
+        index_size, _number_of_hashes = params_for(capacity, false_positives / 100)
+        number_of_hashes = number_of_hashes or _number_of_hashes
 
     def _decor(func):
         _name = get_cache_key_template(func, key=name)
-        __cache_key = prefix + name + f":{index_size}"
+        __cache_key = prefix + _name + f":{index_size}"
         _true_bloom_key = __cache_key + ":true"
         _false_bloom_key = __cache_key + ":false"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _bloom_key = get_cache_key(func, _name, args, kwargs)
-            hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
+            hashes_false = get_hashes(_bloom_key + "false", number_of_hashes, index_size)
+            hashes_true = get_hashes(_bloom_key + "true", number_of_hashes, index_size)
             true_values, false_values = await asyncio.gather(
-                backend.get_bits(_true_bloom_key, *hashes),
-                backend.get_bits(_false_bloom_key, *hashes),
+                backend.get_bits(_true_bloom_key, *hashes_true),
+                backend.get_bits(_false_bloom_key, *hashes_false),
             )
-            if not all(true_values) and not all(false_values):
+            if not all_zeros(true_values) and not all_zeros(false_values):
                 # not set yet
                 result = await func(*args, **kwargs)
                 if result:
-                    await backend.incr_bits(_true_bloom_key, *hashes)
+                    await backend.incr_bits(_true_bloom_key, *hashes_true)
                 else:
-                    await backend.incr_bits(_false_bloom_key, *hashes)
+                    await backend.incr_bits(_false_bloom_key, *hashes_false)
                 return result
-            if not all(true_values):
-                return False
-            if not all(false_values):
-                return True
+            if at_least_one_zero(true_values) and all(false_values):
+                return False  # can be false Negative
+            if at_least_one_zero(false_values) and all(true_values):
+                return True  # can be false Positive
             return await func(*args, **kwargs)
 
         async def _delete(*args, **kwargs):
@@ -156,6 +161,7 @@ def counting_bloom(
     number_of_hashes: Optional[int] = None,
     false_positives: Optional[Union[float, int]] = 1,
     capacity: Optional[int] = None,
+    check_false_positive: bool = True,
     prefix: str = "counting_bloom",
 ):
     """
@@ -177,17 +183,18 @@ def counting_bloom(
 
     def _decor(func):
         _name = get_cache_key_template(func, key=name)
-        _cache_key = prefix + name + f":{index_size}"
+        _cache_key = prefix + _name + f":{index_size}"
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _bloom_key = get_cache_key(func, _name, args, kwargs)
             hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
             values = await backend.get_bits(_cache_key, *hashes, size=2)
-            if all((v == 3 for v in values)):
-                return True
-            if all((v >= 1 for v in values)):
+            if at_least_one_zero(values):
                 return False
+            if all(values):
+                if not check_false_positive:
+                    return True
             result = await func(*args, **kwargs)
             assert isinstance(result, bool)
             if result:
@@ -199,11 +206,16 @@ def counting_bloom(
         async def _delete(*args, **kwargs):
             _bloom_key = get_cache_key(func, _name, args, kwargs)
             hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
-            # we cant decrement by 1 - it can lead to false negative results
-            # so we should just set it to 0 - it should lead to refill a few values
-            await backend.incr_bits(_cache_key, *hashes, size=2, by=-3)
+            await backend.incr_bits(_cache_key, *hashes, size=2, by=-1)
 
         _wrap.delete = _delete
+
+        async def _set(*args, **kwargs):
+            _bloom_key = get_cache_key(func, _name, args, kwargs)
+            hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
+            await backend.incr_bits(_cache_key, *hashes, size=2, by=1)
+
+        _wrap.set = _set
 
         return _wrap
 

@@ -91,6 +91,16 @@ async def test_bloom_dual(backend):
         assert await func(i) is (i > (n / 2))
         call.assert_not_called()
 
+    await func.delete(10)
+    await func.delete(70)
+
+    assert await func(10) is False
+    call.assert_called_with(10)
+
+    call.reset_mock()
+    assert await func(70) is True
+    call.assert_called_with(70)
+
 
 async def test_bloom_counting(backend):
     n = 100
@@ -108,3 +118,13 @@ async def test_bloom_counting(backend):
     for i in range(n):
         assert await func(i) is (i > (n / 2))
         call.assert_not_called()
+
+    await func.delete(10)
+    await func.delete(70)
+
+    assert await func(10) is False
+    call.assert_called_with(10)
+
+    call.reset_mock()
+    assert await func(70) is True
+    call.assert_called_with(70)
