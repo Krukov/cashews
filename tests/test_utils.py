@@ -14,11 +14,11 @@ def test_bitarray_get_size_1():
 
 
 def test_bitarray_get_size_2():
-    b = Bitarray("100010", 2)
+    b = Bitarray("1000010", 2)
     assert b.get(0, 2) == 2
     assert b.get(1, 2) == 0
-    assert b.get(2, 2) == 2
-    assert b.get(3, 2) == 0
+    assert b.get(2, 2) == 0
+    assert b.get(3, 2) == 1
     assert b.get(4, 2) == 0
 
 

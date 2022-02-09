@@ -5,21 +5,36 @@ class Bitarray:
         self._value = int(value, base)
 
     def get(self, index: int, size: int = 1) -> int:
-        str_all = f"{self._value:{size*(index + 1)}b}".replace(" ", "0")
-        if (index + 1) * size > len(str_all):
-            return 0
-        end = len(str_all)
-        str_int = str_all[end - (index + 1) * size : end - index * size]
-        return int(str_int, 2)
+        res = 0
+        bit_index = 0
+        for i in range(index * size, (index + 1) * size):
+            res |= ((self._value >> i) & 1) << bit_index
+            bit_index += 1
+        return res
+
+    def set(self, index: int, value: int, size: int = 1):
+        for i in range(0, size):
+            if (value >> i) & 1:
+                self._set_bit_1(index * size + i)
+            else:
+                self._set_bit_0(index * size + i)
+        return
+
+    def _set_bit_1(self, index):
+        self._value |= 1 << index
+
+    def _set_bit_0(self, index):
+        self._value &= ~(1 << index)
 
     def incr(self, index: int, size: int = 1, by: int = 1):
-        str_all = f"{self._value:{size*(index + 1)}b}".replace(" ", "0")
-        end = len(str_all)
-        str_int = str_all[end - (index + 1) * size : end - index * size]
-        max_value = 2 ** size - 1
-        value = max(min(int(str_int, 2) + by, max_value), 0)
-        str_int = str_all[: end - (index + 1) * size] + f"{value:0{size}b}" + str_all[end - index * size :]
-        self._value = int(str_int, 2)
+        if by > 0:
+            by = min(by, 2 ** size - 1)
+        else:
+            by = max(by, -(2 ** size) - 1)
+        value = self.get(index, size)
+        value += by
+        value = min(max(0, value), 2 ** size - 1)
+        self.set(index, value, size)
         return self
 
     def copy(self):
