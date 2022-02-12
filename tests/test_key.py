@@ -18,13 +18,14 @@ async def func3(a, k="test"):
     ...
 
 
+class Klass:
+    def method(self, a, k=None):
+        ...
+
+
 TEPLATE_FUNC1 = "func1:{a}"
 TEPLATE_FUNC2 = "func2:{k}:user:{user}"
 TEPLATE_FUNC3 = "func3:{k:len}"
-
-register_template(func1, TEPLATE_FUNC1)
-register_template(func2, TEPLATE_FUNC2)
-register_template(func3, TEPLATE_FUNC3)
 
 
 @pytest.mark.parametrize(
@@ -42,6 +43,9 @@ register_template(func3, TEPLATE_FUNC3)
     ),
 )
 def test_detect_template_by_key(key, template):
+    register_template(func1, TEPLATE_FUNC1)
+    register_template(func2, TEPLATE_FUNC2)
+    register_template(func3, TEPLATE_FUNC3)
     assert get_template_and_func_for(key)[0] == template
 
 
@@ -136,6 +140,8 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
         (func1, None, "tests.test_key:func1:a:{a}"),
         (func2, None, "tests.test_key:func2:a:{a}:k:{k}"),
         (func3, None, "tests.test_key:func3:a:{a}:k:{k}"),
+        (Klass.method, None, "tests.test_key:Klass.method:self:{self}:a:{a}:k:{k}"),
+        (Klass.method, "key:{k}", "key:{k}"),
         (func2, "key:{k}", "key:{k}"),
         (func3, "key:{k:len}:{k:hash(md5)}", "key:{k:len}:{k:hash(md5)}"),
     ),

@@ -323,7 +323,69 @@ await get_name("me", version="v2")
 # a key will be "__module__.get_name:user:me:version:v2"
 ```
 
-Sometimes you need to format the parameters or define your
+The same with a class method
+```python
+from cashews import cache
+
+class MyClass:
+
+    @cache(ttl="2h")
+    async def get_name(self, user, version="v1"):
+         ...
+
+# a key template will be "__module__:MyClass.get_name:self:{self}:user:{user}:version:{version}
+
+await MyClass().get_name("me", version="v2") 
+# a key will be "__module__:MyClass.get_name:self:<__module__.MyClass object at 0x105edd6a0>:user:me:version:v1"
+```
+As you can see, there is an ugly reference to the instance in the key. That is not what we expect to see. 
+That cache will not work properly. There are 3 solutions to avoid it.) define `__str__` magic method in our class 
+```python
+
+class MyClass:
+
+    @cache(ttl="2h")
+    async def get_name(self, user, version="v1"):
+         ...
+
+    def __str__(self) -> str:
+        return self._host
+
+await MyClass(host="http://example.com").get_name("me", version="v2") 
+# a key will be "__module__:MyClass.get_name:self:http://example.com:user:me:version:v1"
+```
+2) Set a key template
+```python
+class MyClass:
+
+    @cache(ttl="2h", key="{self._host}:name:{user}:{version}")
+    async def get_name(self, user, version="v1"):
+         ...
+
+await MyClass(host="http://example.com").get_name("me", version="v2") 
+# a key will be "http://example.com:name:me:v1"
+```
+3) Use `noself` or `noself_cache` if you want to exclude `self` from a key
+```python
+from cashews import cache, noself, noself_cache
+
+class MyClass:
+
+    @noself(cache)(ttl="2h")
+    async def get_name(self, user, version="v1"):
+         ...
+
+    @noself_cache(ttl="2h")  # for python <= 3.8
+    async def get_name(self, user, version="v1"):
+         ...
+# a key template will be "__module__:MyClass.get_name:user:{user}:version:{version}
+
+await MyClass().get_name("me", version="v2") 
+# a key will be "__module__:MyClass.get_name:user:me:version:v1"
+```
+
+
+Sometimes you may need to format the parameters or define your
  own template for the key and Cashews allows you to do this:
 ```python
 @cache.failover(key="name:{user.uid}")

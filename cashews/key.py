@@ -2,7 +2,7 @@ import inspect
 from datetime import timedelta
 from functools import lru_cache
 from itertools import chain
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Container, Dict, Optional, Tuple, Union
 
 from ._typing import TTL
 from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
@@ -85,12 +85,15 @@ def get_func_params(func):
             yield param_name
 
 
-def get_cache_key_template(func: Callable, key: Optional[str] = None, prefix: str = "") -> str:
+def get_cache_key_template(
+    func: Callable, key: Optional[str] = None, prefix: str = "", exclude_parameters: Container = ()
+) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs
     Used function module and name as prefix if key parameter not passed
     :param func: Target function
     :param key: template for key, may contain alias to args or kwargs passed to a call
+    :param exclude_parameters: array of args and kwargs names to exclude from key template (if key parameter not passed)
     :return: cache key template
     """
     func_params = list(get_func_params(func))
@@ -98,7 +101,9 @@ def get_cache_key_template(func: Callable, key: Optional[str] = None, prefix: st
         name = [func.__module__, func.__name__]
         if func_params and func_params[0] == "self":
             name = [func.__module__, func.__qualname__]
-        params = {param_name: "{" + param_name + "}" for param_name in func_params}
+        params = {
+            param_name: "{" + param_name + "}" for param_name in func_params if param_name not in exclude_parameters
+        }
         key = ":".join([*name, *chain(*params.items())])
     else:
         _check_key_params(key, func_params)
@@ -165,3 +170,15 @@ def _get_call_values(func, args, kwargs):
         else:
             result[_name] = _value
     return result
+
+
+def noself(decor_func):
+    def _decor(*args, **kwargs):
+        def outer(method):
+            if "key" not in kwargs:
+                kwargs["key"] = get_cache_key_template(method, exclude_parameters={"self"})
+            return decor_func(*args, **kwargs)(method)
+
+        return outer
+
+    return _decor

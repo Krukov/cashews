@@ -3,8 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews import NOT_NONE, decorators
+from cashews import NOT_NONE, decorators, noself
 from cashews.backends.memory import Backend, Memory
+from cashews.formatter import _REGISTER, get_templates_for_func
 
 pytestmark = pytest.mark.asyncio
 
@@ -158,18 +159,50 @@ async def test_cache_simple_none(backend):
 
 
 async def test_cache_simple_key(backend):
+    _REGISTER.clear()
+
     @decorators.cache(backend, ttl=1, key="key:{some}")
-    async def func(resp=b"ok", some="err"):
+    async def func1(resp=b"ok", some="err"):
         return resp
 
-    @decorators.cache(backend, ttl=1, key="key2:{some}")
-    async def func2(resp=b"ok", some="err"):
+    @decorators.cache(backend, ttl=1)
+    async def func2(resp, some="err"):
         return resp
 
-    assert await func() == b"ok"
-    assert await func(b"notok", some="test") == b"notok"
-    assert await func(b"notok") == b"ok"
-    assert await func2(b"notok") == b"notok"
+    _noself = noself(decorators.cache)(backend, ttl=1)
+
+    class Klass:
+        @decorators.cache(backend, ttl=1)
+        async def method(self, resp):
+            return resp
+
+        @staticmethod
+        @decorators.cache(backend, ttl=1)
+        async def stat(resp):
+            return resp
+
+        @_noself
+        async def method2(self, resp):
+            return resp
+
+    await func1()
+    await func2("ok")
+    obj = Klass()
+    await obj.method("ok")
+    await obj.stat("ok")
+    await obj.method2("ok")
+
+    assert next(get_templates_for_func(func1)) == "key:{some}"
+    assert next(get_templates_for_func(func2)) == "tests.test_cache:func2:resp:{resp}:some:{some}"
+    assert (
+        next(get_templates_for_func(obj.method))
+        == "tests.test_cache:test_cache_simple_key.<locals>.Klass.method:self:{self}:resp:{resp}"
+    )
+    assert (
+        next(get_templates_for_func(obj.method2))
+        == "tests.test_cache:test_cache_simple_key.<locals>.Klass.method2:resp:{resp}"
+    )
+    assert next(get_templates_for_func(obj.stat)) == "tests.test_cache:stat:resp:{resp}"
 
 
 async def test_cache_simple_cond(backend):
