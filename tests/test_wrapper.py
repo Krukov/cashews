@@ -323,3 +323,19 @@ async def test_cache_decor_register(cache: Cache):
         return val
 
     assert next(get_templates_for_func(my_func)) == "test:key:{val}"
+
+
+async def test_cache_lock():
+    m = Mock()
+    cache = Cache()
+    cache.setup("mem://")
+
+    @cache.cache(ttl=5, lock=True)
+    async def my_func(val=1):
+        await asyncio.sleep(0)  # for task switching
+        m(val)
+        return val
+
+    await asyncio.gather(my_func(), my_func(), my_func())
+
+    m.assert_called_once_with(1)

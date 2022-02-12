@@ -268,6 +268,9 @@ Decorator that can help you to solve [Cache stampede problem](https://en.wikiped
 Lock following function calls until the first one will be finished.
 This guarantees exactly one function call for given ttl.
 
+> :warning: **Warning: this decorator will not cache the result
+> To do so you can combine this decorator with any cache decorator or use parameter `lock=True` with `@cache()`
+
 ```python
 from cashews import cache  # or: from cashews import locked
 
