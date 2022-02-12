@@ -1,4 +1,4 @@
-from .cache.defaults import CacheDetect, context_cache_detect  # noqa
+from .cache.defaults import NOT_NONE, CacheDetect, context_cache_detect  # noqa
 from .cache.early import early  # noqa
 from .cache.fail import failover, fast_condition  # noqa
 from .cache.hit import hit  # noqa

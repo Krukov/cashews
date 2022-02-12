@@ -7,7 +7,7 @@ from ..._typing import CacheCondition
 _empty = object()
 
 
-def _default_store_condition(result, args, kwargs, key=None) -> bool:
+def _not_none_store_condition(result, args, kwargs, key=None) -> bool:
     return result is not None
 
 
@@ -15,11 +15,16 @@ def _store_all(result, args, kwargs, key=None) -> bool:
     return True
 
 
+NOT_NONE = "not_none"
+_ALL_CONDITIONS = {Any, "all", any, "any", None}
+_NOT_NONE_CONDITIONS = {NOT_NONE, "skip_none"}
+
+
 def _get_cache_condition(condition: CacheCondition):
-    if condition is None:
-        return _default_store_condition
-    if condition in [Any, "all", any, "any"]:
+    if condition in _ALL_CONDITIONS:
         return _store_all
+    if condition in _NOT_NONE_CONDITIONS:
+        return _not_none_store_condition
     return condition
 
 
