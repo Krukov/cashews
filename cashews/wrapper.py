@@ -247,6 +247,7 @@ class Cache(Backend):
 
             _call.direct = func
             return _call
+
         return _decorator
 
     def _wrap_on_enable_with_condition(self, decorator_fabric, condition, lock=False, **decor_kwargs):
