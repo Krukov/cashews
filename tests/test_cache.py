@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews import decorators
+from cashews import NOT_NONE, decorators
 from cashews.backends.memory import Backend, Memory
 
 pytestmark = pytest.mark.asyncio
@@ -127,10 +127,25 @@ async def test_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
+async def test_cache_simple_not_none(backend):
+    mock = Mock()
+
+    @decorators.cache(backend, ttl=EXPIRE, key="key", condition=NOT_NONE)
+    async def func():
+        mock()
+        return None
+
+    assert await func() is None
+    assert mock.call_count == 1
+
+    assert await func() is None
+    assert mock.call_count == 2
+
+
 async def test_cache_simple_none(backend):
     mock = Mock()
 
-    @decorators.cache(backend, ttl=EXPIRE, key="key", condition=any)
+    @decorators.cache(backend, ttl=EXPIRE, key="key")
     async def func():
         mock()
         return None

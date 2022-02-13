@@ -1,5 +1,6 @@
 from .backends.interface import LockedException
 from .decorators import (  # noqa
+    NOT_NONE,
     CacheDetect,
     CircuitBreakerOpen,
     RateLimitException,
