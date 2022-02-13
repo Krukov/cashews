@@ -230,15 +230,26 @@ class Cache(Backend):
             wrapper = self._wrap_on_enable_with_condition
         return wrapper(decorator_fabric, **decor_kwargs)
 
-    def _wrap_on_enable(self, decorator_fabric, **decor_kwargs):
+    def _wrap_on_enable(self, decorator_fabric, lock=False, **decor_kwargs):
         def _decorator(func):
-            result_func = decorator_fabric(self, **decor_kwargs)(func)
-            result_func.direct = func
-            return result_func
+            decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
+            @wraps(func)
+            async def _call(*args, **kwargs):
+                decorator = decorator_fabric(self, **decor_kwargs)
+                if lock:
+                    _locked = decorators.locked(self, key=decor_kwargs.get("key"), ttl=decor_kwargs["ttl"])
+                    result = await _locked(decorator(func))(*args, **kwargs)
+                else:
+                    result = await decorator(func)(*args, **kwargs)
+
+                return result
+
+            _call.direct = func
+            return _call
         return _decorator
 
-    def _wrap_on_enable_with_condition(self, decorator_fabric, condition, **decor_kwargs):
+    def _wrap_on_enable_with_condition(self, decorator_fabric, condition, lock=False, **decor_kwargs):
         def _decorator(func):
             decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
@@ -252,7 +263,11 @@ class Cache(Backend):
                         return condition(result, _args, _kwargs, key=key) if condition else result is not None
 
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
-                    result = await decorator(func)(*args, **kwargs)
+                    if lock:
+                        _locked = decorators.locked(self, key=decor_kwargs.get("key"), ttl=decor_kwargs["ttl"])
+                        result = await _locked(decorator(func))(*args, **kwargs)
+                    else:
+                        result = await decorator(func)(*args, **kwargs)
 
                 return result
 
@@ -286,10 +301,12 @@ class Cache(Backend):
         condition: CacheCondition = None,
         prefix: str = "",
         upper: bool = False,
+        lock: bool = False,
     ):
         return self._wrap_on(
             decorators.cache,
             upper,
+            lock=lock,
             ttl=ttl_to_seconds(ttl),
             key=key,
             condition=condition,
