@@ -2,7 +2,7 @@ class Bitarray:
     __slots__ = ("_value",)
 
     def __init__(self, value, base=10):
-        self._value = int(value, base)
+        self._value = int(value, base=base)
 
     def get(self, index: int, size: int = 1) -> int:
         res = 0

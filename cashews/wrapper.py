@@ -177,6 +177,12 @@ class Cache(Backend):
     def get_many(self, *keys: str):
         return self._with_middlewares("get_many", keys[0])(*keys)
 
+    def get_bits(self, key: str, *indexes: int, size: int = 1):
+        return self._with_middlewares("get_bits", key)(key, *indexes, size=size)
+
+    def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
+        return self._with_middlewares("incr_bits", key)(key, *indexes, size=size, by=by)
+
     def incr(self, key: str) -> int:
         return self._with_middlewares("incr", key)(key=key)
 
@@ -225,32 +231,28 @@ class Cache(Backend):
         return self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
     def _wrap_on(self, decorator_fabric, upper, **decor_kwargs):
-        wrapper = self._wrap_on_enable
         if upper:
-            wrapper = self._wrap_on_enable_with_condition
-        return wrapper(decorator_fabric, **decor_kwargs)
+            return self._wrap_with_condition(decorator_fabric, **decor_kwargs)
+        return self._wrap(decorator_fabric, **decor_kwargs)
 
-    def _wrap_on_enable(self, decorator_fabric, lock=False, **decor_kwargs):
+    def _wrap(self, decorator_fabric, lock=False, **decor_kwargs):
         def _decorator(func):
-            decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
+            decorator = decorator_fabric(self, **decor_kwargs)(func)
 
             @wraps(func)
             async def _call(*args, **kwargs):
-                decorator = decorator_fabric(self, **decor_kwargs)
                 if lock:
                     _locked = decorators.locked(self, key=decor_kwargs.get("key"), ttl=decor_kwargs["ttl"])
-                    result = await _locked(decorator(func))(*args, **kwargs)
+                    return await _locked(decorator)(*args, **kwargs)
                 else:
-                    result = await decorator(func)(*args, **kwargs)
-
-                return result
+                    return await decorator(*args, **kwargs)
 
             _call.direct = func
             return _call
 
         return _decorator
 
-    def _wrap_on_enable_with_condition(self, decorator_fabric, condition, lock=False, **decor_kwargs):
+    def _wrap_with_condition(self, decorator_fabric, condition, lock=False, **decor_kwargs):
         def _decorator(func):
             decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
@@ -278,23 +280,6 @@ class Cache(Backend):
         return _decorator
 
     # DecoratorS
-    def rate_limit(
-        self,
-        limit: int,
-        period: TTL,
-        ttl: Optional[TTL] = None,
-        action: Optional[Callable] = None,
-        prefix="rate_limit",
-    ):  # pylint: disable=too-many-arguments
-        return self._wrap_on_enable(
-            decorators.rate_limit,
-            limit=limit,
-            period=ttl_to_seconds(period),
-            ttl=ttl_to_seconds(ttl),
-            action=action,
-            prefix=prefix,
-        )
-
     def __call__(
         self,
         ttl: TTL,
@@ -316,21 +301,6 @@ class Cache(Backend):
 
     cache = __call__
 
-    def invalidate(
-        self,
-        func,
-        args_map: Optional[Dict[str, str]] = None,
-        defaults: Optional[Dict] = None,
-    ):
-        return self._wrap_on_enable(
-            validation.invalidate,
-            target=func,
-            args_map=args_map,
-            defaults=defaults,
-        )
-
-    invalidate_func = validation.invalidate_func
-
     def failover(
         self,
         ttl: TTL,
@@ -340,32 +310,12 @@ class Cache(Backend):
         prefix: str = "fail",
     ):
         exceptions = exceptions or self._default_fail_exceptions
-        return self._wrap_on_enable_with_condition(
+        return self._wrap_with_condition(
             decorators.failover,
             ttl=ttl_to_seconds(ttl),
             exceptions=exceptions,
             key=key,
             condition=condition,
-            prefix=prefix,
-        )
-
-    def circuit_breaker(
-        self,
-        errors_rate: int,
-        period: TTL,
-        ttl: TTL,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception]], None] = None,
-        key: Optional[str] = None,
-        prefix: str = "circuit_breaker",
-    ):
-        exceptions = exceptions or self._default_fail_exceptions
-        return self._wrap_on_enable(
-            decorators.circuit_breaker,
-            errors_rate=errors_rate,
-            period=ttl_to_seconds(period),
-            ttl=ttl_to_seconds(ttl),
-            exceptions=exceptions,
-            key=key,
             prefix=prefix,
         )
 
@@ -428,6 +378,58 @@ class Cache(Backend):
             prefix=prefix,
         )
 
+    def invalidate(
+        self,
+        func,
+        args_map: Optional[Dict[str, str]] = None,
+        defaults: Optional[Dict] = None,
+    ):
+        return validation.invalidate(
+            backend=self,
+            target=func,
+            args_map=args_map,
+            defaults=defaults,
+        )
+
+    invalidate_func = validation.invalidate_func
+
+    def circuit_breaker(
+        self,
+        errors_rate: int,
+        period: TTL,
+        ttl: TTL,
+        exceptions: Union[Type[Exception], Tuple[Type[Exception]], None] = None,
+        key: Optional[str] = None,
+        prefix: str = "circuit_breaker",
+    ):
+        exceptions = exceptions or self._default_fail_exceptions
+        return decorators.circuit_breaker(
+            backend=self,
+            errors_rate=errors_rate,
+            period=ttl_to_seconds(period),
+            ttl=ttl_to_seconds(ttl),
+            exceptions=exceptions,
+            key=key,
+            prefix=prefix,
+        )
+
+    def rate_limit(
+        self,
+        limit: int,
+        period: TTL,
+        ttl: Optional[TTL] = None,
+        action: Optional[Callable] = None,
+        prefix="rate_limit",
+    ):  # pylint: disable=too-many-arguments
+        return decorators.rate_limit(
+            backend=self,
+            limit=limit,
+            period=ttl_to_seconds(period),
+            ttl=ttl_to_seconds(ttl),
+            action=action,
+            prefix=prefix,
+        )
+
     def locked(
         self,
         ttl: Optional[TTL] = None,
@@ -435,11 +437,53 @@ class Cache(Backend):
         step: Union[int, float] = 0.1,
         prefix: str = "locked",
     ):
-        return self._wrap_on_enable(
-            decorators.locked,
+        return decorators.locked(
+            backend=self,
             ttl=ttl_to_seconds(ttl),
             key=key,
             step=step,
+            prefix=prefix,
+        )
+
+    def bloom(
+        self,
+        name: Optional[str] = None,
+        index_size: Optional[int] = None,
+        number_of_hashes: Optional[int] = None,
+        false_positives: Optional[Union[float, int]] = 1,
+        capacity: Optional[int] = None,
+        check_false_positive: bool = True,
+        prefix: str = "bloom",
+    ):
+        return decorators.bloom(
+            backend=self,
+            name=name,
+            index_size=index_size,
+            number_of_hashes=number_of_hashes,
+            false_positives=false_positives,
+            capacity=capacity,
+            check_false_positive=check_false_positive,
+            prefix=prefix,
+        )
+
+    def dual_bloom(
+        self,
+        name: Optional[str] = None,
+        index_size: Optional[int] = None,
+        number_of_hashes: Optional[int] = None,
+        false: Optional[Union[float, int]] = 1,
+        no_collisions: bool = False,
+        capacity: Optional[int] = None,
+        prefix: str = "dual_bloom",
+    ):
+        return decorators.dual_bloom(
+            backend=self,
+            name=name,
+            index_size=index_size,
+            number_of_hashes=number_of_hashes,
+            false=false,
+            no_collisions=no_collisions,
+            capacity=capacity,
             prefix=prefix,
         )
 

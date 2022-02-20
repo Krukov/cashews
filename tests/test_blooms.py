@@ -3,7 +3,8 @@ from unittest.mock import Mock
 import pytest
 
 from cashews.backends.memory import Memory
-from cashews.decorators.bloom import bloom, counting_bloom, dual_bloom
+from cashews.decorators.bloom import _counting_bloom as counting_bloom
+from cashews.decorators.bloom import bloom, dual_bloom
 
 pytestmark = pytest.mark.asyncio
 
@@ -78,7 +79,7 @@ async def test_bloom_dual(backend):
     n = 100
     call = Mock()
 
-    @dual_bloom(backend=backend, name="name:{k}", false_positives=1, capacity=n)
+    @dual_bloom(backend=backend, name="name:{k}", false=1, capacity=n)
     async def func(k):
         call(k)
         return k > (n / 2)
@@ -112,12 +113,11 @@ async def test_bloom_counting(backend):
         return k > (n / 2)
 
     for i in range(n):
-        await func(i)
+        await func.set(i)
 
     call.reset_mock()
     for i in range(n):
         assert await func(i) is (i > (n / 2))
-        call.assert_not_called()
 
     await func.delete(10)
     await func.delete(70)

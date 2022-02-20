@@ -100,6 +100,25 @@ async def test_disable_decorators(cache: Cache, target):
     assert await func() == 2
 
 
+async def test_disable_bloom(cache: Cache, target):
+    cache.disable()
+
+    @cache.bloom(index_size=10, number_of_hashes=1)
+    async def func():
+        return True
+
+    await func.set()
+    assert await func()
+    target.incr_bits.assert_not_called()
+    target.get_bits.assert_not_called()
+
+    cache.enable()
+    await func.set()
+    assert await func()
+    target.incr_bits.assert_called()
+    target.get_bits.assert_called()
+
+
 async def test_disable_decorators_get(cache: Cache):
     data = (i for i in range(10))
     await cache.init("mem://localhost")
@@ -252,6 +271,12 @@ async def test_smoke_cmds(cache: Cache, target):
     await cache.exists("key")
     target.exists.assert_called_once_with(key="key")
 
+    await cache.get_bits("key", 1, 2, 3, size=2)
+    target.get_bits.assert_called_once_with("key", 1, 2, 3, size=2)
+
+    await cache.incr_bits("key", 1, 2, 3, size=2)
+    target.incr_bits.assert_called_once_with("key", 1, 2, 3, size=2, by=1)
+
     [key async for key in cache.keys_match("key:*")]
 
     target.keys_match.assert_called_once_with("key:*")
@@ -330,7 +355,7 @@ async def test_cache_lock():
     cache = Cache()
     cache.setup("mem://")
 
-    @cache.cache(ttl=5, lock=True)
+    @cache(ttl=5, lock=True)
     async def my_func(val=1):
         await asyncio.sleep(0)  # for task switching
         m(val)

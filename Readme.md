@@ -8,6 +8,7 @@
 pip install cashews
 pip install cashews[redis]
 pip install cashews[diskcache]
+pip install cashews[speedup] # for bloom filters
 ```
 
 ---
@@ -27,6 +28,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Set ttl with string (2h5m) or with `timedelta`
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
+- Bloom filters
 - Different cache invalidation techniques (time-based and function-call based)
 - Cache any objects securely with pickle (use [hash key](#redis))
 - 2x faster then `aiocache`
@@ -307,6 +309,25 @@ from cashews import cache  # or: from cashews import circuit_breaker
 async def get(name):
     ...
 ```
+
+
+#### Bloom filter (experimental)
+
+Bloom filter 
+
+```python
+from cashews import cache
+
+@cache.bloom(name="emails:{email}", capacity=10_000, false_positives=1)
+async def email_exists(email):
+    ...
+
+for email in all_users_emails:
+    await email_exists.set(email)
+
+await email_exists("example@example.com")
+```
+
 
 ### Template Keys
 

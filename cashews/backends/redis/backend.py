@@ -179,8 +179,8 @@ class _Redis(Backend):
 
         return int(size)
 
-    async def get(self, key: str, **kwargs) -> Any:
-        return await self._client.get(key, **kwargs)
+    async def get(self, key: str, default=None) -> Any:
+        return await self._client.get(key)
 
     async def incr(self, key: str):
         return await self._client.incr(key)
