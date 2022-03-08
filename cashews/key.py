@@ -9,7 +9,11 @@ from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
 
 
 class WrongKeyException(ValueError):
-    pass
+    """Raised If key template have wrong parameter"""
+
+
+class KeyTemplateRequired(Exception):
+    """Raised if function decorated without a key template and have *args, **kwargs in signature"""
 
 
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
@@ -98,6 +102,8 @@ def get_cache_key_template(
     """
     func_params = list(get_func_params(func))
     if key is None:
+        if func_has_args_kwargs(func):
+            raise KeyTemplateRequired("Use key option for functions with *args **key")
         name = [func.__module__, func.__name__]
         if func_params and func_params[0] == "self":
             name = [func.__module__, func.__qualname__]
@@ -110,6 +116,17 @@ def get_cache_key_template(
     if prefix:
         key = f"{prefix}:{key}"
     return key
+
+
+def func_has_args_kwargs(func) -> bool:
+    signature = _get_func_signature(func)
+    for param_name, param in signature.parameters.items():
+        if param.kind in [
+            inspect.Parameter.VAR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+        ]:
+            return True
+    return False
 
 
 class _Star:
