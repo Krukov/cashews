@@ -408,13 +408,17 @@ from cashews import default_formatter, cache
 def _upper(value):
     return value.upper()
 
+@default_formatter.type_format(Decimal)
+def _decimal(value: Decimal) -> str:
+    return value.quantize(Decimal("0.00"))
 
-@cache(key="name-{user:upper}")
-async def get_name(user):
+
+@cache(key="price-{item.price}:{item.currency:upper}")
+async def get_price(item):
     ...
 
-await get_name("alex") 
-# a key will be "name-ALEX"
+await get_name(item) 
+# a key will be "price-10.00:USD"
 ```
 
 ### Cache invalidation
