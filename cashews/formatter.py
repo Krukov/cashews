@@ -6,10 +6,31 @@ from string import Formatter
 from typing import Callable, Optional, Tuple
 
 
+def _decode_bytes(value: bytes):
+    try:
+        return value.decode()
+    except UnicodeDecodeError:
+        return value.hex()
+
+
 class _ReplaceFormatter(Formatter):
     def __init__(self, default=lambda field: "*"):
         self.__default = default
+        self.__type_format = {
+            bool: lambda value: str(value).lower(),
+            bytes: _decode_bytes,
+        }
         super().__init__()
+
+    def set_format_for_type(self, type, format_function):
+        self.__type_format[type] = format_function
+
+    def type_format(self, type):
+        def _decorator(func):
+            self.set_format_for_type(type, func)
+            return func
+
+        return _decorator
 
     def get_field(self, field_name, args, kwargs):
         try:
@@ -18,7 +39,16 @@ class _ReplaceFormatter(Formatter):
             return self.__default(field_name), None
 
     def format_field(self, value, format_spec):
-        return format(format_value(value))
+        if value is None:
+            return ""
+        _type = type(value)
+        if _type in self.__type_format:
+            value = self.__type_format[_type](value)
+        else:
+            for _type, func_format in self.__type_format.items():
+                if isinstance(value, _type):
+                    value = func_format(value)
+        return format(value)
 
 
 class _FuncFormatter(_ReplaceFormatter):
@@ -39,7 +69,7 @@ class _FuncFormatter(_ReplaceFormatter):
     def format_field(self, value, format_spec):
         format_spec, args = self.parse_format_spec(format_spec)
         if format_spec in self._functions:
-            value = str(self._functions[format_spec](value, *args))
+            value = self._functions[format_spec](value, *args)
         value = super().format_field(value, format_spec if format_spec not in self._functions else "")
         return value
 
@@ -49,14 +79,6 @@ class _FuncFormatter(_ReplaceFormatter):
             return format_spec, ()
         format_spec, args = format_spec.split("(", 1)
         return format_spec, args.replace(")", "").split(",")
-
-
-def format_value(value):
-    if value is None:
-        return ""
-    elif isinstance(value, bool):
-        return str(value).lower()
-    return value
 
 
 default_formatter = _FuncFormatter(lambda name: "")

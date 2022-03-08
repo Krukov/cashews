@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from cashews.formatter import get_template_and_func_for, register_template
+from cashews.formatter import default_formatter, get_template_and_func_for, register_template
 from cashews.key import get_cache_key, get_cache_key_template, ttl_to_seconds
 
 
@@ -26,6 +26,11 @@ class Klass:
 TEPLATE_FUNC1 = "func1:{a}"
 TEPLATE_FUNC2 = "func2:{k}:user:{user}"
 TEPLATE_FUNC3 = "func3:{k:len}"
+
+
+@default_formatter.type_format(Klass)
+def _some(value: Klass):
+    return "hoho"
 
 
 @pytest.mark.parametrize(
@@ -77,10 +82,22 @@ def test_cache_func_key_dict():
             "tests.test_key:func:arg1:a1:arg2:a2:kwarg1:k1:kwarg2:true",
         ),
         (
-            ("a1", "a2", "a3"),
+            (b"a1", "a2", "a3"),
             None,
             "{arg1}-{kwarg1}-{kwarg3}",
             "a1--",
+        ),
+        (
+            (b"\x16F\xbd\xb0\xcf\xcdN\xd7Y)\xfa\x1d\x96\xb1u\x81", ""),
+            None,
+            "{arg1}",
+            "1646bdb0cfcd4ed75929fa1d96b17581",
+        ),
+        (
+            (Klass(), ""),
+            None,
+            "{arg1}",
+            "hoho",
         ),
         (
             ("a1",),

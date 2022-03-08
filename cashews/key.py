@@ -142,13 +142,10 @@ def get_call_values(func: Callable, args, kwargs) -> Dict:
     :param func: Target function
     :param args: call positional arguments
     :param kwargs: call keyword arguments
-    :param func_args: arguments that will be included in results (transformation function for values if passed as dict)
     """
     key_values = {}
     for _key, _value in _get_call_values(func, args, kwargs).items():
         key_values[_key] = _value
-        if isinstance(key_values[_key], bytes):
-            key_values[_key] = key_values[_key].decode()
     return key_values
 
 
