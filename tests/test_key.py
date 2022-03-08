@@ -10,11 +10,11 @@ async def func1(a):
     ...
 
 
-async def func2(a, k=None, **kwargs):
+async def func2(a, *, k=None, **kwargs):
     ...
 
 
-async def func3(a, k="test"):
+async def func3(a, *, k="test"):
     ...
 
 
@@ -76,16 +76,16 @@ def test_cache_func_key_dict():
             "A1:k1-true",
         ),
         (
-            ("a1", "a2", "a3"),
-            {"kwarg1": "k1", "kwarg3": "k3"},
-            None,
-            "tests.test_key:func:arg1:a1:arg2:a2:kwarg1:k1:kwarg2:true",
-        ),
-        (
             (b"a1", "a2", "a3"),
             None,
             "{arg1}-{kwarg1}-{kwarg3}",
             "a1--",
+        ),
+        (
+            (True, "a2", "a3"),
+            None,
+            "{arg1}-{kwarg1}-{kwarg3}",
+            "true--",
         ),
         (
             (b"\x16F\xbd\xb0\xcf\xcdN\xd7Y)\xfa\x1d\x96\xb1u\x81", ""),
@@ -155,7 +155,7 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
     ("func", "key", "template"),
     (
         (func1, None, "tests.test_key:func1:a:{a}"),
-        (func2, None, "tests.test_key:func2:a:{a}:k:{k}"),
+        (func2, None, None),
         (func3, None, "tests.test_key:func3:a:{a}:k:{k}"),
         (Klass.method, None, "tests.test_key:Klass.method:self:{self}:a:{a}:k:{k}"),
         (Klass.method, "key:{k}", "key:{k}"),
@@ -164,7 +164,11 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
     ),
 )
 def test_get_key_template(func, key, template):
-    assert get_cache_key_template(func, key) == template
+    if template is None:
+        with pytest.raises(Exception):
+            get_cache_key_template(func, key)
+    else:
+        assert get_cache_key_template(func, key) == template
 
 
 def test_get_key_template_error():
