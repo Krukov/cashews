@@ -97,9 +97,9 @@ async def test_get_set_expire(cache):
     ("method", "args", "defaults"),
     (
         ("get", ("key",), {"default": None}),
-        ("get_row", ("key",), None),
+        ("get_raw", ("key",), None),
         ("set", ("key", "value"), {"exist": None, "expire": None}),
-        ("set_row", ("key", "value"), None),
+        ("set_raw", ("key", "value"), None),
         ("incr", ("key",), None),
         ("exists", ("key",), None),
         ("delete", ("key",), None),

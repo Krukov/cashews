@@ -154,14 +154,14 @@ class Cache(Backend):
     ):
         return self._with_middlewares("set", key)(key=key, value=value, expire=ttl_to_seconds(expire), exist=exist)
 
-    def set_row(self, key: str, value: Any, **kwargs):
-        return self._with_middlewares("set_row", key)(key=key, value=value, **kwargs)
+    def set_raw(self, key: str, value: Any, **kwargs):
+        return self._with_middlewares("set_raw", key)(key=key, value=value, **kwargs)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         return self._with_middlewares("get", key)(key=key, default=default)
 
-    def get_row(self, key: str) -> Any:
-        return self._with_middlewares("get_row", key)(key=key)
+    def get_raw(self, key: str) -> Any:
+        return self._with_middlewares("get_raw", key)(key=key)
 
     async def keys_match(self, pattern: str):
         backend, middlewares = self._get_backend_and_config(pattern)

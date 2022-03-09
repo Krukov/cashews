@@ -171,7 +171,9 @@ from cashews import cache
 cache.setup("mem://")  # configure as in-memory cache
 
 await cache.set(key="key", value=90, expire=60, exist=None)  # -> bool
+await cache.set_raw(key="key", value="str")  # -> bool
 await cache.get("key")  # -> Any
+await cache.get_raw("key")
 await cache.get_many("key1", "key2")
 await cache.incr("key") # -> int
 await cache.delete("key")

@@ -88,10 +88,10 @@ class PickleSerializerMixin:
         sign = self.get_sign(key, value, self._digestmod)
         return await super().set(key, self._digestmod + b":" + sign + b"_" + value, *args, **kwargs)
 
-    def set_row(self, *args, **kwargs):
+    def set_raw(self, *args, **kwargs):
         return super().set(*args, **kwargs)
 
-    def get_row(self, *args, **kwargs):
+    def get_raw(self, *args, **kwargs):
         return super().get(*args, **kwargs)
 
 

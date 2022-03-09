@@ -58,13 +58,13 @@ class DiskCache(Backend):
                 return False
         return self._cache.set(key, value, expire)
 
-    async def set_row(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs):
         return self._cache.set(key, value, **kwargs)
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
         return await self._run_in_executor(self._cache.get, key, default)
 
-    async def get_row(self, key: str) -> Any:
+    async def get_raw(self, key: str) -> Any:
         return self._cache.get(key)
 
     async def get_many(self, *keys: str) -> Tuple[Any]:

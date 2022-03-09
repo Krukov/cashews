@@ -191,10 +191,10 @@ class _Redis(Backend):
             return message
         return b"PONG"
 
-    async def set_row(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs):
         return await self._client.set(key, value, **kwargs)
 
-    async def get_row(self, key: str) -> Any:
+    async def get_raw(self, key: str) -> Any:
         return await self._client.get(key)
 
     def close(self):
