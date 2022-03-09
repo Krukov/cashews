@@ -52,13 +52,13 @@ class Memory(Backend):
         self._set(key, value, expire)
         return True
 
-    async def set_row(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs):
         self.store[key] = value
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
         return self._get(key, default=default)
 
-    async def get_row(self, key: str):
+    async def get_raw(self, key: str):
         return self.store.get(key)
 
     async def get_many(self, *keys: str) -> Tuple:

@@ -144,17 +144,17 @@ async def test_serialize_array_diff_value(value, cache):
     ),
 )
 async def test_unsecure_value(value, cache):
-    await cache.set_row("key", value)
+    await cache.set_raw("key", value)
     with pytest.raises(UnSecureDataError):
         await cache.get("key")
-    assert not await cache.get_row("key")
+    assert not await cache.get_raw("key")
 
 
 async def test_unsecure_value_many(cache):
-    await cache.set_row("key", b"_cos\nsystem\n(S'echo hello world'\ntR.")
+    await cache.set_raw("key", b"_cos\nsystem\n(S'echo hello world'\ntR.")
     with pytest.raises(UnSecureDataError):
         await cache.get_many("key")
-    assert not await cache.get_row("key")
+    assert not await cache.get_raw("key")
 
 
 async def test_no_value(cache):
@@ -163,20 +163,20 @@ async def test_no_value(cache):
 
 async def test_replace_values(cache):
     await cache.set("key", "key")
-    await cache.set_row("replace", await cache.get_row("key"))
+    await cache.set_raw("replace", await cache.get_raw("key"))
 
     with pytest.raises(UnSecureDataError):
         await cache.get("replace")
-    assert not await cache.get_row("replace")
+    assert not await cache.get_raw("replace")
 
 
 async def test_pickle_error_value(cache):
-    await cache.set_row(
+    await cache.set_raw(
         "key",
         cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data",
     )
     assert await cache.get("key") is None
-    assert not await cache.get_row("key")
+    assert not await cache.get_raw("key")
 
 
 async def test_set_no_ser(cache):
@@ -219,6 +219,6 @@ async def test_data_change(cache):
     assert value is None
 
 
-async def test_get_set_row(cache):
-    await cache.set_row("key", b"test")
-    assert await cache.get_row("key") == b"test"
+async def test_get_set_raw(cache):
+    await cache.set_raw("key", b"test")
+    assert await cache.get_raw("key") == b"test"

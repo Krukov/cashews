@@ -32,13 +32,13 @@ class Backend:
     ) -> bool:
         ...
 
-    async def set_row(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs):
         ...
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
         ...
 
-    async def get_row(self, key: str) -> Any:
+    async def get_raw(self, key: str) -> Any:
         ...
 
     async def get_many(self, *keys: str) -> Tuple[Any]:
@@ -131,14 +131,14 @@ class ProxyBackend(Backend):
     ) -> bool:
         return self._target.set(key, value, expire=expire, exist=exist)
 
-    def set_row(self, key: str, value: Any, **kwargs):
-        return self._target.set_row(key, value, **kwargs)
+    def set_raw(self, key: str, value: Any, **kwargs):
+        return self._target.set_raw(key, value, **kwargs)
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
         return self._target.get(key, default=default)
 
-    def get_row(self, key: str) -> Any:
-        return self._target.get_row(key)
+    def get_raw(self, key: str) -> Any:
+        return self._target.get_raw(key)
 
     def get_many(self, *keys: str) -> Tuple[Any]:
         return self._target.get_many(keys)
