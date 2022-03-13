@@ -239,9 +239,9 @@ async def test_early_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
-@pytest.mark.skip
-@pytest.mark.redis
 async def test_early_cache_parallel(backend):
+    if backend.name in ("redis", "diskcache"):
+        pytest.skip("fail in ci with slow redis or disk")
 
     mock = Mock()
 

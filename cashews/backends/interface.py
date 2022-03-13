@@ -65,6 +65,12 @@ class Backend:
     async def get_expire(self, key: str) -> int:
         ...
 
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+        ...
+
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+        ...
+
     async def get_size(self, key: str) -> int:
         """
         Return size in bites that allocated by a value for given key
@@ -160,6 +166,12 @@ class ProxyBackend(Backend):
 
     def get_expire(self, key: str) -> int:
         return self._target.get_expire(key)
+
+    def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+        return self._target.get_bits(key, *indexes, size=size)
+
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+        return self._target.incr_bits(key, *indexes, size=size, by=by)
 
     def ping(self, message: Optional[bytes] = None) -> str:
         if message is not None:

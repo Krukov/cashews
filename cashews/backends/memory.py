@@ -8,7 +8,7 @@ from .interface import Backend
 
 __all__ = "Memory"
 
-from ..utils import _get_obj_size
+from cashews.utils import Bitarray, get_obj_size
 
 _missed = object()
 
@@ -109,6 +109,24 @@ class Memory(Backend):
     async def ping(self, message: Optional[bytes] = None):
         return b"PONG" if message in (None, b"PING") else message
 
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+        array: Bitarray = self._get(key, default=Bitarray("0"))
+        result = []
+        for index in indexes:
+            result.append(array.get(index, size))
+        return tuple(result)
+
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+        array: Bitarray = self._get(key)
+        if array is None:
+            array = Bitarray("0")
+            self._set(key, array)
+        result = []
+        for index in indexes:
+            array.incr(index, size, by)
+            result.append(array.get(index, size))
+        return tuple(result)
+
     def _set(self, key: str, value: Any, expire: Optional[float] = None):
         expire = time.time() + expire if expire else None
         if expire is None and key in self.store:
@@ -149,7 +167,7 @@ class Memory(Backend):
 
     async def get_size(self, key: str) -> int:
         if key in self.store:
-            return _get_obj_size(self.store[key])
+            return get_obj_size(self.store[key])
         return 0
 
     def close(self):

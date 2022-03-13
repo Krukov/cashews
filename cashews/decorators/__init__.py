@@ -1,3 +1,4 @@
+from .bloom import bloom, dual_bloom  # noqa
 from .cache.defaults import NOT_NONE, CacheDetect, context_cache_detect  # noqa
 from .cache.early import early  # noqa
 from .cache.fail import failover, fast_condition  # noqa
