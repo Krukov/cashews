@@ -337,13 +337,17 @@ By default, Cashews will generate a key using the function name, module names an
 from cashews import cache
 
 @cache(ttl=timedelta(hours=3))
-async def get_name(user, version="v1"):
+async def get_name(user, *args, version="v1", **kwargs):
     ...
 
-# a key template will be "__module__.get_name:user:{user}:version:{version}"
+# a key template will be "__module__.get_name:user:{user}:{__args__}:version:{version}:{__kwargs__}"
 
 await get_name("me", version="v2") 
-# a key will be "__module__.get_name:user:me:version:v2"
+# a key will be "__module__.get_name:user:me::version:v2"
+await get_name("me", version="v1", foo="bar") 
+# a key will be "__module__.get_name:user:me::version:v1:foo:bar"
+await get_name("me", "opt", "attr", opt="opt", attr="attr")
+# a key will be "__module__.get_name:user:me:opt:attr:version:v1:attr:attr:opt:opt"
 ```
 
 The same with a class method

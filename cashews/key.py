@@ -1,19 +1,18 @@
 import inspect
 from datetime import timedelta
 from functools import lru_cache
-from itertools import chain
 from typing import Any, Callable, Container, Dict, Optional, Tuple, Union
 
 from ._typing import TTL
 from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
 
+_KWARGS = "__kwargs__"
+_ARGS = "__args__"
+_ARGS_KWARGS = (_ARGS, _KWARGS)
+
 
 class WrongKeyException(ValueError):
     """Raised If key template have wrong parameter"""
-
-
-class KeyTemplateRequired(Exception):
-    """Raised if function decorated without a key template and have *args, **kwargs in signature"""
 
 
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
@@ -55,15 +54,6 @@ def get_cache_key(
     args: Tuple[Any] = (),
     kwargs: Optional[Dict] = None,
 ) -> str:
-    return _get_cache_key(func, template, args, kwargs)
-
-
-def _get_cache_key(
-    func: Callable,
-    template: Optional[str] = None,
-    args: Tuple[Any] = (),
-    kwargs: Optional[Dict] = None,
-) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs
     if func_args is passed key build with parameters are included in func_args dict or tuple otherwise use all of them
@@ -74,7 +64,7 @@ def _get_cache_key(
     :return: cache key for call
     """
     kwargs = kwargs or {}
-    key_values = get_call_values(func, args, kwargs)
+    key_values = _get_call_values(func, args, kwargs)
     _key_template = template or get_cache_key_template(func)
     return template_to_pattern(_key_template, _formatter=default_formatter, **key_values)
 
@@ -82,10 +72,11 @@ def _get_cache_key(
 def get_func_params(func):
     signature = _get_func_signature(func)
     for param_name, param in signature.parameters.items():
-        if param.kind not in [
-            inspect.Parameter.VAR_KEYWORD,
-            inspect.Parameter.VAR_POSITIONAL,
-        ]:
+        if param.kind == inspect.Parameter.VAR_KEYWORD:
+            yield _KWARGS
+        elif param.kind == inspect.Parameter.VAR_POSITIONAL:
+            yield _ARGS
+        else:
             yield param_name
 
 
@@ -100,33 +91,36 @@ def get_cache_key_template(
     :param exclude_parameters: array of args and kwargs names to exclude from key template (if key parameter not passed)
     :return: cache key template
     """
-    func_params = list(get_func_params(func))
+
     if key is None:
-        if func_has_args_kwargs(func):
-            raise KeyTemplateRequired("Use key option for functions with *args **key")
-        name = [func.__module__, func.__name__]
-        if func_params and func_params[0] == "self":
-            name = [func.__module__, func.__qualname__]
-        params = {
-            param_name: "{" + param_name + "}" for param_name in func_params if param_name not in exclude_parameters
-        }
-        key = ":".join([*name, *chain(*params.items())])
+        key = generate_key_template(func, exclude_parameters)
     else:
-        _check_key_params(key, func_params)
+        _check_key_params(key, list(get_func_params(func)))
     if prefix:
         key = f"{prefix}:{key}"
     return key
 
 
-def func_has_args_kwargs(func) -> bool:
-    signature = _get_func_signature(func)
-    for param_name, param in signature.parameters.items():
-        if param.kind in [
-            inspect.Parameter.VAR_KEYWORD,
-            inspect.Parameter.VAR_POSITIONAL,
-        ]:
-            return True
-    return False
+def generate_key_template(func: Callable, exclude_parameters: Container = ()):
+    """
+    Generate template for function (:param func) called with args and kwargs
+    Used function module and name as prefix if key parameter not passed
+    :param func: Target function
+    :param exclude_parameters: array of args and kwargs names to exclude from key template (if key parameter not passed)
+    :return: cache key template
+    """
+    func_params = list(get_func_params(func))
+    key_template = f"{func.__module__}:{func.__name__}"
+    if func_params and func_params[0] == "self":
+        key_template = f"{func.__module__}:{func.__qualname__}"
+    for param_name in func_params:
+        if param_name in exclude_parameters:
+            continue
+        if param_name in _ARGS_KWARGS:
+            key_template += f":{{{param_name}}}"
+        else:
+            key_template += f":{param_name}:{{{param_name}}}"
+    return key_template
 
 
 class _Star:
@@ -162,7 +156,8 @@ def get_call_values(func: Callable, args, kwargs) -> Dict:
     """
     key_values = {}
     for _key, _value in _get_call_values(func, args, kwargs).items():
-        key_values[_key] = _value
+        if _key not in _ARGS_KWARGS:
+            key_values[_key] = _value
     return key_values
 
 
@@ -178,9 +173,10 @@ def _get_call_values(func, args, kwargs):
     for _name, _value in signature.arguments.items():
         parameter: inspect.Parameter = signature.signature.parameters[_name]
         if parameter.kind == inspect.Parameter.VAR_KEYWORD:
+            result[_KWARGS] = _value
             result.update(_value)
         elif parameter.kind == inspect.Parameter.VAR_POSITIONAL:
-            continue
+            result[_ARGS] = _value
         else:
             result[_name] = _value
     return result
