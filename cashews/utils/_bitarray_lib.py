@@ -32,12 +32,12 @@ class Bitarray:
 
     def incr(self, index: int, size: int = 1, by: int = 1):
         if by > 0:
-            by = min(by, 2 ** size - 1)
+            by = min(by, 2**size - 1)
         else:
-            by = max(by, -(2 ** size) - 1)
+            by = max(by, -(2**size) - 1)
         value = self.get(index, size)
         value += by
-        value = min(max(0, value), 2 ** size - 1)
+        value = min(max(0, value), 2**size - 1)
         self.set(index, value, size)
         return self
 

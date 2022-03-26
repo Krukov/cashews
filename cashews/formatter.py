@@ -3,7 +3,7 @@ import json
 import re
 from hashlib import md5, sha1, sha256
 from string import Formatter
-from typing import Callable, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple
 
 
 def _decode_bytes(value: bytes):
@@ -13,12 +13,31 @@ def _decode_bytes(value: bytes):
         return value.hex()
 
 
+def _get__decode_array(format_value):
+    def _decode_array(values: Iterable[str]) -> str:
+        return ":".join([format_value(value) for value in values])
+
+    return _decode_array
+
+
+def _get_decoded_dict(format_value):
+    def _decode_dict(value: dict):
+        return ":".join(f"{k}:{format_value(v)}" for k, v in sorted(value.items()))
+
+    return _decode_dict
+
+
 class _ReplaceFormatter(Formatter):
     def __init__(self, default=lambda field: "*"):
         self.__default = default
+        _decode_array = _get__decode_array(self._format_field)
         self.__type_format = {
             bool: lambda value: str(value).lower(),
             bytes: _decode_bytes,
+            tuple: _decode_array,
+            list: _decode_array,
+            set: _decode_array,
+            dict: _get_decoded_dict(self._format_field),
         }
         super().__init__()
 
@@ -38,17 +57,19 @@ class _ReplaceFormatter(Formatter):
         except (KeyError, AttributeError):
             return self.__default(field_name), None
 
-    def format_field(self, value, format_spec):
+    def _format_field(self, value):
         if value is None:
             return ""
         _type = type(value)
         if _type in self.__type_format:
-            value = self.__type_format[_type](value)
-        else:
-            for _type, func_format in self.__type_format.items():
-                if isinstance(value, _type):
-                    value = func_format(value)
-        return format(value)
+            return self.__type_format[_type](value)
+        for _type, func_format in self.__type_format.items():
+            if isinstance(value, _type):
+                return func_format(value)
+        return value
+
+    def format_field(self, value, format_spec):
+        return format(self._format_field(value))
 
 
 class _FuncFormatter(_ReplaceFormatter):

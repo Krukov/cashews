@@ -300,5 +300,5 @@ def _count_m(n, p=0.1):
 
 def _count_probability(n, m, k):
     ev = -(k * n / m)
-    ome = 1 - math.e ** ev
+    ome = 1 - math.e**ev
     return math.pow(ome, k)
