@@ -338,6 +338,27 @@ class Cache(Backend):
             prefix=prefix,
         )
 
+    def soft(
+        self,
+        ttl: TTL,
+        key: Optional[str] = None,
+        soft_ttl: Optional[TTL] = None,
+        exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+        condition: CacheCondition = None,
+        prefix: str = "soft",
+        upper: bool = False,
+    ):
+        return self._wrap_on(
+            decorators.soft,
+            upper,
+            ttl=ttl_to_seconds(ttl),
+            key=key,
+            soft_ttl=ttl_to_seconds(soft_ttl),
+            exceptions=exceptions,
+            condition=condition,
+            prefix=prefix,
+        )
+
     def hit(
         self,
         ttl: TTL,

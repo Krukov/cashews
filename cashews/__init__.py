@@ -21,6 +21,7 @@ rate_limit = cache.rate_limit
 failover = cache.failover
 circuit_breaker = cache.circuit_breaker
 early = cache.early
+soft = cache.soft
 hit = cache.hit
 dynamic = cache.dynamic
 locked = cache.locked

@@ -80,6 +80,7 @@ async def test_disable_decorators(cache: Cache, target):
     data = (i for i in range(10))
 
     @cache(ttl=1)
+    @cache.soft(ttl=1)
     @cache.failover(ttl=1)
     @cache.hit(ttl=1, cache_hits=1)
     @cache.circuit_breaker(ttl=1, errors_rate=1, period=1)
