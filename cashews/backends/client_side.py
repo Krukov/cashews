@@ -138,7 +138,7 @@ class BcastClientSide(Redis):
         return default
 
     async def set(self, key: str, value, *args, **kwargs):
-        if await self._local_cache.get(key) == value:
+        if await self._local_cache.get(key, default=_empty) == value:
             # If value in current client_cache - skip resetting
             return 0
         await self._local_cache.set(key, value, *args, **kwargs)  # not async by the way
