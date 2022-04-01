@@ -239,6 +239,53 @@ async def test_early_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
+async def test_soft_cache_simple(backend):
+    mock = Mock()
+
+    @decorators.soft(backend, ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
+    async def func(resp=b"ok"):
+        mock()
+        return resp
+
+    assert await func() == b"ok"
+    assert mock.call_count == 1
+
+    await asyncio.sleep(0)
+    assert await func(b"notok") == b"ok"
+    assert mock.call_count == 1
+
+    await asyncio.sleep(EXPIRE * 1.1)
+    assert await func(b"notok") == b"notok"
+    assert mock.call_count == 2
+
+
+async def test_soft_cache_on_exc(backend):
+    mock = Mock()
+
+    @decorators.soft(backend, ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
+    async def func(resp=b"ok"):
+        if resp == b"notok":
+            raise ValueError()
+        mock()
+        return resp
+
+    assert await func() == b"ok"
+    assert mock.call_count == 1
+
+    await asyncio.sleep(0)
+    assert await func(b"notok") == b"ok"
+    assert mock.call_count == 1
+
+    await asyncio.sleep(EXPIRE * 1.1)
+
+    assert await func(b"notok") == b"ok"
+    assert mock.call_count == 1
+
+    await asyncio.sleep(EXPIRE * 3)
+    with pytest.raises(ValueError):
+        await func(b"notok")
+
+
 async def test_early_cache_parallel(backend):
     if backend.name in ("redis", "diskcache"):
         pytest.skip("fail in ci with slow redis or disk")

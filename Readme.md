@@ -199,6 +199,7 @@ await cache.unlock("key", "value")  # -> bool
 - [Fail cache (Failover cache)](#fail-cache-failover-cache)
 - [Hit cache](#hit-cache)
 - [Early](#early)
+- [Soft](#soft)
 - [Locked](#locked)
 - [Rate limit](#rate-limit)
 - [Circuit breaker](#circuit-breaker)
@@ -264,6 +265,24 @@ async def get(name):
     value = await api_call()
     return {"status": value}
 ```
+
+
+#### Soft
+
+Like a simple cache, but with a fail protection base on soft ttl.
+
+```python
+from cashews import cache
+
+# if you call this function after 7 min, cache will be updated and return a new result.
+# If it fail on recalculation will return current cached value (if it not more then 10 min old)
+@cache.soft(ttl="10m", soft_ttl="7m")  
+async def get(name):
+    value = await api_call()
+    return {"status": value}
+```
+
+
 
 
 #### Locked
