@@ -36,6 +36,22 @@ async def test_set_get_bcast(create_cache):
     assert await caches.get("key") is None
 
 
+async def test_set_none_bcast(create_cache):
+    cachef_local = Memory()
+    cachef = await create_cache(cachef_local)
+    caches_local = Memory()
+    caches = await create_cache(caches_local)
+
+    await cachef.set("key", None, expire=0.1)
+    await asyncio.sleep(0.01)  # skip init signal about invalidation
+    assert await cachef_local.exists("key")
+    assert await cachef.exists("key")
+
+    assert await caches.get("key") is None
+    assert await caches.exists("key")
+    assert await caches_local.exists("key")
+
+
 async def test_del_bcast(create_cache):
     cachef_local = Memory()
     cachef = await create_cache(cachef_local)
