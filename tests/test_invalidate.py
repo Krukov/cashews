@@ -61,6 +61,24 @@ async def test_invalidate_decor(cache: Cache):
     assert first_call != await func("test")
 
 
+async def test_invalidate_decor_str(cache: Cache):
+    @cache(ttl=1, key="key:{arg}")
+    async def func(arg):
+        return random.random()
+
+    @cache.invalidate("key:{arg}")
+    async def func2(arg, default=True):
+        return random.random()
+
+    first_call = await func("test")
+    await asyncio.sleep(0)
+
+    assert first_call == await func("test")
+    await func2("test")
+    await asyncio.sleep(0)
+    assert first_call != await func("test")
+
+
 async def test_invalidate_decor_complicate(cache: Cache):
     @cache(ttl=1, key="arg-{arg}:{key}:{flag}")
     async def func(arg, key=b"test", flag=True, **kwargs):

@@ -36,9 +36,8 @@ def invalidate(
             if callable(target):
                 asyncio.create_task(invalidate_func(backend, target, _args))
             else:
-                asyncio.create_task(
-                    backend.delete_match(target.format({k: str(v) if v is not None else "" for k, v in _args.items()}))
-                )
+                key = target.format(**{k: str(v) if v is not None else "" for k, v in _args.items()})
+                asyncio.create_task(backend.delete_match(key))
             return result
 
         return _wrap
