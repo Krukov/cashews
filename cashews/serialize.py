@@ -47,14 +47,15 @@ class PickleSerializerMixin:
             return value
         if value.isdigit():
             return int(value)
-        try:
-            sign, value = value.split(b"_", 1)
-        except ValueError:
-            return value
-        sign, digestmod = self._get_digestmod(sign)
-        expected_sign = self.get_sign(key, value, digestmod)
-        if expected_sign != sign:
-            raise UnSecureDataError()
+        if self._hash_key:
+            try:
+                sign, value = value.split(b"_", 1)
+            except ValueError:
+                return value
+            sign, digestmod = self._get_digestmod(sign)
+            expected_sign = self.get_sign(key, value, digestmod)
+            if expected_sign != sign:
+                raise UnSecureDataError()
         value = pickle.loads(value, fix_imports=False, encoding="bytes")
         if self._check_repr:
             repr(value)
@@ -85,7 +86,8 @@ class PickleSerializerMixin:
         if isinstance(value, int) and not isinstance(value, bool):
             return await super().set(key, value, *args, **kwargs)
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)
-        sign = self.get_sign(key, value, self._digestmod)
+        if not (sign := self.get_sign(key, value, self._digestmod)):
+            return await super().set(key, value, *args, **kwargs)
         return await super().set(key, self._digestmod + b":" + sign + b"_" + value, *args, **kwargs)
 
     def set_raw(self, *args, **kwargs):
