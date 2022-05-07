@@ -171,6 +171,14 @@ class _Redis(Backend):
         if keys:
             return await self._client.unlink(keys[0], *keys[1:])
 
+    async def get_match(self, pattern: str):
+        keys = []
+        async for key in self.keys_match(pattern):
+            keys.append(key.decode())
+        values = await self.get_many(*keys)
+        for key, value in zip(keys, values):
+            yield key, value
+
     async def get_size(self, key: str) -> int:
         if AIOREDIS_IS_VERSION_1:
             size = await self._client.execute(b"MEMORY", b"USAGE", key)
