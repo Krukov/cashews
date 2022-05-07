@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import AsyncGenerator
 from contextlib import contextmanager
 from functools import partial, wraps
 from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
@@ -163,7 +164,11 @@ class Cache(Backend):
     def get_raw(self, key: str) -> Any:
         return self._with_middlewares("get_raw", key)(key=key)
 
-    async def keys_match(self, pattern: str):
+    async def keys_match(self, pattern: str, *, decode: bool = False) -> AsyncGenerator[str | bytes, None]:
+        """
+        :param decode: convert keys from bytes to strings to be consistent with "Memory" and
+            "Diskcache" backends because "Redis" `SCAN` returns keys as bytes by default
+        """
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(_pattern):
@@ -171,8 +176,13 @@ class Cache(Backend):
 
         for middleware in middlewares:
             call = partial(middleware, call, cmd="keys_match", backend=backend)
-        async for key in (await call(pattern)):
-            yield key
+
+        if decode and isinstance(backend, Redis):
+            async for key in (await call(pattern)):
+                yield str(key)
+        else:
+            async for key in (await call(pattern)):
+                yield key
 
     def get_many(self, *keys: str):
         return self._with_middlewares("get_many", keys[0])(*keys)
