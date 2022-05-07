@@ -179,7 +179,7 @@ class Cache(Backend):
 
         if decode and isinstance(backend, Redis):
             async for key in (await call(pattern)):
-                yield str(key)
+                yield key.decode()
         else:
             async for key in (await call(pattern)):
                 yield key
