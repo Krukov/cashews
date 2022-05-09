@@ -82,10 +82,10 @@ def test_cache_func_key_dict():
             "tests.test_key:func:arg1:A1:arg2:a2:a3:kwarg1:k1:kwarg2:true:kwarg0:true",
         ),
         (
-            ("A1", "a2", "b", "a"),
-            {"kwarg1": "k1", "e": True, "d": "test"},
+            ("A1", "a2", "b", True, 1, 1.2, ("a", 1, 1.2)),
+            {"kwarg1": "k1", "e": True, "d": 1},
             "{__args__}:{__kwargs__}",
-            "b:a:d:test:e:true",
+            "b:true:1:1.2:a:1:1.2:d:1:e:true",
         ),
         (
             (b"a1", "a2", "a3"),
