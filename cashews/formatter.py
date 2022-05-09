@@ -13,7 +13,7 @@ def _decode_bytes(value: bytes):
         return value.hex()
 
 
-def _get__decode_array(format_value):
+def _get_decode_array(format_value):
     def _decode_array(values: Iterable[str]) -> str:
         return ":".join([format_value(value) for value in values])
 
@@ -30,7 +30,7 @@ def _get_decoded_dict(format_value):
 class _ReplaceFormatter(Formatter):
     def __init__(self, default=lambda field: "*"):
         self.__default = default
-        _decode_array = _get__decode_array(self._format_field)
+        _decode_array = _get_decode_array(self._format_field)
         self.__type_format = {
             bool: lambda value: str(value).lower(),
             bytes: _decode_bytes,
@@ -66,7 +66,7 @@ class _ReplaceFormatter(Formatter):
         for _type, func_format in self.__type_format.items():
             if isinstance(value, _type):
                 return func_format(value)
-        return value
+        return str(value)
 
     def format_field(self, value, format_spec):
         return format(self._format_field(value))
