@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, AsyncIterator, List
 
 from ..interface import Backend
 from .client import SafeRedis
@@ -155,10 +155,14 @@ class _Redis(Backend):
     async def exists(self, key) -> bool:
         return bool(await self._client.exists(key))
 
-    async def keys_match(self, pattern: str):
+    async def _scan(self, pattern: str, count=100) -> AsyncIterator[List[bytes]]:
         cursor = b"0"
         while cursor:
-            cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
+            cursor, keys = await self._client.scan(cursor, match=pattern, count=count)
+            yield keys
+
+    async def keys_match(self, pattern: str):
+        async for keys in self._scan(pattern):
             for key in keys:
                 yield key
 
@@ -172,12 +176,11 @@ class _Redis(Backend):
             return await self._client.unlink(keys[0], *keys[1:])
 
     async def get_match(self, pattern: str):
-        keys = []
-        async for key in self.keys_match(pattern):
-            keys.append(key.decode())
-        values = await self.get_many(*keys)
-        for key, value in zip(keys, values):
-            yield key, value
+        async for keys in self._scan(pattern):
+            keys = [key.decode() for key in keys]
+            values = await self.get_many(*keys)
+            for key, value in zip(keys, values):
+                yield key, value
 
     async def get_size(self, key: str) -> int:
         if AIOREDIS_IS_VERSION_1:
