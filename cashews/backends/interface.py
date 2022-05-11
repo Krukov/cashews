@@ -59,7 +59,7 @@ class Backend:
     async def delete_match(self, pattern: str):
         ...
 
-    async def get_match(self, pattern: str):
+    async def get_match(self, pattern: str, count: int = 100):
         ...
 
     async def expire(self, key: str, timeout: Union[float, int]):
@@ -152,8 +152,8 @@ class ProxyBackend(Backend):
     def get_many(self, *keys: str) -> Tuple[Any]:
         return self._target.get_many(keys)
 
-    def get_match(self, pattern: str):
-        return self._target.get_match(pattern)
+    def get_match(self, pattern: str, count: int = 100):
+        return self._target.get_match(pattern, count)
 
     def exists(self, key):
         return self._target.exists(key)

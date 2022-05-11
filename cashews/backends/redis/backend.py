@@ -175,8 +175,8 @@ class _Redis(Backend):
         if keys:
             return await self._client.unlink(keys[0], *keys[1:])
 
-    async def get_match(self, pattern: str):
-        async for keys in self._scan(pattern):
+    async def get_match(self, pattern: str, count: int = 100):
+        async for keys in self._scan(pattern, count):
             if not keys:
                 continue
             keys = [key.decode() for key in keys]
