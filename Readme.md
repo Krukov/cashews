@@ -625,3 +625,26 @@ async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
 
 cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
+
+
+## Development
+
+### Tests
+To run tests you can use `tox`:
+```shell
+pip install tox
+tox -e py  // tests for inmemory backend 
+tox -e py-diskcache  // tests for diskcache backend 
+tox -e py-redis  // tests for redis backend  - you need to run redis 
+tox -e py-integration  // tests for integrations with aiohttp and fastapi 
+
+tox // to run all tests for all python that is installed on your machine
+```
+
+Or use `pytest`, but 2 tests always fail, it is OK:
+```shell
+pip install .[tests,redis,diskcache,speedup] fastapi aiohttp requests
+
+pytest // run all tests with all backends   
+pytest -m "not redis" // all tests without tests for redis backend
+```
