@@ -177,6 +177,8 @@ class _Redis(Backend):
 
     async def get_match(self, pattern: str):
         async for keys in self._scan(pattern):
+            if not keys:
+                continue
             keys = [key.decode() for key in keys]
             values = await self.get_many(*keys)
             for key, value in zip(keys, values):

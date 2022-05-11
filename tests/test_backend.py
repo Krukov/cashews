@@ -174,6 +174,8 @@ async def test_get_match(cache: Backend):
         "pref:-:test": b"-",
         "pref:*:test": b"*",
     }
+    match = [(key, value) async for key, value in cache.get_match("not_exists:*")]
+    assert len(match) == 0
 
 
 async def test_get_size(cache: Backend):
