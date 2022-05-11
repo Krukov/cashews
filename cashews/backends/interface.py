@@ -59,7 +59,7 @@ class Backend:
     async def delete_match(self, pattern: str):
         ...
 
-    async def get_match(self, pattern: str, count: int = 100):
+    async def get_match(self, pattern: str, batch_size: int = 100):
         ...
 
     async def expire(self, key: str, timeout: Union[float, int]):
