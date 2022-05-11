@@ -124,6 +124,11 @@ class DiskCache(Backend):
         for key in self._keys_match(pattern):
             self._cache.delete(key)
 
+    async def get_match(self, pattern: str, count: int = None):
+        if not self._sharded:
+            for key in await self._run_in_executor(self._keys_match, pattern):
+                yield key, self._cache.get(key)
+
     async def expire(self, key: str, timeout: Union[float, int]):
         return await self._run_in_executor(self._cache.touch, key, timeout)
 
