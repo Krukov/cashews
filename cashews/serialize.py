@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import pickle
+from contextlib import suppress
 from typing import Union
 
 BLANK_DIGEST = b""
@@ -40,13 +41,7 @@ class PickleSerializerMixin:
             await super().delete(key)
             return default
 
-    def _process_value(self, value: Union[bytes, None, int, str], key, default=None):
-        if value is None:
-            return default
-        if isinstance(value, int):
-            return value
-        if value.isdigit():
-            return int(value)
+    def _get_value_without_signature(self, value: bytes, key: str) -> bytes:
         if self._hash_key:
             try:
                 sign, value = value.split(b"_", 1)
@@ -56,6 +51,24 @@ class PickleSerializerMixin:
             expected_sign = self.get_sign(key, value, digestmod)
             if expected_sign != sign:
                 raise UnSecureDataError()
+        else:
+            # Backward compatibility.
+            DeprecationWarning(
+                'If a sign is not used, then a underscore "_" separator will not be prepended to a value before saving it. '
+                'Values saved via 4.x package version without using a sign will not be compatible after the 5.x release.'
+            )
+            with suppress(ValueError):
+                _, value = value.split(b"_", 1)
+            return value
+
+    def _process_value(self, value: Union[bytes, None, int, str], key, default=None):
+        if value is None:
+            return default
+        if isinstance(value, int):
+            return value
+        if value.isdigit():
+            return int(value)
+        value = self._get_value_without_signature(value, key)
         value = pickle.loads(value, fix_imports=False, encoding="bytes")
         if self._check_repr:
             repr(value)
