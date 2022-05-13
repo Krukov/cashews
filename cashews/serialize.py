@@ -51,10 +51,11 @@ class PickleSerializerMixin:
             expected_sign = self.get_sign(key, value, digestmod)
             if expected_sign != sign:
                 raise UnSecureDataError()
+            return value
         else:
             # Backward compatibility.
             DeprecationWarning(
-                'If a sign is not used, then a underscore "_" separator will not be prepended to a value before saving it. '
+                'If a sign is not used to secure your data, then a value will be pickled and saved without an empty sign prepended.'
                 'Values saved via 4.x package version without using a sign will not be compatible after the 5.x release.'
             )
             with suppress(ValueError):
