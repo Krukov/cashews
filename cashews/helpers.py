@@ -8,7 +8,7 @@ def add_prefix(prefix: str):
             return await call(*[prefix + key for key in args])
         call_values = get_call_values(call, args, kwargs)
         as_key = "key"
-        if cmd in ["delete_match", "keys_match"]:
+        if cmd in ["delete_match", "get_match", "keys_match"]:
             as_key = "pattern"
         key = call_values.get(as_key)
         if key:

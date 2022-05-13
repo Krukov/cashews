@@ -92,6 +92,10 @@ class Memory(Backend):
         async for key in self.keys_match(pattern):
             self._delete(key)
 
+    async def get_match(self, pattern: str, count: int = None):
+        async for key in self.keys_match(pattern):
+            yield key, self._get(key)
+
     async def expire(self, key: str, timeout: float):
         if not self._key_exist(key):
             return
