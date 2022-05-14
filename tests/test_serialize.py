@@ -22,18 +22,13 @@ class TestPickleSerializerMixin:
     @pytest.mark.parametrize(
         ("key", "value", "value_has_empty_sign", "value_has_valid_sign"),
         [
-            (
-                "without sign and without underscore separator",
-                b"spam eggs",
-                False,
-                True,
-            ),
+            ("without sign and without underscore separator", b"spam eggs", False, True),
             (
                 "with sign as an empty string and with underscore separator",
-                b"_spam eggs",
+                b"_spam eggs",  # Check backward compatibility: when `hash_key` was not used.
                 True,
                 False,
-            ),  # Check backward compatibility: when `hash_key` was not used.
+            ),
             (
                 "with sign and with underscore separator (we will add a sign further)",
                 b"md5:1be3de820fe0787d13dbc668f1f9fd18_spam eggs",
@@ -60,7 +55,4 @@ class TestPickleSerializerMixin:
                 ctx = pytest.raises(SignIsMissingError, match=key)
 
         with ctx:
-            assert (
-                pickle_serializer_mixin._split_value_from_signature(value, key)
-                == b"spam eggs"
-            )
+            assert pickle_serializer_mixin._split_value_from_signature(value, key) == b"spam eggs"
