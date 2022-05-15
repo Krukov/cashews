@@ -27,8 +27,10 @@ https://redis.io/topics/client-side-caching
 import asyncio
 import logging
 
+from redis.exceptions import ConnectionError as RedisConnectionError
+
 from .memory import Memory
-from .redis import Redis, RedisConnectionError
+from .redis import Redis
 
 _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
