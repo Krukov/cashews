@@ -1,10 +1,9 @@
 _AIOREDIS_VERSION_1 = "1"
 try:
-    from aioredis import BlockingConnectionPool
-    from aioredis import ConnectionError as RedisConnectionError
-    from aioredis import Redis
+    from redis.asyncio import BlockingConnectionPool, Redis
+    from redis.exceptions import ConnectionError as RedisConnectionError
 
-    _AIOREDIS = "2"
+    _AIOREDIS = "2"  # Technically, not "aioredis" anymore (just "redis"). Keep this name as long as we support "aioredis".
 
 except ImportError:
     from aioredis import Redis

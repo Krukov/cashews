@@ -6,7 +6,8 @@
 
 ```bash
 pip install cashews
-pip install cashews[redis]
+pip install cashews[redis]  # Aioredis is now in redis-py 4.2.0rc1+ 
+pip install cashews[aioredis]  # Please install "redis" instead, unless you must support "aioredis 1.0" 
 pip install cashews[diskcache]
 pip install cashews[speedup] # for bloom filters
 ```
@@ -24,14 +25,14 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Easy to configure and use
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
-- Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
+- Support for multiple storage backends ("In-memory", "Redis", "DiskCache")
 - Set ttl with string (2h5m) or with `timedelta`
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
 - Different cache invalidation techniques (time-based and function-call based)
-- Cache any objects securely with pickle (use [hash key](#redis))
-- 2x faster then `aiocache`
+- Cache any objects securely with pickle (use `hash_key`)
+- 2x faster then "aiocache"
 
 ## Usage Example
 
@@ -117,7 +118,8 @@ cache.setup("mem://?check_interval=10&size=10000")
 
 #### Redis
 
-*Requires [aioredis](https://github.com/aio-libs/aioredis) package.*
+*Requires [redis](https://github.com/redis/redis-py) package.*\
+*Note: If you must support a legacy code that still uses `aioredis=1.0`, then install [aioredis](https://github.com/aio-libs/aioredis-py) instead.*
 
 This will use Redis as a storage.
 
