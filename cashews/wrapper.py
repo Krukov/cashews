@@ -12,7 +12,10 @@ from .disable_control import ControlMixin, _is_disable_middleware
 from .key import ttl_to_seconds
 
 try:
-    import aioredis
+    try:
+        from redis import asyncio as aioredis
+    except ImportError:
+        import aioredis
 except ImportError:
     BcastClientSide, IndexRedis, Redis = None, None, None
 else:
