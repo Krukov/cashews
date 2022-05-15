@@ -3,12 +3,11 @@ import logging
 import socket
 
 try:
-    from redis.asyncio import BlockingConnectionPool, Redis
+    from redis.asyncio import Redis
     from redis.exceptions import ConnectionError as RedisConnectionError
 except ImportError:
     from aioredis import Redis
     from aioredis import RedisError as RedisConnectionError
-    from aioredis import create_pool as BlockingConnectionPool
 
 
 logger = logging.getLogger(__name__)

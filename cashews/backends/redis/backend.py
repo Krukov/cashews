@@ -6,10 +6,8 @@ from .client import SafeRedis
 
 try:
     from redis.asyncio import BlockingConnectionPool, Redis
-    from redis.exceptions import ConnectionError as RedisConnectionError
 except ImportError:
     from aioredis import Redis
-    from aioredis import RedisError as RedisConnectionError
     from aioredis import create_pool as BlockingConnectionPool
 
 
