@@ -8,7 +8,7 @@ try:
     from redis.asyncio import BlockingConnectionPool, Redis
 except ImportError:
     from aioredis import Redis
-    from aioredis import create_pool as BlockingConnectionPool
+    from aioredis import BlockingConnectionPool
 
 
 _UNLOCK = """
