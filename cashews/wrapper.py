@@ -177,6 +177,17 @@ class Cache(Backend):
         async for key in (await call(pattern)):
             yield key
 
+    async def get_match(self, pattern: str, batch_size: int = 100):
+        backend, middlewares = self._get_backend_and_config(pattern)
+
+        async def call(_pattern, _batch_size):
+            return backend.get_match(_pattern, batch_size=_batch_size)
+
+        for middleware in middlewares:
+            call = partial(middleware, call, cmd="get_match", backend=backend)
+        async for key, value in (await call(pattern, batch_size)):
+            yield key, value
+
     def get_many(self, *keys: str):
         return self._with_middlewares("get_many", keys[0])(*keys)
 

@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import pickle
+from contextlib import suppress
 from typing import Union
 
 BLANK_DIGEST = b""
@@ -8,6 +9,10 @@ BLANK_DIGEST = b""
 
 class UnSecureDataError(Exception):
     pass
+
+
+class SignIsMissingError(Exception):
+    ...
 
 
 class PickleSerializerMixin:
@@ -40,6 +45,27 @@ class PickleSerializerMixin:
             await super().delete(key)
             return default
 
+    def _split_value_from_signature(self, value: bytes, key: str) -> bytes:
+        if self._hash_key:
+            try:
+                sign, value = value.split(b"_", 1)
+            except ValueError:
+                raise SignIsMissingError(f"key: {key}")
+            sign, digestmod = self._get_digestmod(sign)
+            expected_sign = self.get_sign(key, value, digestmod)
+            if expected_sign != sign:
+                raise UnSecureDataError(f"{expected_sign!r} != {sign!r}")
+            return value
+        else:
+            # Backward compatibility.
+            DeprecationWarning(
+                "If a sign is not used to secure your data, then a value will be pickled and saved without an empty sign prepended."
+                "Values saved via 4.x package version without using a sign will not be compatible after the 5.x release."
+            )
+            with suppress(ValueError):
+                _, value = value.split(b"_", 1)
+            return value
+
     def _process_value(self, value: Union[bytes, None, int, str], key, default=None):
         if value is None:
             return default
@@ -48,13 +74,9 @@ class PickleSerializerMixin:
         if value.isdigit():
             return int(value)
         try:
-            sign, value = value.split(b"_", 1)
-        except ValueError:
+            value = self._split_value_from_signature(value, key)
+        except SignIsMissingError:
             return value
-        sign, digestmod = self._get_digestmod(sign)
-        expected_sign = self.get_sign(key, value, digestmod)
-        if expected_sign != sign:
-            raise UnSecureDataError()
         value = pickle.loads(value, fix_imports=False, encoding="bytes")
         if self._check_repr:
             repr(value)
@@ -81,12 +103,17 @@ class PickleSerializerMixin:
             raise UnSecureDataError()
         return sign, digestmod
 
+    def _prepend_sign_to_value(self, key: str, value: bytes) -> bytes:
+        sign = self.get_sign(key, value, self._digestmod)
+        if not sign:
+            return value
+        return self._digestmod + b":" + sign + b"_" + value
+
     async def set(self, key: str, value, *args, **kwargs):
         if isinstance(value, int) and not isinstance(value, bool):
             return await super().set(key, value, *args, **kwargs)
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)
-        sign = self.get_sign(key, value, self._digestmod)
-        return await super().set(key, self._digestmod + b":" + sign + b"_" + value, *args, **kwargs)
+        return await super().set(key, self._prepend_sign_to_value(key, value), *args, **kwargs)
 
     def set_raw(self, *args, **kwargs):
         return super().set(*args, **kwargs)

@@ -154,7 +154,7 @@ Also, it is good choice for client side local storage.
 
 You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache) 
 
-** Warning ** `cache.keys_match` does not work with this storage (works only if shards are disabled)
+** Warning ** `cache.keys_match` and `cache.get_match` does not work with this storage (works only if shards are disabled)
 
 ```python
 cache.setup("disk://")
@@ -184,6 +184,9 @@ await cache.delete("key")
 await cache.delete_match("pattern:*")
 async for key in cache.keys_match("pattern:*"):
     ...
+async for key, value in cache.get_match("pattern:*", batch_size=100):
+    ...
+
 await cache.expire("key", timeout=10)
 await cache.get_expire("key")  # -> int seconds to expire
 await cache.ping(message=None)  # -> bytes

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Optional, Union, AsyncIterator, List
+from typing import Any, AsyncIterator, List, Optional, Union
 
 from ..interface import Backend
 from .client import SafeRedis
@@ -155,10 +155,10 @@ class _Redis(Backend):
     async def exists(self, key) -> bool:
         return bool(await self._client.exists(key))
 
-    async def _scan(self, pattern: str, count=100) -> AsyncIterator[List[bytes]]:
+    async def _scan(self, pattern: str, batch_size=100) -> AsyncIterator[List[bytes]]:
         cursor = b"0"
         while cursor:
-            cursor, keys = await self._client.scan(cursor, match=pattern, count=count)
+            cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
             yield keys
 
     async def keys_match(self, pattern: str):
@@ -175,8 +175,8 @@ class _Redis(Backend):
         if keys:
             return await self._client.unlink(keys[0], *keys[1:])
 
-    async def get_match(self, pattern: str, count: int = 100):
-        async for keys in self._scan(pattern, count):
+    async def get_match(self, pattern: str, batch_size: int = 100):
+        async for keys in self._scan(pattern, batch_size):
             if not keys:
                 continue
             keys = [key.decode() for key in keys]
