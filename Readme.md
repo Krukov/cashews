@@ -119,7 +119,7 @@ cache.setup("mem://?check_interval=10&size=10000")
 #### Redis
 
 *Requires [redis](https://github.com/redis/redis-py) package.*\
-*Note: If you must support a legacy code that still uses `aioredis=1.0`, then install [aioredis](https://github.com/aio-libs/aioredis-py) instead.*
+*Note: If you must support a legacy code that uses `aioredis`, then install [aioredis](https://github.com/aio-libs/aioredis-py) instead.*
 
 This will use Redis as a storage.
 
