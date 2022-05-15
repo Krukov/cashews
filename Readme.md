@@ -7,7 +7,7 @@
 ```bash
 pip install cashews
 pip install cashews[redis]  # Aioredis is now in redis-py 4.2.0rc1+ 
-pip install cashews[aioredis]  # Please install "redis" instead, unless you must support "aioredis 1.0" 
+pip install cashews[aioredis]  # Please install "redis" instead, unless you must maintain a legacy code.
 pip install cashews[diskcache]
 pip install cashews[speedup] # for bloom filters
 ```

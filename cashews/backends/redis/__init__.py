@@ -1,8 +1,7 @@
 from ...serialize import PickleSerializerMixin
-from .backend import _Redis
-from .compat import AIOREDIS_IS_VERSION_1
+from .backend import _Redis, RedisConnectionError
 
-__all__ = ("Redis",)
+__all__ = ("Redis", "RedisConnectionError")
 
 
 class Redis(PickleSerializerMixin, _Redis):
