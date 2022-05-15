@@ -31,8 +31,8 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
 - Different cache invalidation techniques (time-based and function-call based)
-- Cache any objects securely with pickle (use `hash_key`)
-- 2x faster then "aiocache"
+- Cache any objects securely with pickle (use [hash key](#redis))
+- 2x faster then `aiocache`
 
 ## Usage Example
 
