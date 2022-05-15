@@ -25,7 +25,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Easy to configure and use
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
-- Support for multiple storage backends ("In-memory", "Redis", "DiskCache")
+- Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
 - Set ttl with string (2h5m) or with `timedelta`
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
