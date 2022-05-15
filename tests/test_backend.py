@@ -182,7 +182,7 @@ async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
     assert await cache.get_size("test") in (
         sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),
-        68,
+        66,
         -1,
     )  # 106 - ordered dict,  68 redis, -1 for diskcache
 
