@@ -27,7 +27,10 @@ https://redis.io/topics/client-side-caching
 import asyncio
 import logging
 
-from redis.exceptions import ConnectionError as RedisConnectionError
+try:
+    from redis.exceptions import ConnectionError as RedisConnectionError
+except ImportError:
+    from aioredis import RedisError as RedisConnectionError
 
 from .memory import Memory
 from .redis import Redis
