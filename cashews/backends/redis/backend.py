@@ -7,8 +7,7 @@ from .client import SafeRedis
 try:
     from redis.asyncio import BlockingConnectionPool, Redis
 except ImportError:
-    from aioredis import Redis
-    from aioredis import BlockingConnectionPool
+    from aioredis import BlockingConnectionPool, Redis
 
 
 _UNLOCK = """
