@@ -27,11 +27,13 @@ https://redis.io/topics/client-side-caching
 import asyncio
 import logging
 
+try:
+    from redis.exceptions import ConnectionError as RedisConnectionError
+except ImportError:
+    from aioredis import RedisError as RedisConnectionError
+
 from .memory import Memory
 from .redis import Redis
-from .redis.compat import AIOREDIS_IS_VERSION_1
-from .redis.compat import Redis as _Redis
-from .redis.compat import RedisConnectionError
 
 _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
@@ -77,55 +79,27 @@ class BcastClientSide(Redis):
                 await self._local_cache.clear()
                 await asyncio.sleep(_RECONNECT_WAIT)
 
-    if AIOREDIS_IS_VERSION_1:
+    async def _get_channel(self):
+        async with self._client.client() as conn:
+            client_id = await conn.execute_command(b"CLIENT", b"ID")
+            await conn.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
+        pubsub = self._client.pubsub()
+        await pubsub.subscribe(_REDIS_INVALIDATE_CHAN)
+        return pubsub
 
-        async def _get_channel(self):
-            conn = await self._client.connection.acquire()
-            conn = _Redis(conn)
-            client_id = await conn.execute(b"CLIENT", b"ID")
-            await conn.execute(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
-            channel, *_ = await conn.subscribe(_REDIS_INVALIDATE_CHAN)
-            return channel
-
-        async def _listen_invalidate(self):
-            channel = await self._get_channel()
-            await self._local_cache.clear()
-            while await channel.wait_message():
-                message = await channel.get()
-                if message is None:
-                    continue
-                key, *_ = message
-                if key == b"\x00":
-                    continue
-                key = key.decode().lstrip(self._prefix)
-                if not await self._recently_update.get(key):
-                    await self._local_cache.delete(key)
-                else:
-                    await self._recently_update.delete(key)
-
-    else:
-
-        async def _get_channel(self):
-            async with self._client.client() as conn:
-                client_id = await conn.execute_command(b"CLIENT", b"ID")
-                await conn.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
-            pubsub = self._client.pubsub()
-            await pubsub.subscribe(_REDIS_INVALIDATE_CHAN)
-            return pubsub
-
-        async def _listen_invalidate(self):
-            channel = await self._get_channel()
-            await self._local_cache.clear()
-            while True:
-                message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
-                if message is None or not message.get("data"):
-                    continue
-                key = message["data"][0]
-                key = key.decode().lstrip(self._prefix)
-                if not await self._recently_update.get(key):
-                    await self._local_cache.delete(key)
-                else:
-                    await self._recently_update.delete(key)
+    async def _listen_invalidate(self):
+        channel = await self._get_channel()
+        await self._local_cache.clear()
+        while True:
+            message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
+            if message is None or not message.get("data"):
+                continue
+            key = message["data"][0]
+            key = key.decode().lstrip(self._prefix)
+            if not await self._recently_update.get(key):
+                await self._local_cache.delete(key)
+            else:
+                await self._recently_update.delete(key)
 
     async def get(self, key: str, default=None):
         value = await self._local_cache.get(key, default=_empty)

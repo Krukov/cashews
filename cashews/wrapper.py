@@ -12,7 +12,10 @@ from .disable_control import ControlMixin, _is_disable_middleware
 from .key import ttl_to_seconds
 
 try:
-    import aioredis
+    try:
+        from redis import asyncio as aioredis
+    except ImportError:
+        import aioredis
 except ImportError:
     BcastClientSide, IndexRedis, Redis = None, None, None
 else:
@@ -548,7 +551,7 @@ def settings_url_parse(url):
     params = _fix_params_types(params)
     if parse_result.scheme == "redis" or parse_result.scheme == "rediss":
         if Redis is None:
-            raise BackendNotAvailable("Redis backend requires `aioredis` to be installed.")
+            raise BackendNotAvailable("Redis backend requires `redis` (or `aioredis`) to be installed.")
         params["backend"] = Redis
         params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()
     elif parse_result.scheme == "mem":

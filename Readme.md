@@ -6,7 +6,8 @@
 
 ```bash
 pip install cashews
-pip install cashews[redis]
+pip install cashews[redis]  # Aioredis is now in redis-py 4.2.0rc1+ 
+pip install cashews[aioredis]  # Please install "redis" instead, unless you must maintain a legacy code.
 pip install cashews[diskcache]
 pip install cashews[speedup] # for bloom filters
 ```
@@ -117,7 +118,8 @@ cache.setup("mem://?check_interval=10&size=10000")
 
 #### Redis
 
-*Requires [aioredis](https://github.com/aio-libs/aioredis) package.*
+*Requires [redis](https://github.com/redis/redis-py) package.*\
+*Note: If you must support a legacy code that uses `aioredis`, then install [aioredis](https://github.com/aio-libs/aioredis-py) instead.*
 
 This will use Redis as a storage.
 
