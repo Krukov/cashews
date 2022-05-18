@@ -39,7 +39,7 @@ _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
 _RECONNECT_WAIT = 10
 _DEFAULT_PREFIX = "cashews:"
-BCAST_ON = "CLIENT TRACKING on REDIRECT {client_id} BCAST PREFIX {prefix} NOLOOP"
+BCAST_ON = "CLIENT TRACKING on REDIRECT {client_id} BCAST PREFIX {prefix}"
 logger = logging.getLogger(__name__)
 
 
@@ -59,6 +59,7 @@ class BcastClientSide(Redis):
         self._prefix = client_side_prefix
         self._recently_update = Memory(size=500, check_interval=5)
         self.__listen_task = None
+        self._listen_started = asyncio.Event()
         super().__init__(*args, **kwargs)
 
     async def init(self):
@@ -66,6 +67,7 @@ class BcastClientSide(Redis):
         await self._recently_update.init()
         await super().init()
         self.__listen_task = asyncio.create_task(self._listen_invalidate_forever())
+        await self._listen_started.wait()
 
     async def _mark_as_recently_updated(self, key: str):
         await self._recently_update.set(key, True, expire=1)
@@ -80,15 +82,17 @@ class BcastClientSide(Redis):
                 await asyncio.sleep(_RECONNECT_WAIT)
 
     async def _get_channel(self):
-        async with self._client.client() as conn:
-            client_id = await conn.execute_command(b"CLIENT", b"ID")
-            await conn.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
         pubsub = self._client.pubsub()
+        await pubsub.execute_command(b"CLIENT", b"ID")
+        client_id = await pubsub.parse_response()
+        await pubsub.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
+        await pubsub.parse_response()
         await pubsub.subscribe(_REDIS_INVALIDATE_CHAN)
         return pubsub
 
     async def _listen_invalidate(self):
         channel = await self._get_channel()
+        self._listen_started.set()
         await self._local_cache.clear()
         while True:
             message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
