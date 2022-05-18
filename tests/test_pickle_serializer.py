@@ -4,6 +4,8 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from hypothesis import example, given, settings
+from hypothesis import strategies as st
 
 from cashews.serialize import PickleSerializerMixin, UnSecureDataError
 
@@ -147,14 +149,12 @@ async def test_unsecure_value(value, cache):
     await cache.set_raw("key", value)
     with pytest.raises(UnSecureDataError):
         await cache.get("key")
-    assert not await cache.get_raw("key")
 
 
 async def test_unsecure_value_many(cache):
     await cache.set_raw("key", b"_cos\nsystem\n(S'echo hello world'\ntR.")
     with pytest.raises(UnSecureDataError):
         await cache.get_many("key")
-    assert not await cache.get_raw("key")
 
 
 async def test_no_value(cache):
@@ -167,7 +167,6 @@ async def test_replace_values(cache):
 
     with pytest.raises(UnSecureDataError):
         await cache.get("replace")
-    assert not await cache.get_raw("replace")
 
 
 async def test_pickle_error_value(cache):
@@ -176,7 +175,6 @@ async def test_pickle_error_value(cache):
         cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data",
     )
     assert await cache.get("key") is None
-    assert not await cache.get_raw("key")
 
 
 async def test_set_no_ser(cache):
@@ -222,3 +220,12 @@ async def test_data_change(cache):
 async def test_get_set_raw(cache):
     await cache.set_raw("key", b"test")
     assert await cache.get_raw("key") == b"test"
+
+
+@given(key=st.text(), value=st.characters())
+@settings(max_examples=500)
+@example(key="_key:_!@#$%^&*()", value='_value:_!@_#$%^&:*(?)".,4й')
+async def test_no_hash(key, value):
+    cache = Cache()
+    await cache.set(key, value)
+    assert await cache.get(key) == value

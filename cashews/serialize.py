@@ -39,10 +39,8 @@ class PickleSerializerMixin:
         try:
             return self._process_value(value, key, default=default)
         except UnSecureDataError:
-            await super().delete(key)
             raise
         except (pickle.PickleError, AttributeError):
-            await super().delete(key)
             return default
 
     def _split_value_from_signature(self, value: bytes, key: str) -> bytes:
@@ -63,7 +61,9 @@ class PickleSerializerMixin:
                 "Values saved via 4.x package version without using a sign will not be compatible after the 5.x release."
             )
             with suppress(ValueError):
-                _, value = value.split(b"_", 1)
+                sign, value = value.split(b"_", 1)
+                if sign:
+                    value = sign + b"_" + value
             return value
 
     def _process_value(self, value: Union[bytes, None, int, str], key, default=None):

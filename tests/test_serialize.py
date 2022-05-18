@@ -4,11 +4,7 @@ from contextlib import nullcontext
 import pytest
 from _pytest.fixtures import SubRequest
 
-from cashews.serialize import (
-    PickleSerializerMixin,
-    SignIsMissingError,
-    UnSecureDataError,
-)
+from cashews.serialize import PickleSerializerMixin, SignIsMissingError, UnSecureDataError
 
 
 class TestPickleSerializerMixin:
@@ -28,12 +24,6 @@ class TestPickleSerializerMixin:
                 b"_spam eggs",  # Check backward compatibility: when `hash_key` was not used.
                 True,
                 False,
-            ),
-            (
-                "with sign and with underscore separator (we will add a sign further)",
-                b"md5:1be3de820fe0787d13dbc668f1f9fd18_spam eggs",
-                True,
-                True,
             ),
         ],
     )
