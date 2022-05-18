@@ -181,10 +181,11 @@ async def test_get_match(cache: Backend):
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
     assert await cache.get_size("test") in (
-        sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),
-        66,
-        -1,
-    )  # 106 - ordered dict,  68 redis, -1 for diskcache
+        sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),  # ordered dict
+        66,  # redis 6
+        72,  # redis 7
+        -1,  # diskcache
+    )
 
 
 async def test_get_bits(cache: Backend):
