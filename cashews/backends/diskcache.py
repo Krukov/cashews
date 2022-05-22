@@ -1,7 +1,7 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import Any, Optional, Tuple, Union
+from typing import Any, AsyncIterator, List, Optional, Tuple
 
 from diskcache import Cache, FanoutCache
 
@@ -30,7 +30,7 @@ class DiskCache(Backend):
         return await asyncio.get_running_loop().run_in_executor(None, call, *args)
 
     @property
-    def is_init(self):
+    def is_init(self) -> bool:
         return self.__is_init
 
     def close(self):
@@ -40,7 +40,7 @@ class DiskCache(Backend):
         self,
         key: str,
         value: Any,
-        expire: Union[None, float, int] = None,
+        expire: Optional[float] = None,
         exist: Optional[bool] = None,
     ) -> bool:
         future = self._run_in_executor(self._set, key, value, expire, exist)
@@ -69,22 +69,26 @@ class DiskCache(Backend):
     async def get_raw(self, key: str) -> Any:
         return self._cache.get(key)
 
-    async def get_many(self, *keys: str) -> Tuple[Any]:
-        return await self._run_in_executor(self._get_many, *keys)
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
+        return await self._run_in_executor(self._get_many, keys, default)
 
-    def _get_many(self, *keys):
-        return tuple(self._cache.get(key) for key in keys)
+    def _get_many(self, keys: List[str], default: Optional[Any] = None):
+        return tuple(self._cache.get(key, default=default) for key in keys)
 
-    async def exists(self, key) -> bool:
+    async def exists(self, key: str) -> bool:
         return await self._run_in_executor(self._exists, key)
 
-    def _exists(self, key) -> bool:
+    def _exists(self, key: str) -> bool:
         return key in self._cache
 
     async def keys_match(self, pattern: str):
         if not self._sharded:
             for key in await self._run_in_executor(self._keys_match, pattern):
                 yield key
+
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
+        async for key in self.keys_match(pattern):
+            yield key
 
     def _keys_match(self, pattern: str):
         pattern = pattern.replace("*", ".*")
@@ -114,7 +118,7 @@ class DiskCache(Backend):
     async def incr(self, key: str) -> int:
         return await self._run_in_executor(self._cache.incr, key)
 
-    async def delete(self, key: str):
+    async def delete(self, key: str) -> bool:
         return await self._run_in_executor(self._cache.delete, key)
 
     async def delete_match(self, pattern: str):
@@ -124,18 +128,20 @@ class DiskCache(Backend):
         for key in self._keys_match(pattern):
             self._cache.delete(key)
 
-    async def get_match(self, pattern: str, batch_size: int = None):
+    async def get_match(
+        self, pattern: str, batch_size: int = None, default: Optional[Any] = None
+    ) -> AsyncIterator[Tuple[str, Any]]:
         if not self._sharded:
             for key in await self._run_in_executor(self._keys_match, pattern):
-                yield key, self._cache.get(key)
+                yield key, await self._run_in_executor(self._cache.get, key, default)
 
-    async def expire(self, key: str, timeout: Union[float, int]):
+    async def expire(self, key: str, timeout: float) -> int:
         return await self._run_in_executor(self._cache.touch, key, timeout)
 
     async def get_expire(self, key: str) -> int:
         return await self._run_in_executor(self._get_expire, key)
 
-    def _get_expire(self, key):
+    def _get_expire(self, key: str):
         _, expire = self._cache.get(key, expire_time=True)
         if expire is None:
             return -1
@@ -150,14 +156,14 @@ class DiskCache(Backend):
     async def clear(self):
         await self._run_in_executor(self._cache.clear)
 
-    async def set_lock(self, key: str, value: Any, expire: Union[float, int]) -> bool:
+    async def set_lock(self, key: str, value: Any, expire: float) -> bool:
         return await self.set(key, value, expire=expire, exist=False)
 
     async def is_locked(
         self,
         key: str,
-        wait: Union[None, int, float] = None,
-        step: Union[int, float] = 0.1,
+        wait: Optional[float] = None,
+        step: float = 0.1,
     ) -> bool:
         if wait is None:
             return await self.exists(key)
@@ -168,5 +174,5 @@ class DiskCache(Backend):
             await asyncio.sleep(step)
         return await self.exists(key)
 
-    async def unlock(self, key, value) -> bool:
+    async def unlock(self, key: str, value: Any) -> bool:
         return await self.delete(key)

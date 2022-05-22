@@ -35,8 +35,8 @@ class DummyCache:
         for key in keys:
             del self.store[key]
 
-    async def get_many(self, *keys):
-        return [self.store.get(key, None) for key in keys]
+    async def get_many(self, *keys, default=None):
+        return [self.store.get(key, default) for key in keys]
 
 
 class Cache(PickleSerializerMixin, DummyCache):
@@ -172,7 +172,7 @@ async def test_replace_values(cache):
 async def test_pickle_error_value(cache):
     await cache.set_raw(
         "key",
-        cache.get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data",
+        cache._get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data",
     )
     assert await cache.get("key") is None
 

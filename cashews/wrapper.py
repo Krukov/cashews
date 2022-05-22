@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import contextmanager
 from functools import partial, wraps
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Type, Union
+from typing import Any, AsyncIterator, Callable, Dict, Iterable, Optional, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
 from . import decorators, validation
@@ -17,10 +17,9 @@ try:
     except ImportError:
         import aioredis
 except ImportError:
-    BcastClientSide, IndexRedis, Redis = None, None, None
+    BcastClientSide, Redis = None, None
 else:
     from .backends.client_side import BcastClientSide
-    from .backends.index import IndexRedis
     from .backends.redis import Redis
 
     del aioredis
@@ -58,8 +57,8 @@ def _create_auto_init():
 class Cache(Backend):
     default_prefix = ""
 
-    def __init__(self, name=None):
-        self._backends = {}  # {key: (backend, middleware)}
+    def __init__(self, name: Optional[str] = None):
+        self._backends: Dict[str, Tuple[Backend, Tuple[Callable]]] = {}  # {key: (backend, middleware)}
         self._default_middlewares = (
             _is_disable_middleware,
             _create_auto_init(),
@@ -74,56 +73,54 @@ class Cache(Backend):
     def set_default_fail_exceptions(self, *exc: Type[Exception]):
         self._default_fail_exceptions = exc
 
-    def disable(self, *cmds, prefix=""):
+    def disable(self, *cmds: str, prefix: str = ""):
         return self._get_backend(prefix).disable(*cmds)
 
-    def disable_all(self, *cmds):
+    def disable_all(self, *cmds: str):
         for backend, _ in self._backends.values():
             backend.disable(*cmds)
 
-    def enable(self, *cmds, prefix=""):
+    def enable(self, *cmds: str, prefix: str = ""):
         return self._get_backend(prefix).enable(*cmds)
 
-    def enable_all(self, *cmds):
+    def enable_all(self, *cmds: str):
         for backend, _ in self._backends.values():
             backend.enable(*cmds)
 
     @contextmanager
-    def disabling(self, *cmds, prefix=""):
+    def disabling(self, *cmds: str, prefix: str = ""):
         self.disable(*cmds, prefix=prefix)
         yield
         self.enable(*cmds, prefix=prefix)
 
-    def is_disable(self, *cmds, prefix=""):
+    def is_disable(self, *cmds: str, prefix: str = ""):
         return self._get_backend(prefix).is_disable(*cmds)
 
-    def is_enable(self, *cmds, prefix=""):
+    def is_enable(self, *cmds: str, prefix: str = ""):
         return not self.is_disable(*cmds, prefix=prefix)
 
-    def _get_backend_and_config(self, key) -> Tuple[Backend, Tuple[Callable]]:
+    def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Callable]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):
                 return self._backends[prefix]
         return self._backends[self.default_prefix]
 
-    def _get_backend(self, key) -> Backend:
+    def _get_backend(self, key: str) -> Backend:
         backend, _ = self._get_backend_and_config(key)
         return backend
 
-    def setup(self, settings_url: str, middlewares: Tuple = (), prefix=default_prefix, **kwargs):
+    def setup(self, settings_url: str, middlewares: Tuple = (), prefix: str = default_prefix, **kwargs):
         params = settings_url_parse(settings_url)
         params.update(kwargs)
 
         if params.pop("client_side", None):
             params["backend"] = BcastClientSide
-        if "index_name" in params:
-            params["backend"] = IndexRedis
         backend = params.pop("backend")
 
         self._add_backend(backend, middlewares, prefix, **params)
         return self._backends[prefix][0]
 
-    def _add_backend(self, backend_class, middlewares=(), prefix=default_prefix, **params):
+    def _add_backend(self, backend_class: Type[Backend], middlewares=(), prefix: str = default_prefix, **params):
         class _backend_class(ControlMixin, backend_class):
             pass
 
@@ -152,9 +149,9 @@ class Cache(Backend):
         self,
         key: str,
         value: Any,
-        expire: Union[float, None, TTL] = None,
+        expire: Union[float, TTL, None] = None,
         exist: Optional[bool] = None,
-    ):
+    ) -> bool:
         return self._with_middlewares("set", key)(key=key, value=value, expire=ttl_to_seconds(expire), exist=exist)
 
     def set_raw(self, key: str, value: Any, **kwargs):
@@ -177,21 +174,42 @@ class Cache(Backend):
         async for key in (await call(pattern)):
             yield key
 
-    async def get_match(self, pattern: str, batch_size: int = 100):
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
         backend, middlewares = self._get_backend_and_config(pattern)
 
-        async def call(_pattern, _batch_size):
-            return backend.get_match(_pattern, batch_size=_batch_size)
+        async def call(_pattern):
+            return backend.keys_match(_pattern)
+
+        for middleware in middlewares:
+            call = partial(middleware, call, cmd="scan", backend=backend)
+        async for key in (await call(pattern)):
+            yield key
+
+    async def get_match(
+        self, pattern: str, batch_size: int = 100, default: Optional[Any] = None
+    ) -> AsyncIterator[Tuple[str, Any]]:
+        backend, middlewares = self._get_backend_and_config(pattern)
+
+        async def call(_pattern, _batch_size, _default):
+            return backend.get_match(_pattern, batch_size=_batch_size, default=_default)
 
         for middleware in middlewares:
             call = partial(middleware, call, cmd="get_match", backend=backend)
-        async for key, value in (await call(pattern, batch_size)):
+        async for key, value in (await call(pattern, batch_size, default)):
             yield key, value
 
-    def get_many(self, *keys: str):
-        return self._with_middlewares("get_many", keys[0])(*keys)
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
+        backends = {}
+        for key in keys:
+            backend = self._get_backend(key)
+            backends.setdefault(backend, []).append(key)
+        result = {}
+        for _keys in backends.values():
+            _values = await self._with_middlewares("get_many", _keys[0])(*_keys, default=default)
+            result.update(dict(zip(_keys, _values)))
+        return tuple([result.get(key) for key in keys])
 
-    def get_bits(self, key: str, *indexes: int, size: int = 1):
+    def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
         return self._with_middlewares("get_bits", key)(key, *indexes, size=size)
 
     def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):

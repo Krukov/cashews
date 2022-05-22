@@ -30,7 +30,10 @@ async def test_safe_redis(redis_backend):
     assert await redis.get_expire("test") == 0
     assert await redis.incr("test") is None
     assert await redis.get_size("test") == 0
-    async for i in redis.keys_match("*"):
+    async for i in redis.scan("*"):
+        assert False
+
+    async for k, v in redis.get_match("*"):
         assert False
 
     assert await redis.delete("test") == 0
