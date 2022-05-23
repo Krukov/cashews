@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 
-from cashews.formatter import default_formatter, get_template_and_func_for, register_template
+from cashews.formatter import default_formatter, get_template_and_func_for, get_template_for_key, register_template
 from cashews.key import get_cache_key, get_cache_key_template, ttl_to_seconds
 
 
@@ -19,6 +19,8 @@ async def func3(a, *, k="test"):
 
 
 class Klass:
+    data = {"test": 1}
+
     def method(self, a, k=None):
         ...
 
@@ -34,24 +36,50 @@ def _some(value: Klass):
 
 
 @pytest.mark.parametrize(
-    ("key", "template"),
+    ("key", "template", "func"),
     (
-        ("func1:test", TEPLATE_FUNC1.format(a="*")),
-        ("func1:", TEPLATE_FUNC1.format(a="*")),
-        ("prefix:func1:test", TEPLATE_FUNC1.format(a="*")),
-        ("func2:-:user:1", TEPLATE_FUNC2.format(k="*", user="*")),
-        ("func3:2", "func3:*"),
-        ("func:1", None),
-        ("prefix:func2:test:user:1:1", None),
-        ("func2:user:1", None),
-        ("func2:user:1", None),
+        ("func1:test", TEPLATE_FUNC1.format(a="*"), func1),
+        ("func1:", TEPLATE_FUNC1.format(a="*"), func1),
+        ("prefix:func1:test", TEPLATE_FUNC1.format(a="*"), func1),
+        ("func2:-:user:1", TEPLATE_FUNC2.format(k="*", user="*"), func2),
+        ("func3:2", "func3:*", func3),
+        ("func:1", None, None),
+        ("prefix:func2:test:user:1:1", None, None),
+        ("func2:user:1", None, None),
+        ("func2:user:1", None, None),
     ),
 )
-def test_detect_template_by_key(key, template):
+def test_detect_template_and_func_by_key(key, template, func):
     register_template(func1, TEPLATE_FUNC1)
     register_template(func2, TEPLATE_FUNC2)
     register_template(func3, TEPLATE_FUNC3)
-    assert get_template_and_func_for(key)[0] == template
+    _template, _func = get_template_and_func_for(key)
+    assert _template == template
+    assert _func == ((func.__module__ or "", func.__name__) if func else None)
+
+
+@pytest.mark.parametrize(
+    ("key", "template", "params"),
+    (
+        ("func1:test", TEPLATE_FUNC1, {"a": "test"}),
+        ("func1:", TEPLATE_FUNC1, {"a": ""}),
+        ("prefix:func1:test", TEPLATE_FUNC1, {"a": "test"}),
+        ("func2:-:user:1", TEPLATE_FUNC2, {"k": "-", "user": "1"}),
+        ("func3:2", TEPLATE_FUNC3, {"k": "2"}),
+        ("func:1", None, None),
+        ("prefix:func2:test:user:1:1", None, None),
+        ("func2:user:1", None, None),
+        ("func2:user:1", None, None),
+    ),
+)
+def test_detect_template_by_key(key, template, params):
+    register_template(func1, TEPLATE_FUNC1)
+    register_template(func2, TEPLATE_FUNC2)
+    register_template(func3, TEPLATE_FUNC3)
+
+    _template, _params = get_template_for_key(key)
+    assert _template == template
+    assert _params == params
 
 
 def test_cache_func_key_dict():
@@ -170,7 +198,7 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
         (func2, None, "tests.test_key:func2:a:{a}:k:{k}:{__kwargs__}"),
         (func3, None, "tests.test_key:func3:a:{a}:k:{k}"),
         (Klass.method, None, "tests.test_key:Klass.method:self:{self}:a:{a}:k:{k}"),
-        (Klass.method, "key:{k}", "key:{k}"),
+        (Klass.method, "key:{k}:{self.data.test}", "key:{k}:{self.data.test}"),
         (func2, "key:{k}", "key:{k}"),
         (func3, "key:{k:len}:{k:hash(md5)}", "key:{k:len}:{k:hash(md5)}"),
     ),

@@ -124,13 +124,11 @@ def generate_key_template(func: Callable, exclude_parameters: Container = ()):
 
 
 class _Star:
-    _STAR = "*"
-
     def __getattr__(self, item):
-        return self._STAR
+        return _Star()
 
     def __getitem__(self, item):
-        return self._STAR
+        return _Star()
 
 
 def _check_key_params(key, func_params):
