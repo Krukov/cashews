@@ -109,8 +109,51 @@ async def test_simple_cmd_bcast(create_cache):
     assert await cache.get("key:1") == "test"
     assert await local.get("key:1") == "test"
 
+    await cache.clear()
+    cache.close()
+
+
+async def test_simple_cmd_bcast_many(create_cache):
+    local = Memory()
+    cache = await create_cache(local)
+    await cache.set("key:1", "test")
+    assert await cache.get("key:1") == "test"
+    assert await local.get("key:1") == "test"
+
+    assert await cache.get_many("key:1", "key:2") == ("test", None)
+
+    async for key in cache.scan("key:*"):
+        assert key == "key:1"
+        break
+    else:
+        assert False
+
+    async for key, value in cache.get_match("key:*"):
+        assert key == "key:1"
+        assert value == "test"
+        break
+    else:
+        assert False
+
+    await local.clear()
+
+    assert await cache.get_many("key:1", "key:2") == ("test", None)
+
+    async for key in cache.scan("key:*"):
+        assert key == "key:1"
+
+    async for key, value in cache.get_match("key:*"):
+        assert key == "key:1"
+        assert value == "test"
+
+    assert await local.get("key:1") == "test"
+
     assert await cache.delete_match("key:*")
     assert await cache.get("key:1") is None
     assert await local.get("key:1") is None
-    await cache.clear()
-    cache.close()
+
+    async for _ in cache.scan("key:*"):
+        assert False
+
+    async for _ in cache.get_match("key:*"):
+        assert False

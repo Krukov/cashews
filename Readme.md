@@ -176,15 +176,15 @@ cache.setup("mem://")  # configure as in-memory cache
 
 await cache.set(key="key", value=90, expire=60, exist=None)  # -> bool
 await cache.set_raw(key="key", value="str")  # -> bool
-await cache.get("key")  # -> Any
+await cache.get("key", default=None)  # -> Any
 await cache.get_raw("key")
-await cache.get_many("key1", "key2")
+await cache.get_many("key1", "key2", default=None)
 await cache.incr("key") # -> int
 await cache.delete("key")
 await cache.delete_match("pattern:*")
-async for key in cache.keys_match("pattern:*"):
+async for key in cache.scan("pattern:*"):
     ...
-async for key, value in cache.get_match("pattern:*", batch_size=100):
+async for key, value in cache.get_match("pattern:*", batch_size=100, default=None):
     ...
 
 await cache.expire("key", timeout=10)

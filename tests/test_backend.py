@@ -1,10 +1,9 @@
 import asyncio
 import sys
-from unittest.mock import Mock
 
 import pytest
 
-from cashews.backends.interface import Backend, ProxyBackend
+from cashews.backends.interface import Backend
 from cashews.backends.memory import Memory
 
 pytestmark = pytest.mark.asyncio
@@ -93,35 +92,6 @@ async def test_get_set_expire(cache):
     assert await cache.get_expire("key") == 1
 
 
-@pytest.mark.parametrize(
-    ("method", "args", "defaults"),
-    (
-        ("get", ("key",), {"default": None}),
-        ("get_raw", ("key",), None),
-        ("set", ("key", "value"), {"exist": None, "expire": None}),
-        ("set_raw", ("key", "value"), None),
-        ("incr", ("key",), None),
-        ("exists", ("key",), None),
-        ("delete", ("key",), None),
-        ("expire", ("key", 10), None),
-        ("ping", (), None),
-        ("clear", (), None),
-        ("set_lock", ("key", "value", 10), None),
-        ("unlock", ("key", "value"), None),
-        ("is_locked", ("key",), {"wait": None, "step": 0.1}),
-    ),
-)
-async def test_proxy_backend(method, args, defaults):
-    target = Mock(wraps=Backend())
-    backend = ProxyBackend(target=target)
-
-    await getattr(backend, method)(*args)
-    if defaults:
-        getattr(target, method).assert_called_once_with(*args, **defaults)
-    else:
-        getattr(target, method).assert_called_once_with(*args)
-
-
 async def test_delete_match(cache: Backend):
     await cache.set("pref:test:test", b"value")
     await cache.set("pref:value:test", b"value2")
@@ -142,7 +112,7 @@ async def test_delete_match(cache: Backend):
     assert await cache.get("pref:test:tests") is not None
 
 
-async def test_keys_match(cache: Backend):
+async def test_scan(cache: Backend):
     await cache.set("pref:test:test", b"value")
     await cache.set("pref:value:test", b"value2")
     await cache.set("pref:-:test", b"-")
@@ -151,9 +121,10 @@ async def test_keys_match(cache: Backend):
     await cache.set("ppref:test:test", b"value3")
     await cache.set("pref:test:tests", b"value3")
 
-    keys = [key async for key in cache.keys_match("pref:*:test")]
+    keys = [key async for key in cache.scan("pref:*:test")]
 
     assert len(keys) == 4
+    assert set(keys) == {"pref:test:test", "pref:value:test", "pref:-:test", "pref:*:test"}
 
 
 async def test_get_match(cache: Backend):

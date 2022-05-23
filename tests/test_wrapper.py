@@ -47,6 +47,19 @@ async def test_prefix(cache):
     assert await cache.get("-:key", default="def") == "def"
 
 
+async def test_prefix_many(cache):
+    await cache.init("mem://")
+    await cache.init("mem://", prefix="-")
+
+    await cache.set("key", "value")
+    await cache.set("-:key", "-value")
+
+    assert await cache.get("key") == "value"
+    assert await cache.get("-:key") == "-value"
+
+    assert await cache.get_many("key", "-:key") == ("value", "-value")
+
+
 async def test_disable_cmd(cache):
     await cache.init("mem://localhost")
     cache.disable("incr")
@@ -240,7 +253,7 @@ async def test_smoke_cmds(cache: Cache, target):
     target.get.assert_called_once_with(key="key", default=None)
 
     await cache.get_many("key1", "key2")
-    target.get_many.assert_called_once_with("key1", "key2")
+    target.get_many.assert_called_once_with("key1", "key2", default=None)
 
     await cache.incr("key_incr")  # -> int
     target.incr.assert_called_once_with(key="key_incr")
@@ -282,7 +295,7 @@ async def test_smoke_cmds(cache: Cache, target):
     target.keys_match.assert_called_once_with("key:*")
 
     [key_value async for key_value in cache.get_match("key:*")]
-    target.get_match.assert_called_once_with("key:*", batch_size=100)
+    target.get_match.assert_called_once_with("key:*", batch_size=100, default=None)
 
 
 async def test_disable_cache_on_fail_return(cache: Cache):
