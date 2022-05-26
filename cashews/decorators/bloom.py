@@ -2,7 +2,7 @@ import asyncio
 import math
 import warnings
 from functools import wraps
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple, Union, Any
 
 from cashews.utils import get_hashes
 
@@ -59,7 +59,7 @@ def bloom(
 
         _set = getattr(func, "set", None)
 
-        async def __set(*args, **kwargs):
+        async def __set(*args: Any, **kwargs: Any):
             if _set is None:
                 result = await func(*args, **kwargs)
             else:
@@ -131,7 +131,7 @@ def dual_bloom(
 
         __delete = getattr(func, "delete", None)
 
-        async def _delete(*args, **kwargs):
+        async def _delete(*args: Any, **kwargs: Any) -> None:
             if __delete:
                 await __delete(*args, **kwargs)
             _bloom_key = get_cache_key(func, _cache_key, args, kwargs)
@@ -254,14 +254,14 @@ def _counting_bloom(
                 await backend.incr_bits(_cache_key, *hashes, size=2, by=1)
             return result
 
-        async def _delete(*args, **kwargs):
+        async def _delete(*args: Any, **kwargs: Any) -> None:
             _bloom_key = get_cache_key(func, _name, args, kwargs)
             hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
             await backend.incr_bits(_cache_key, *hashes, size=2, by=-1)
 
         func.delete = _wrap.delete = _delete
 
-        async def _set(*args, **kwargs):
+        async def _set(*args: Any, **kwargs: Any) -> None:
             _bloom_key = get_cache_key(func, _name, args, kwargs)
             hashes = get_hashes(_bloom_key, number_of_hashes, index_size)
             await backend.incr_bits(_cache_key, *hashes, size=2, by=1)

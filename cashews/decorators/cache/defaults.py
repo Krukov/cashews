@@ -36,7 +36,7 @@ class CacheDetect:
         self._unset_token = unset_token
         self._previous_level = previous_level
 
-    def _set(self, key: str, **kwargs):
+    def _set(self, key: str, **kwargs: Any) -> None:
         self._value.setdefault(key, []).append(kwargs)
 
     @property
@@ -73,7 +73,7 @@ class _ContextCacheDetect:
         self._levels[level] = CacheDetect(previous_level=previous_level, unset_token=token)
         return self._levels[level]
 
-    def _set(self, key: str, **kwargs):
+    def _set(self, key: str, **kwargs: Any) -> None:
         level = self.level
         while level:
             var = self._levels.get(level)

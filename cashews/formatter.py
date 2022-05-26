@@ -3,7 +3,7 @@ import json
 import re
 from hashlib import md5, sha1, sha256
 from string import Formatter
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple, Any
 
 
 def _decode_bytes(value: bytes):
@@ -73,11 +73,11 @@ class _ReplaceFormatter(Formatter):
 
 
 class _FuncFormatter(_ReplaceFormatter):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._functions = {}
         super().__init__(*args, **kwargs)
 
-    def _register(self, alias, function):
+    def _register(self, alias, function) -> None:
         self._functions[alias] = function
 
     def register(self, alias):

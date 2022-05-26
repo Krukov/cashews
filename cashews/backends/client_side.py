@@ -55,7 +55,7 @@ class BcastClientSide(Redis):
 
     name = "redis_mem"
 
-    def __init__(self, *args, local_cache=None, client_side_prefix=_DEFAULT_PREFIX, **kwargs):
+    def __init__(self, *args: Any, local_cache=None, client_side_prefix: str = _DEFAULT_PREFIX, **kwargs: Any) -> None:
         self._local_cache = Memory() if local_cache is None else local_cache
         self._prefix = client_side_prefix
         self._recently_update = Memory(size=500, check_interval=5)
@@ -123,7 +123,7 @@ class BcastClientSide(Redis):
             return value
         return default
 
-    async def set(self, key: str, value: Any, *args, **kwargs) -> Any:
+    async def set(self, key: str, value: Any, *args: Any, **kwargs: Any) -> Any:
         if await self._local_cache.get(key, default=_empty) == value:
             # If value in current client_cache - skip resetting
             return 0

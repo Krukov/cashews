@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Callable, Optional
+from typing import Callable, Optional, Any
 
 from ..backends.interface import Backend
 from ..formatter import register_template
@@ -13,7 +13,7 @@ class RateLimitException(Exception):
     pass
 
 
-def _default_action(*args, **kwargs):
+def _default_action(*args: Any, **kwargs: Any) -> RateLimitException:
     raise RateLimitException()
 
 
@@ -24,7 +24,7 @@ def rate_limit(
     ttl: int = None,
     key: Optional[str] = None,
     action: Optional[Callable] = None,
-    prefix="rate_limit",
+    prefix: str = "rate_limit",
 ):  # pylint: disable=too-many-arguments
     """
     Rate limit for function call. Do not call function if rate limit is reached, and call given action

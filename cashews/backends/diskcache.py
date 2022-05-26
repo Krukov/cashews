@@ -1,7 +1,7 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import Any, AsyncIterator, List, Optional, Tuple
+from typing import Any, AsyncIterator, List, Optional, Tuple, Dict
 
 from diskcache import Cache, FanoutCache
 
@@ -13,9 +13,9 @@ from .interface import Backend
 class DiskCache(Backend):
     name = "diskcache"
 
-    def __init__(self, *args, directory=None, shards=8, **kwargs):
+    def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         self.__is_init = False
-        self._set_locks = {}
+        self._set_locks: Dict[str, asyncio.Lock] = {}
         self._sharded = shards > 1
         if not self._sharded:
             self._cache = Cache(directory=directory, **kwargs)
@@ -60,7 +60,7 @@ class DiskCache(Backend):
                 return False
         return self._cache.set(key, value, expire)
 
-    async def set_raw(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs: Any):
         return self._cache.set(key, value, **kwargs)
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
