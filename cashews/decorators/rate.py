@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Callable, Optional, Any
+from typing import Callable, Optional, Any, NoReturn
 
 from ..backends.interface import Backend
 from ..formatter import register_template
@@ -13,7 +13,7 @@ class RateLimitException(Exception):
     pass
 
 
-def _default_action(*args: Any, **kwargs: Any) -> RateLimitException:
+def _default_action(*args: Any, **kwargs: Any) -> NoReturn:
     raise RateLimitException()
 
 
