@@ -33,7 +33,7 @@ def soft(
     """
     store = _get_cache_condition(condition)
     if soft_ttl is None:
-        soft_ttl = ttl * 0.33
+        soft_ttl = ttl * 0.33  # type: ignore[assignment]
 
     def _decor(func):
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)

@@ -11,7 +11,7 @@ class Backend:
     name: str = ""
     is_init: bool = False
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         ...
 
     async def init(self):
@@ -29,7 +29,7 @@ class Backend:
     ) -> bool:
         ...
 
-    async def set_raw(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs: Any):
         ...
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
@@ -38,13 +38,13 @@ class Backend:
     async def get_raw(self, key: str) -> Any:
         ...
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         ...
 
     async def exists(self, key: str) -> bool:
         ...
 
-    async def keys_match(self, pattern: str):
+    async def keys_match(self, pattern: str) -> AsyncIterator[str]:
         ...
 
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:

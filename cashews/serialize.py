@@ -28,13 +28,13 @@ class PickleSerializerMixin:
         hash_key: Union[str, bytes, None] = None,
         digestmod: Union[str, bytes, None] = b"md5",
         check_repr: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
         if hash_key is None:
             digestmod = BLANK_DIGEST
             self._digestmods = self._digestmods.copy()
-            self._digestmods[BLANK_DIGEST] = lambda value: BLANK_DIGEST
+            self._digestmods[BLANK_DIGEST] = lambda value: BLANK_DIGEST  # type: ignore[misc, assignment]
         self._hash_key = _to_bytes(hash_key)
         self._digestmod = _to_bytes(digestmod)
         self._check_repr = check_repr
@@ -101,7 +101,7 @@ class PickleSerializerMixin:
             values.append(await self._get_value(value, key))
         return tuple(values)
 
-    async def set(self, key: str, value: Any, *args, **kwargs):
+    async def set(self, key: str, value: Any, *args: Any, **kwargs: Any):
         if isinstance(value, int) and not isinstance(value, bool):
             return await super().set(key, value, *args, **kwargs)
         value = pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)
@@ -119,10 +119,10 @@ class PickleSerializerMixin:
         value = key.encode() + value
         return hmac.new(self._hash_key, value, self._digestmods[digestmod]).hexdigest().encode()
 
-    def set_raw(self, *args, **kwargs):
+    def set_raw(self, *args: Any, **kwargs: Any):
         return super().set(*args, **kwargs)
 
-    def get_raw(self, *args, **kwargs):
+    def get_raw(self, *args: Any, **kwargs: Any):
         return super().get(*args, **kwargs)
 
 

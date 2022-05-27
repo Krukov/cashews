@@ -21,7 +21,7 @@ class Memory(Backend):
     name = "mem"
 
     def __init__(self, size: int = 1000, check_interval: float = 1):
-        self.store = OrderedDict()
+        self.store: OrderedDict = OrderedDict()
         self._check_interval = check_interval
         self.size = size
         self.__is_init = False
@@ -58,7 +58,7 @@ class Memory(Backend):
         self._set(key, value, expire)
         return True
 
-    async def set_raw(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs: Any):
         self.store[key] = value
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
@@ -67,7 +67,7 @@ class Memory(Backend):
     async def get_raw(self, key: str):
         return self.store.get(key)
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple:
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         return tuple(self._get(key, default=default) for key in keys)
 
     async def keys_match(self, pattern: str) -> AsyncIterator[str]:
@@ -123,7 +123,7 @@ class Memory(Backend):
         return round(expire_at - time.time()) if expire_at is not None else -1
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:
-        return b"PONG" if message in (None, b"PING") else message
+        return b"PONG" if message in (None, b"PING") else message  # type: ignore[return-value]
 
     async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
         array: Bitarray = self._get(key, default=Bitarray("0"))

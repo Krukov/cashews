@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import socket
+from typing import Any
 
 try:
     from redis.asyncio import Redis
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class SafeRedis(Redis):
-    async def execute_command(self, command, *args, **kwargs):
+    async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
         except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError):

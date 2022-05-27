@@ -8,7 +8,7 @@ from .formatter import get_templates_for_func, template_to_pattern
 from .key import get_call_values, get_func_params
 
 
-async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None):
+async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None) -> None:
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
     for template in get_templates_for_func(func):
         del_template = template_to_pattern(template, **values)

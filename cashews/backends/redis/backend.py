@@ -24,7 +24,7 @@ end
 class _Redis(Backend):
     name = "redis"
 
-    def __init__(self, address, safe=True, **kwargs):
+    def __init__(self, address, safe: bool = True, **kwargs: Any) -> None:
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)
         kwargs.setdefault("client_name", "cashews")
@@ -187,7 +187,7 @@ class _Redis(Backend):
             return message
         return b"PONG"
 
-    async def set_raw(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: str, value: Any, **kwargs: Any):
         return await self._client.set(key, value, **kwargs)
 
     async def get_raw(self, key: str) -> Any:
