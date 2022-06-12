@@ -178,7 +178,7 @@ class Cache(Backend):
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(_pattern):
-            return backend.keys_match(_pattern)
+            return backend.scan(_pattern)
 
         for middleware in middlewares:
             call = partial(middleware, call, cmd="scan", backend=backend)
@@ -239,8 +239,8 @@ class Cache(Backend):
     def unlock(self, key: str, value: str):
         return self._with_middlewares("unlock", key)(key=key, value=value)
 
-    def listen(self, pattern: str, *cmds, reader=None):
-        return self._with_middlewares("listen", pattern)(pattern, *cmds, reader=reader)
+    def get_size(self, key: str):
+        return self._with_middlewares("get_size", key)(key)
 
     def ping(self, message: Optional[bytes] = None) -> str:
         message = b"PING" if message is None else message

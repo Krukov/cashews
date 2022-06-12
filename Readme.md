@@ -288,8 +288,6 @@ async def get(name):
 ```
 
 
-
-
 #### Locked
 
 Decorator that can help you to solve [Cache stampede problem](https://en.wikipedia.org/wiki/Cache_stampede).

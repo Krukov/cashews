@@ -173,7 +173,7 @@ class _Redis(Backend):
         bitops = self._client.bitfield(key)
         for index in indexes:
             bitops.get(fmt=f"u{size}", offset=f"#{index}")
-        return tuple(await bitops.execute())
+        return tuple(await bitops.execute() or [])
 
     async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
         bitops = self._client.bitfield(key)
