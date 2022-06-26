@@ -135,7 +135,9 @@ async def test_invalidate_further(cache):
     first = await func()
     assert await func() == first
 
-    assert await asyncio.create_task(clear()) != first  # the key was deleted
+    on_clear = await asyncio.create_task(clear())
+    assert on_clear is not None
+    assert on_clear != first  # the key was deleted
     second = await func()
     assert second != first
     assert await func() == second
