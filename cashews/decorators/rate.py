@@ -1,6 +1,6 @@
 import logging
 from functools import wraps
-from typing import Callable, Optional, Any, NoReturn
+from typing import Any, Callable, NoReturn, Optional
 
 from ..backends.interface import Backend
 from ..formatter import register_template

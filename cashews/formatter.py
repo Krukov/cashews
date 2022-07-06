@@ -3,7 +3,7 @@ import json
 import re
 from hashlib import md5, sha1, sha256
 from string import Formatter
-from typing import Callable, Iterable, Optional, Tuple, Any
+from typing import Any, Callable, Iterable, Optional, Tuple
 
 
 def _decode_bytes(value: bytes):
@@ -118,6 +118,16 @@ def _hash_func(value: str, alg="md5") -> str:
     algs = {"sha1": sha1, "md5": md5, "sha256": sha256}
     alg = algs[alg]
     return alg(value.encode()).hexdigest()
+
+
+@default_formatter.register("lower")
+def _lower(value: str) -> str:
+    return value.lower()
+
+
+@default_formatter.register("upper")
+def _upper(value: str) -> str:
+    return value.upper()
 
 
 def template_to_pattern(template: str, _formatter=_ReplaceFormatter(), **values) -> str:

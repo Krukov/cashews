@@ -25,11 +25,13 @@ class Memory(Backend):
         self._check_interval = check_interval
         self.size = size
         self.__is_init = False
+        self.__remove_expired_stop = asyncio.Event()
         self.__remove_expired_task = None
         super().__init__()
 
     async def init(self):
         self.__is_init = True
+        self.__remove_expired_stop = asyncio.Event()
         self.__remove_expired_task = asyncio.create_task(self._remove_expired())
 
     @property
@@ -37,7 +39,7 @@ class Memory(Backend):
         return self.__is_init
 
     async def _remove_expired(self):
-        while True:
+        while not self.__remove_expired_stop.is_set():
             for key in dict(self.store):
                 await self.get(key)
             await asyncio.sleep(self._check_interval)
@@ -184,6 +186,8 @@ class Memory(Backend):
         return 0
 
     def close(self):
-        if self.__remove_expired_task is not None:
+        self.__remove_expired_stop.set()
+        if self.__remove_expired_task:
             self.__remove_expired_task.cancel()
+            self.__remove_expired_task = None
         super().close()

@@ -380,3 +380,26 @@ async def test_cache_lock():
     await asyncio.gather(my_func(), my_func(), my_func())
 
     m.assert_called_once_with(1)
+
+
+_cache = Cache()
+_cache.setup("mem://")
+
+
+@pytest.mark.parametrize("decorator", (_cache, _cache.dynamic, _cache.early, _cache.soft))
+async def test_time_condition(decorator):
+    m = Mock()
+
+    @decorator(ttl=10, time_condition=0.1)
+    async def my_func(sleep=0.01):
+        await asyncio.sleep(sleep)  # for task switching
+        m()
+
+    await my_func()
+    await my_func()
+    assert m.call_count == 2
+    m.reset_mock()
+
+    await my_func(0.15)
+    await my_func(0.15)
+    assert m.call_count == 1

@@ -1,4 +1,5 @@
 import asyncio
+import time
 from contextlib import contextmanager
 from functools import partial, wraps
 from typing import Any, AsyncIterator, Callable, Dict, Iterable, Optional, Tuple, Type, Union
@@ -267,8 +268,13 @@ class Cache(Backend):
             return self._wrap_with_condition(decorator_fabric, **decor_kwargs)
         return self._wrap(decorator_fabric, **decor_kwargs)
 
-    def _wrap(self, decorator_fabric, lock=False, **decor_kwargs):
+    def _wrap(self, decorator_fabric, lock=False, time_condition=None, **decor_kwargs):
         def _decorator(func):
+            if time_condition is not None:
+                condition, _decor = _create_time_condition(time_condition)
+                func = _decor(func)
+                decor_kwargs["condition"] = condition
+
             decorator = decorator_fabric(self, **decor_kwargs)(func)
 
             @wraps(func)
@@ -284,8 +290,12 @@ class Cache(Backend):
 
         return _decorator
 
-    def _wrap_with_condition(self, decorator_fabric, condition, lock=False, **decor_kwargs):
+    def _wrap_with_condition(self, decorator_fabric, condition, lock=False, time_condition=None, **decor_kwargs):
         def _decorator(func):
+            _condition = condition
+            if time_condition is not None:
+                _condition, _decor = _create_time_condition(time_condition)
+                func = _decor(func)
             decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
             @wraps(func)
@@ -295,7 +305,7 @@ class Cache(Backend):
                     def new_condition(result, _args, _kwargs, key):
                         if detect.keys:
                             return False
-                        return condition(result, _args, _kwargs, key=key) if condition else result is not None
+                        return _condition(result, _args, _kwargs, key=key) if _condition else result is not None
 
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
                     if lock:
@@ -317,6 +327,7 @@ class Cache(Backend):
         ttl: TTL,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "",
         upper: bool = False,
         lock: bool = False,
@@ -328,6 +339,7 @@ class Cache(Backend):
             ttl=ttl_to_seconds(ttl),
             key=key,
             condition=condition,
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -339,6 +351,7 @@ class Cache(Backend):
         exceptions: Union[Type[Exception], Iterable[Type[Exception]], None] = None,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "fail",
     ):
         exceptions = exceptions or self._default_fail_exceptions
@@ -348,6 +361,7 @@ class Cache(Backend):
             exceptions=exceptions,
             key=key,
             condition=condition,
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -357,6 +371,7 @@ class Cache(Backend):
         key: Optional[str] = None,
         early_ttl: Optional[TTL] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "early",
         upper: bool = False,
     ):
@@ -367,6 +382,7 @@ class Cache(Backend):
             key=key,
             early_ttl=ttl_to_seconds(early_ttl),
             condition=condition,
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -377,6 +393,7 @@ class Cache(Backend):
         soft_ttl: Optional[TTL] = None,
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "soft",
         upper: bool = False,
     ):
@@ -388,6 +405,7 @@ class Cache(Backend):
             soft_ttl=ttl_to_seconds(soft_ttl),
             exceptions=exceptions,
             condition=condition,
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -398,6 +416,7 @@ class Cache(Backend):
         update_after: int = 0,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "hit",
         upper: bool = False,
     ):
@@ -409,6 +428,7 @@ class Cache(Backend):
             update_after=update_after,
             key=key,
             condition=condition,
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -417,6 +437,7 @@ class Cache(Backend):
         ttl: TTL = 60 * 60 * 24,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "dynamic",
         upper: bool = False,
     ):
@@ -428,6 +449,7 @@ class Cache(Backend):
             update_after=1,
             key=key,
             condition=condition,
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -584,3 +606,24 @@ def settings_url_parse(url):
     else:
         raise BackendNotAvailable(f"wrong backend alias {parse_result.scheme}")
     return params
+
+
+def _create_time_condition(limit):
+    _spent = 0
+
+    def decorator(func):
+        @wraps(func)
+        async def _wrapper(*args, **kwargs):
+            nonlocal _spent
+            start = time.perf_counter()
+            try:
+                return await func(*args, **kwargs)
+            finally:
+                _spent = time.perf_counter() - start
+
+        return _wrapper
+
+    def condition(result, _args, _kwargs, key):
+        return _spent > limit
+
+    return condition, decorator
