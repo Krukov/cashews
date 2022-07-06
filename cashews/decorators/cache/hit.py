@@ -2,11 +2,11 @@ import asyncio
 from functools import wraps
 from typing import Optional
 
-from ..._typing import CacheCondition
+from ..._typing import CallableCacheCondition
 from ...backends.interface import Backend
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
+from .defaults import CacheDetect, _empty, context_cache_detect
 
 __all__ = ("hit",)
 
@@ -17,7 +17,7 @@ def hit(
     cache_hits: int,
     update_after: Optional[int] = None,
     key: Optional[str] = None,
-    condition: CacheCondition = None,
+    condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "hit",
 ):
     """
@@ -30,7 +30,6 @@ def hit(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'hit'
     """
-    store = _get_cache_condition(condition)
 
     def _decor(func):
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
@@ -55,9 +54,9 @@ def hit(
                     template=_key_template,
                 )
                 if update_after and hits == update_after:
-                    asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, store))
+                    asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, condition))
                 return result
-            return await _get_and_save(func, args, kwargs, backend, _cache_key, ttl, store)
+            return await _get_and_save(func, args, kwargs, backend, _cache_key, ttl, condition)
 
         return _wrap
 

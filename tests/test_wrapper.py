@@ -3,6 +3,7 @@ from unittest.mock import Mock, PropertyMock
 
 import pytest
 
+from cashews._cache_condition import NOT_NONE
 from cashews.backends.memory import Memory
 from cashews.disable_control import ControlMixin
 from cashews.formatter import get_templates_for_func
@@ -390,16 +391,39 @@ _cache.setup("mem://")
 async def test_time_condition(decorator):
     m = Mock()
 
-    @decorator(ttl=10, time_condition=0.1)
+    @decorator(key="test", ttl=10, time_condition=0.1)
     async def my_func(sleep=0.01):
-        await asyncio.sleep(sleep)  # for task switching
+        await asyncio.sleep(sleep)
         m()
+        return sleep
 
     await my_func()
-    await my_func()
-    assert m.call_count == 2
+    await asyncio.gather(my_func(), my_func(), my_func())
+    assert m.call_count == 4
     m.reset_mock()
 
+    await asyncio.gather(my_func(0.15), my_func(), my_func(0.1))
+    assert m.call_count == 3
     await my_func(0.15)
-    await my_func(0.15)
+    await my_func()
+    assert m.call_count == 3
+
+    m.reset_mock()
+    await _cache.clear()
+    await my_func()
     assert m.call_count == 1
+
+
+async def test_cache_simple_not_none(cache: Cache):
+    mock = Mock()
+
+    @cache(ttl=0.1, key="key", condition=NOT_NONE)
+    async def func():
+        mock()
+        return None
+
+    assert await func() is None
+    assert mock.call_count == 1
+
+    assert await func() is None
+    assert mock.call_count == 2

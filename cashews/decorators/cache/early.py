@@ -4,11 +4,11 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional
 
-from ..._typing import CacheCondition
+from ..._typing import CallableCacheCondition
 from ...backends.interface import Backend
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
+from .defaults import CacheDetect, _empty, context_cache_detect
 
 __all__ = ("early",)
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def early(
     ttl: int,
     key: Optional[str] = None,
     early_ttl: Optional[int] = None,
-    condition: CacheCondition = None,
+    condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "early",
 ):
     """
@@ -34,7 +34,6 @@ def early(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
-    store = _get_cache_condition(condition)
     if early_ttl is None:
         early_ttl = ttl * 0.33
 
@@ -72,12 +71,12 @@ def early(
                             _cache_key,
                             ttl,
                             early_ttl,
-                            store,
+                            condition,
                         )
                     )
                 return result
             return await _get_result_for_early(
-                backend, func, args, kwargs, _cache_key, ttl, early_ttl, store, unlock=True
+                backend, func, args, kwargs, _cache_key, ttl, early_ttl, condition, unlock=True
             )
 
         return _wrap

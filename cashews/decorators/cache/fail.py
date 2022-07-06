@@ -1,11 +1,11 @@
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from ..._typing import CacheCondition
+from ..._typing import CallableCacheCondition
 from ...backends.interface import Backend
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
+from .defaults import CacheDetect, _empty, context_cache_detect
 
 __all__ = ("failover",)
 
@@ -26,7 +26,7 @@ def failover(
     ttl: int,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,
-    condition: CacheCondition = None,
+    condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "fail",
 ):
     """
@@ -38,7 +38,6 @@ def failover(
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param prefix: custom prefix for key, default "fail"
     """
-    condition = _get_cache_condition(condition)
 
     def _decor(func):
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
