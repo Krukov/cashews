@@ -2,9 +2,10 @@ import asyncio
 from contextlib import contextmanager
 from functools import partial, wraps
 from typing import Any, AsyncIterator, Callable, Dict, Iterable, Optional, Tuple, Type, Union
-from urllib.parse import parse_qsl, urlparse
 
 from . import decorators, validation
+from ._cache_condition import create_time_condition, get_cache_condition
+from ._settings import settings_url_parse
 from ._typing import TTL, CacheCondition
 from .backends.interface import Backend
 from .backends.memory import Memory
@@ -12,31 +13,17 @@ from .disable_control import ControlMixin, _is_disable_middleware
 from .key import ttl_to_seconds
 
 try:
-    try:
-        from redis import asyncio as aioredis
-    except ImportError:
-        import aioredis
-except ImportError:
-    BcastClientSide, Redis = None, None
-else:
     from .backends.client_side import BcastClientSide
-    from .backends.redis import Redis
-
-    del aioredis
+except ImportError:
+    BcastClientSide = None
 
 try:
-    import diskcache
+    from .backends.diskcache import DiskCache
 except ImportError:
     DiskCache = None
-else:
-    from .backends.diskcache import DiskCache
 
 
 #  pylint: disable=too-many-public-methods
-
-
-class BackendNotAvailable(Exception):
-    pass
 
 
 def _create_auto_init():
@@ -267,8 +254,13 @@ class Cache(Backend):
             return self._wrap_with_condition(decorator_fabric, **decor_kwargs)
         return self._wrap(decorator_fabric, **decor_kwargs)
 
-    def _wrap(self, decorator_fabric, lock=False, **decor_kwargs):
+    def _wrap(self, decorator_fabric, lock=False, time_condition=None, **decor_kwargs):
         def _decorator(func):
+            if time_condition is not None:
+                condition, _decor = create_time_condition(time_condition)
+                func = _decor(func)
+                decor_kwargs["condition"] = condition
+
             decorator = decorator_fabric(self, **decor_kwargs)(func)
 
             @wraps(func)
@@ -284,8 +276,12 @@ class Cache(Backend):
 
         return _decorator
 
-    def _wrap_with_condition(self, decorator_fabric, condition, lock=False, **decor_kwargs):
+    def _wrap_with_condition(self, decorator_fabric, condition, lock=False, time_condition=None, **decor_kwargs):
         def _decorator(func):
+            _condition = condition
+            if time_condition is not None:
+                _condition, _decor = create_time_condition(time_condition)
+                func = _decor(func)
             decorator_fabric(self, **decor_kwargs)(func)  # to register cache templates
 
             @wraps(func)
@@ -295,7 +291,7 @@ class Cache(Backend):
                     def new_condition(result, _args, _kwargs, key):
                         if detect.keys:
                             return False
-                        return condition(result, _args, _kwargs, key=key) if condition else result is not None
+                        return _condition(result, _args, _kwargs, key=key) if _condition else result is not None
 
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
                     if lock:
@@ -317,6 +313,7 @@ class Cache(Backend):
         ttl: TTL,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "",
         upper: bool = False,
         lock: bool = False,
@@ -327,7 +324,8 @@ class Cache(Backend):
             lock=lock,
             ttl=ttl_to_seconds(ttl),
             key=key,
-            condition=condition,
+            condition=get_cache_condition(condition),
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -339,6 +337,7 @@ class Cache(Backend):
         exceptions: Union[Type[Exception], Iterable[Type[Exception]], None] = None,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "fail",
     ):
         exceptions = exceptions or self._default_fail_exceptions
@@ -347,7 +346,8 @@ class Cache(Backend):
             ttl=ttl_to_seconds(ttl),
             exceptions=exceptions,
             key=key,
-            condition=condition,
+            condition=get_cache_condition(condition),
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -357,6 +357,7 @@ class Cache(Backend):
         key: Optional[str] = None,
         early_ttl: Optional[TTL] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "early",
         upper: bool = False,
     ):
@@ -366,7 +367,8 @@ class Cache(Backend):
             ttl=ttl_to_seconds(ttl),
             key=key,
             early_ttl=ttl_to_seconds(early_ttl),
-            condition=condition,
+            condition=get_cache_condition(condition),
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -377,6 +379,7 @@ class Cache(Backend):
         soft_ttl: Optional[TTL] = None,
         exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "soft",
         upper: bool = False,
     ):
@@ -387,7 +390,8 @@ class Cache(Backend):
             key=key,
             soft_ttl=ttl_to_seconds(soft_ttl),
             exceptions=exceptions,
-            condition=condition,
+            condition=get_cache_condition(condition),
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -398,6 +402,7 @@ class Cache(Backend):
         update_after: int = 0,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "hit",
         upper: bool = False,
     ):
@@ -408,7 +413,8 @@ class Cache(Backend):
             cache_hits=cache_hits,
             update_after=update_after,
             key=key,
-            condition=condition,
+            condition=get_cache_condition(condition),
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -417,6 +423,7 @@ class Cache(Backend):
         ttl: TTL = 60 * 60 * 24,
         key: Optional[str] = None,
         condition: CacheCondition = None,
+        time_condition: Optional[TTL] = None,
         prefix: str = "dynamic",
         upper: bool = False,
     ):
@@ -427,7 +434,8 @@ class Cache(Backend):
             cache_hits=3,
             update_after=1,
             key=key,
-            condition=condition,
+            condition=get_cache_condition(condition),
+            time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
         )
 
@@ -539,48 +547,3 @@ class Cache(Backend):
             capacity=capacity,
             prefix=prefix,
         )
-
-
-def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:
-    new_params = {}
-    bool_keys = ("safe", "enable", "disable", "client_side")
-    true_values = (
-        "1",
-        "true",
-    )
-    for key, value in params.items():
-        if key.lower() in bool_keys:
-            value = value.lower() in true_values
-        elif value.isdigit():
-            value = int(value)
-        else:
-            try:
-                value = float(value)
-            except ValueError:
-                pass
-        new_params[key.lower()] = value
-    return new_params
-
-
-def settings_url_parse(url):
-    params = {}
-    parse_result = urlparse(url)
-    params.update(dict(parse_qsl(parse_result.query)))
-    params = _fix_params_types(params)
-    if parse_result.scheme == "redis" or parse_result.scheme == "rediss":
-        if Redis is None:
-            raise BackendNotAvailable("Redis backend requires `redis` (or `aioredis`) to be installed.")
-        params["backend"] = Redis
-        params["address"] = parse_result._replace(query=None)._replace(fragment=None).geturl()
-    elif parse_result.scheme == "mem":
-        params["backend"] = Memory
-    elif parse_result.scheme == "disk":
-        if DiskCache is None:
-            raise BackendNotAvailable("Disk backend requires `diskcache` to be installed.")
-        params["backend"] = DiskCache
-    elif parse_result.scheme == "":
-        params["backend"] = Memory
-        params["disable"] = True
-    else:
-        raise BackendNotAvailable(f"wrong backend alias {parse_result.scheme}")
-    return params

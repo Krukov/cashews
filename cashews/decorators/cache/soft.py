@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from ..._typing import CacheCondition
+from ..._typing import CallableCacheCondition
 from ...backends.interface import Backend
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
+from .defaults import CacheDetect, _empty, context_cache_detect
 
 __all__ = ("soft",)
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ def soft(
     key: Optional[str] = None,
     soft_ttl: Optional[int] = None,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
-    condition: CacheCondition = None,
+    condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "soft",
 ):
     """
@@ -31,7 +31,6 @@ def soft(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
-    store = _get_cache_condition(condition)
     if soft_ttl is None:
         soft_ttl = ttl * 0.33  # type: ignore[assignment]
 
@@ -70,7 +69,7 @@ def soft(
                     return result
                 raise
             else:
-                if store(result, args, kwargs, _cache_key):
+                if condition(result, args, kwargs, _cache_key):
                     soft_expire_at = datetime.utcnow() + timedelta(seconds=soft_ttl)
                     await backend.set(_cache_key, [soft_expire_at, result], expire=ttl)
                 return result

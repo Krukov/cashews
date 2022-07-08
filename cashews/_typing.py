@@ -1,5 +1,6 @@
 from datetime import timedelta
-from typing import Any, Callable, Dict, Tuple, Union
+from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 TTL = Union[int, str, timedelta, Callable[[], Union[int, timedelta]]]
-CacheCondition = Union[Callable[[Any, Tuple, Dict], bool], str, None]
+CallableCacheCondition = Callable[[Any, Tuple, Dict, Optional[str]], bool]
+CacheCondition = Union[CallableCacheCondition, str, None]

@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews import NOT_NONE, decorators, noself
+from cashews import decorators, noself
 from cashews.backends.memory import Backend, Memory
 from cashews.formatter import _REGISTER, get_templates_for_func
 
@@ -126,21 +126,6 @@ async def test_cache_simple(backend):
 
     await asyncio.sleep(EXPIRE * 1.1)
     assert await func(b"notok") == b"notok"
-
-
-async def test_cache_simple_not_none(backend):
-    mock = Mock()
-
-    @decorators.cache(backend, ttl=EXPIRE, key="key", condition=NOT_NONE)
-    async def func():
-        mock()
-        return None
-
-    assert await func() is None
-    assert mock.call_count == 1
-
-    assert await func() is None
-    assert mock.call_count == 2
 
 
 async def test_cache_simple_none(backend):

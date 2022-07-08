@@ -1,6 +1,6 @@
+from ._cache_condition import NOT_NONE  # noqa
 from .backends.interface import LockedException  # noqa
 from .decorators import (  # noqa
-    NOT_NONE,
     CacheDetect,
     CircuitBreakerOpen,
     RateLimitException,

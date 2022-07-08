@@ -1,12 +1,10 @@
-from typing import Any
-
 from contextvars import ContextVar
+from typing import Any
 
 _ALL = "_"
 
 
 async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
-
     if backend.is_disable(cmd, _ALL):
         if cmd == "get":
             return kwargs.get("default")

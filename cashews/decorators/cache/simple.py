@@ -1,11 +1,11 @@
 from functools import wraps
 from typing import Optional
 
-from ..._typing import CacheCondition
+from ..._typing import CallableCacheCondition
 from ...backends.interface import Backend
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from .defaults import CacheDetect, _empty, _get_cache_condition, context_cache_detect
+from .defaults import CacheDetect, _empty, context_cache_detect
 
 __all__ = ("cache",)
 
@@ -14,7 +14,7 @@ def cache(
     backend: Backend,
     ttl: int,
     key: Optional[str] = None,
-    condition: CacheCondition = None,
+    condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "",
 ):
     """
@@ -26,7 +26,6 @@ def cache(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key
     """
-    store = _get_cache_condition(condition)
 
     def _decor(func):
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
@@ -40,7 +39,7 @@ def cache(
                 _from_cache._set(_cache_key, ttl=ttl, name="simple", template=_key_template)
                 return cached
             result = await func(*args, **kwargs)
-            if store(result, args, kwargs, key=_cache_key):
+            if condition(result, args, kwargs, key=_cache_key):
                 await backend.set(_cache_key, result, expire=ttl)
             return result
 

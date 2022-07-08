@@ -2,7 +2,7 @@ import asyncio
 import math
 import warnings
 from functools import wraps
-from typing import Optional, Tuple, Union, Any
+from typing import Any, Optional, Tuple, Union
 
 from cashews.utils import get_hashes
 
