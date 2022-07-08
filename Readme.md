@@ -58,6 +58,7 @@ async def cache_using_function(request):
 - [Available Backends](#available-backends)
 - [Basic API](#basic-api)
 - [Strategies](#strategies)
+  - [Cache condition](#cache-condition)
   - [Keys templating](#template-keys)
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
@@ -348,6 +349,39 @@ for email in all_users_emails:
     await email_exists.set(email)
 
 await email_exists("example@example.com")
+```
+
+### Cache condition
+
+By default, any result of function call is stored, even it is a `None`.
+Caching decorators have parameter `condition`, that can be: 
+- a callable object that receive result of function call, args, kwargs and a cache key
+- a string: "not_none" or "skip_none" to do not cache `None` values in
+```python
+from cashews import cache, NOT_NONE
+
+@cache(ttl="1h", condition=NOT_NONE)
+async def get():
+    ...
+
+
+def skit_test_result(result, args, kwargs, key=None) -> bool:
+    return result != "test"
+
+@cache(ttl="1h", condition=skit_test_result)
+async def get():
+    ...
+
+```
+
+Also caching decorators have parameter `time_condition` - min latency in seconds (can be set like `ttl` - by string or timedelata object)
+ for getting result of function call to be cached.
+```python
+from cashews import cache
+
+@cache(ttl="1h", time_condition="3s")
+async def get():
+    ...
 ```
 
 
