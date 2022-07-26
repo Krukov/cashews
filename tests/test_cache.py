@@ -354,7 +354,7 @@ async def test_hit_cache(backend):
     assert mock.call_count == 2
 
     await asyncio.gather(*[func() for _ in range(10)])
-    assert mock.call_count == 2
+    assert mock.call_count in [2, 3]
 
 
 async def test_hit_cache_early(backend):

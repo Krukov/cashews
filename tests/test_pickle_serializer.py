@@ -43,7 +43,15 @@ class Cache(PickleSerializerMixin, DummyCache):
     pass
 
 
-@pytest.fixture(name="cache", params=["dummy", pytest.param("redis", marks=pytest.mark.redis)])
+@pytest.fixture(
+    name="cache",
+    params=[
+        "default",
+        pytest.param("redis", marks=pytest.mark.redis),
+        pytest.param("dill", marks=pytest.mark.integration),
+        pytest.param("sqlalchemy", marks=pytest.mark.integration),
+    ],
+)
 async def _cache(request, redis_dsn):
     if request.param == "redis":
         from cashews.backends.redis import Redis
@@ -52,7 +60,7 @@ async def _cache(request, redis_dsn):
         await redis.init()
         await redis.clear()
         return redis
-    return Cache(hash_key="test", digestmod="md5")
+    return Cache(hash_key="test", digestmod="md5", pickle_type=request.param)
 
 
 @pytest.mark.parametrize(
@@ -180,15 +188,6 @@ async def test_pickle_error_value(cache):
 async def test_set_no_ser(cache):
     empty = object()
     await cache.set("key_e", empty)
-
-
-async def test_no_import_dc(cache):
-    @dataclasses.dataclass
-    class TestNoImport:
-        test: str
-
-    with pytest.raises(AttributeError):
-        await cache.set("key_i", TestNoImport(test="test"))
 
 
 Schema = None
