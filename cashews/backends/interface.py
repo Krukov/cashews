@@ -38,7 +38,7 @@ class Backend:
     async def get_raw(self, key: str) -> Any:
         ...
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Optional[Any], ...]:
         ...
 
     async def exists(self, key: str) -> bool:
@@ -80,7 +80,6 @@ class Backend:
         """
         Return size in bites that allocated by a value for given key
         """
-        ...
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:
         ...

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+import pytest_asyncio
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
@@ -43,7 +44,7 @@ class Cache(PickleSerializerMixin, DummyCache):
     pass
 
 
-@pytest.fixture(
+@pytest_asyncio.fixture(
     name="cache",
     params=[
         "default",

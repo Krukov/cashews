@@ -12,8 +12,14 @@ from ..key import get_cache_key, get_cache_key_template
 __all__ = ("bloom",)
 
 all_not_zeros = all
-all_zeros = lambda values: all((v == 0 for v in values))
-at_least_one_zero = lambda values: not all(values)
+
+
+def all_zeros(values) -> bool:
+    return all(v == 0 for v in values)
+
+
+def at_least_one_zero(values) -> bool:
+    return not all(values)
 
 
 def bloom(
@@ -85,8 +91,7 @@ def bloom(
                 if check_false_positive:
                     return await func(*args, **kwargs)
                 return True
-            else:
-                return False
+            return False
 
         return _wrap
 

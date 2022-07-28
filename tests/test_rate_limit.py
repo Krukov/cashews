@@ -13,7 +13,7 @@ pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture()
-async def rate_limit():
+def rate_limit():
     return partial(_rate_limit, backend=Memory())
 
 

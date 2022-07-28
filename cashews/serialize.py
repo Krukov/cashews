@@ -71,24 +71,23 @@ class PickleSerializerMixin:
         if self._hash_key:
             try:
                 sign, value = value.split(b"_", 1)
-            except ValueError:
-                raise SignIsMissingError(f"key: {key}")
+            except ValueError as exc:
+                raise SignIsMissingError(f"key: {key}") from exc
             sign, digestmod = self._get_digestmod(sign)
             expected_sign = self._get_sign(key, value, digestmod)
             if expected_sign != sign:
                 raise UnSecureDataError(f"{expected_sign!r} != {sign!r}")
             return value
-        else:
-            # Backward compatibility.
-            DeprecationWarning(
-                "If a sign is not used to secure your data, then a value will be pickled and saved without an empty sign prepended."
-                "Values saved via 4.x package version without using a sign will not be compatible after the 5.x release."
-            )
-            with suppress(ValueError):
-                sign, value = value.split(b"_", 1)
-                if sign:
-                    value = sign + b"_" + value
-            return value
+        # Backward compatibility.
+        DeprecationWarning(
+            "If a sign is not used to secure your data, then a value will be pickled and saved without an empty sign prepended."
+            "Values saved via 4.x package version without using a sign will not be compatible after the 5.x release."
+        )
+        with suppress(ValueError):
+            sign, value = value.split(b"_", 1)
+            if sign:
+                value = sign + b"_" + value
+        return value
 
     def _get_digestmod(self, sign: bytes) -> Tuple[bytes, bytes]:
         digestmod = self._digestmod

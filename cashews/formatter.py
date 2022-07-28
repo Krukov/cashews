@@ -41,12 +41,12 @@ class _ReplaceFormatter(Formatter):
         }
         super().__init__()
 
-    def set_format_for_type(self, type, format_function):
-        self.__type_format[type] = format_function
+    def set_format_for_type(self, value, format_function):
+        self.__type_format[value] = format_function
 
-    def type_format(self, type):
+    def type_format(self, value):
         def _decorator(func):
-            self.set_format_for_type(type, func)
+            self.set_format_for_type(value, func)
             return func
 
         return _decorator
@@ -161,7 +161,7 @@ def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callabl
 
 
 def get_template_for_key(key: str) -> Tuple[Optional[str], Optional[dict]]:
-    for func, templates in _REGISTER.items():
+    for _, templates in _REGISTER.items():
         for template, compile_pattern in templates:
             match = compile_pattern.fullmatch(key)
             if match:

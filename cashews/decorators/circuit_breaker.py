@@ -84,4 +84,4 @@ def _get_bucket_number(period: int, segments: int) -> int:
 
 async def _get_buckets_values(backend: Backend, key, segments: int, except_number: int) -> int:
     keys = [f"{key}:total:{bucket}" for bucket in range(segments) if bucket != except_number]
-    return sum([v for v in await backend.get_many(*keys) if v])
+    return sum(v for v in await backend.get_many(*keys) if v)

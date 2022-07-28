@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+import pytest_asyncio
 
 from cashews.backends.memory import Memory
 from cashews.decorators.bloom import _counting_bloom as counting_bloom
@@ -9,7 +10,7 @@ from cashews.decorators.bloom import bloom, dual_bloom
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(
+@pytest_asyncio.fixture(
     name="backend",
     params=[
         "memory",

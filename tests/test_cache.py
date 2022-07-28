@@ -2,6 +2,7 @@ import asyncio
 from unittest.mock import Mock
 
 import pytest
+import pytest_asyncio
 
 from cashews import decorators, noself
 from cashews.backends.memory import Backend, Memory
@@ -16,7 +17,7 @@ class CustomError(Exception):
     pass
 
 
-@pytest.fixture(
+@pytest_asyncio.fixture(
     name="backend",
     params=[
         "memory",

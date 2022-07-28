@@ -8,13 +8,12 @@ from cashews.validation import invalidate_func, set_invalidate_further
 
 pytestmark = pytest.mark.asyncio
 
-_cache_ = Cache()
-
 
 @pytest.fixture(name="cache")
-async def _cache():
-    _cache_.setup("mem://")
-    return _cache_
+def _cache():
+    cache = Cache()
+    cache.setup("mem://")
+    return cache
 
 
 async def test_invalidate_func(cache: Cache):

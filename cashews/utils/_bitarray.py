@@ -5,12 +5,12 @@ class Bitarray:
         self._value = int(value, base=base)
 
     def get(self, index: int, size: int = 1) -> int:
-        res = 0
+        value = 0
         bit_index = 0
         for i in range(index * size, (index + 1) * size):
-            res |= ((self._value >> i) & 1) << bit_index
+            value |= ((self._value >> i) & 1) << bit_index
             bit_index += 1
-        return res
+        return value
 
     def set(self, index: int, value: int, size: int = 1):
         for i in range(0, size):
@@ -18,7 +18,6 @@ class Bitarray:
                 self._set_bit_1(index * size + i)
             else:
                 self._set_bit_0(index * size + i)
-        return
 
     def _set_bit_1(self, index):
         self._value |= 1 << index
