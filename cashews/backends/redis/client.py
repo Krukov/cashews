@@ -29,7 +29,8 @@ class SafeRedis(Redis):
     async def initialize(self):
         try:
             return await super().initialize()
-        except Exception:
+        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError):
+            logger.error("redis: can not initialize cache", exc_info=True)
             return self
 
     __aenter__ = initialize

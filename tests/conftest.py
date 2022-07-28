@@ -29,7 +29,7 @@ def redis_dsn():
 
 
 @pytest.fixture
-async def backend_factory():
+def backend_factory():
     backend = None
 
     async def factory(backend_cls: Type[Backend], *args, **kwargs):

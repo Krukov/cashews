@@ -2,6 +2,7 @@ import asyncio
 import sys
 
 import pytest
+import pytest_asyncio
 
 from cashews.backends.interface import Backend
 from cashews.backends.memory import Memory
@@ -9,7 +10,7 @@ from cashews.backends.memory import Memory
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(
+@pytest_asyncio.fixture(
     name="cache",
     params=[
         "memory",

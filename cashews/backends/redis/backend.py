@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, AsyncIterator, List, Optional, Tuple
+from typing import Any, AsyncIterator, Optional, Tuple
 
 from ..interface import Backend
 from .client import SafeRedis
@@ -155,12 +155,12 @@ class _Redis(Backend):
     async def get(self, key: str, default=None) -> Any:
         return await self._client.get(key)
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Optional[Any]]:
         if not keys:
             return tuple()
         values = await self._client.mget(keys[0], *keys[1:])
         if not values:
-            return []
+            return tuple()
         return tuple(value if value is not None else default for value in values)
 
     async def incr(self, key: str) -> int:

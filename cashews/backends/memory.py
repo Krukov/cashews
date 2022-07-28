@@ -4,11 +4,11 @@ import time
 from collections import OrderedDict
 from typing import Any, AsyncIterator, Optional, Tuple
 
+from cashews.utils import Bitarray, get_obj_size
+
 from .interface import Backend
 
-__all__ = "Memory"
-
-from cashews.utils import Bitarray, get_obj_size
+__all__ = ["Memory"]
 
 _missed = object()
 

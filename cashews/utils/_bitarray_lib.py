@@ -22,7 +22,6 @@ class Bitarray:
             if len(self._value) - 1 < index_to_set:
                 self._value = bitarray((index_to_set - len(self._value) + 1) * "0" + self._value.to01())
             self._value[len(self._value) - index_to_set - 1] = (value >> i) & 1
-        return
 
     def _set_bit_1(self, index):
         self._value[len(self._value) - index] = 1
