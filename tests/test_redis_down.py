@@ -17,6 +17,8 @@ def redis_backend():
 async def test_safe_redis(redis_backend):
     redis = redis_backend(safe=True, address="redis://localhost:9223", hash_key=None)
     await redis.init()
+
+    assert not redis.is_init
     assert await redis.set("test", "test") is False
 
     assert await redis.set_lock("test", "test", 1) is False
@@ -30,13 +32,16 @@ async def test_safe_redis(redis_backend):
     assert await redis.get_expire("test") == 0
     assert await redis.incr("test") is None
     assert await redis.get_size("test") == 0
-    async for i in redis.scan("*"):
+    async for _ in redis.scan("*"):
         assert False
 
-    async for k, v in redis.get_match("*"):
+    async for _ in redis.get_match("*"):
         assert False
 
     assert await redis.delete("test") == 0
+
+    with pytest.raises(Exception):
+        await redis.ping()
 
 
 async def test_cache_decorators_on_redis_down(redis_backend):
