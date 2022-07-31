@@ -179,7 +179,7 @@ async def test_disable_decorators_set(cache: Cache):
 
 async def test_init(cache):
     await cache.init("mem://localhost")
-    assert cache.is_enable()
+    assert cache.is_init
 
 
 async def test_auto_init(cache):

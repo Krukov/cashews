@@ -122,6 +122,13 @@ class Cache(Backend):
         for backend, _ in self._backends.values():
             await backend.init()
 
+    @property
+    def is_init(self) -> bool:
+        for backend, _ in self._backends.values():
+            if not backend.is_init:
+                return False
+        return True
+
     def _with_middlewares(self, cmd: str, key):
         backend, middlewares = self._get_backend_and_config(key)
         return self._with_middlewares_for_backend(cmd, backend, middlewares)
