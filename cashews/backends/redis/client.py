@@ -19,6 +19,8 @@ class SafeRedis(Redis):
         try:
             return await super().execute_command(command, *args, **kwargs)
         except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError):
+            if command.lower() == "ping":
+                raise 
             logger.error("redis: can not execute command: %s", command, exc_info=True)
             if command.lower() in ["unlink", "del", "memory", "ttl"]:
                 return 0
