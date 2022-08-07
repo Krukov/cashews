@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import contextmanager
 from functools import partial, wraps
-from typing import Any, AsyncIterator, Callable, Dict, Iterable, Optional, Tuple, Type, Union
+from typing import Any, AsyncIterator, Callable, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
 
 from . import decorators, validation
 from ._cache_condition import create_time_condition, get_cache_condition
@@ -202,6 +202,28 @@ class Cache(Backend):
             _values = await self._with_middlewares("get_many", _keys[0])(*_keys, default=default)
             result.update(dict(zip(_keys, _values)))
         return tuple([result.get(key) for key in keys])
+
+    async def set_many(
+        self,
+        pairs: Mapping[str, Any],
+        expire: Union[float, TTL, None] = None,
+        exist: Optional[bool] = None
+    )  -> None:
+        backends = {}
+        for key in pairs:
+            backend = self._get_backend(key)
+            backends.setdefault(backend, []).append(key)
+        for backend, keys in backends.items():
+            async with backend._client.pipeline(transaction=True) as pipe:  # type: ignore[misc]
+                if exist is not None:
+                    await pipe.msetnx(pairs)
+                else:
+                    await pipe.mset(pairs)  # type: ignore[arg-type]
+                expire_in_seconds = ttl_to_seconds(expire)
+                if expire_in_seconds:
+                    for key in pairs.keys():
+                        await pipe.expire(key, expire_in_seconds)
+                await pipe.execute()
 
     def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
         return self._with_middlewares("get_bits", key)(key, *indexes, size=size)

@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, AsyncIterator, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, Optional, Tuple
 
 from ..interface import Backend
 from .client import SafeRedis
@@ -73,6 +73,9 @@ class _Redis(Backend):
             pexpire = int(expire * 1000)
             expire = None
         return bool(await self._client.set(key, value, ex=expire, px=pexpire, nx=nx, xx=xx))
+
+    async def mset(self, data: Dict) -> bool:
+        return bool(await self._client.mset(data))
 
     async def get_expire(self, key: str) -> int:
         return await self._client.ttl(key)
