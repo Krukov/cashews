@@ -2,7 +2,7 @@ import asyncio
 import re
 import time
 from collections import OrderedDict
-from typing import Any, AsyncIterator, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, Optional, Tuple
 
 from cashews.utils import Bitarray, get_obj_size
 
@@ -71,6 +71,10 @@ class Memory(Backend):
 
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         return tuple(self._get(key, default=default) for key in keys)
+
+    async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None) -> bool:
+        for key, value in data:
+            await self.set(key, value, expire=expire)
 
     async def keys_match(self, pattern: str) -> AsyncIterator[str]:
         pattern = pattern.replace("*", ".*")
