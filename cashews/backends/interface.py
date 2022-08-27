@@ -41,7 +41,7 @@ class Backend:
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Optional[Any], ...]:
         ...
 
-    async def set_many(self, pairs: Mapping[str, Any]):
+    async def set_many(self, data: Mapping[str, Any], expire: Optional[float] = None):
         ...
 
     async def exists(self, key: str) -> bool:

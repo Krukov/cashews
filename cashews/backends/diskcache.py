@@ -73,7 +73,7 @@ class DiskCache(Backend):
         return await self._run_in_executor(self._get_many, keys, default)
 
     async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None) -> bool:
-        for key, value in data:
+        for key, value in data.items():
             await self.set(key, value, expire=expire)
 
     def _get_many(self, keys: List[str], default: Optional[Any] = None):

@@ -73,7 +73,7 @@ class Memory(Backend):
         return tuple(self._get(key, default=default) for key in keys)
 
     async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None) -> bool:
-        for key, value in data:
+        for key, value in data.items():
             await self.set(key, value, expire=expire)
 
     async def keys_match(self, pattern: str) -> AsyncIterator[str]:
