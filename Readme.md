@@ -671,6 +671,13 @@ cache.setup("mem://", middlewares=(logging_middleware, ))
 
 ## Development
 
+### Setup
+- Clone the project.
+- After creating a virtual environment, install [pre-commit](https://pre-commit.com/):
+  ```shell
+  pip install pre-commit && pre-commit install --install-hooks
+  ```
+
 ### Tests
 To run tests you can use `tox`:
 ```shell
