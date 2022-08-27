@@ -110,15 +110,15 @@ class PickleSerializerMixin:
         return await super().set(key, self._prepend_sign_to_value(key, value), *args, **kwargs)
 
     async def set_many(self, pairs: Dict[str, Any], *args: Any, **kwargs: Any):
-        data = {}
+        transformed_pairs = {}
         for key, value in pairs.items():
             transformed_value = None
             if isinstance(value, int) and not isinstance(value, bool):
                 transformed_value = pairs[key]
             else:
                 transformed_value = self._pickler.dumps(value)
-            data[key] = self._prepend_sign_to_value(key, transformed_value)
-        return await super().set_many(data, *args, **kwargs)
+            transformed_pairs[key] = self._prepend_sign_to_value(key, transformed_value)
+        return await super().set_many(transformed_pairs, *args, **kwargs)
 
     def _prepend_sign_to_value(self, key: str, value: bytes) -> bytes:
         sign = self._get_sign(key, value, self._digestmod)

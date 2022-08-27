@@ -72,7 +72,7 @@ class Memory(Backend):
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         return tuple(self._get(key, default=default) for key in keys)
 
-    async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None) -> bool:
+    async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None):
         for key, value in data.items():
             await self.set(key, value, expire=expire)
 
