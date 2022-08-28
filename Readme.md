@@ -6,7 +6,7 @@
 
 ```bash
 pip install cashews
-pip install cashews[redis]  # Aioredis is now in redis-py 4.2.0rc1+ 
+pip install cashews[redis]  # Aioredis is now in redis-py 4.2.0rc1+
 pip install cashews[aioredis]  # Please install "redis" instead, unless you must maintain a legacy code.
 pip install cashews[diskcache]
 pip install cashews[dill] # can cache in redis more types of objects
@@ -120,17 +120,17 @@ cache.setup("mem://?check_interval=10&size=10000")
 
 #### Redis
 
-*Requires [redis](https://github.com/redis/redis-py) package.*\
-*Note: If you must support a legacy code that uses `aioredis`, then install [aioredis](https://github.com/aio-libs/aioredis-py) instead.*
+_Requires [redis](https://github.com/redis/redis-py) package._\
+_Note: If you must support a legacy code that uses `aioredis`, then install [aioredis](https://github.com/aio-libs/aioredis-py) instead._
 
 This will use Redis as a storage.
 
 This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to store
 values, but the cashes can store values with sha1-keyed hash.
 Use `hash_key` parameter to protect your application from security vulnerabilities.
-Pickle can't serialize any type of objects. In case you need to store more complex types 
+Pickle can't serialize any type of objects. In case you need to store more complex types
 you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`.
-Dill is great, but less performance. 
+Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 
 Any connections errors are suppressed, to disable it use `safe=False`
@@ -151,14 +151,14 @@ cache.setup("rediss://0.0.0.0/", ssl_ca_certs="path/to/ca.crt", ssl_keyfile="pat
 
 #### DiskCache
 
-*Requires [diskcache](https://github.com/grantjenks/python-diskcache) package.*
+_Requires [diskcache](https://github.com/grantjenks/python-diskcache) package._
 
 This will use local sqlite databases (with shards) as storage.
 
 It is a good choice if you don't want to use redis, but you need a shared storage, or your cache takes a lot of local memory.
 Also, it is good choice for client side local storage.
 
-You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache) 
+You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache)
 
 ** Warning ** `cache.keys_match` and `cache.get_match` does not work with this storage (works only if shards are disabled)
 
@@ -168,8 +168,6 @@ cache.setup("disk://?directory=/tmp/cache&timeout=1&shards=0")  # disable shards
 Gb = 1073741824
 cache.setup("disk://", size_limit=3 * Gb, shards=12)
 ```
-
-
 
 ### Basic API
 
@@ -238,16 +236,17 @@ call should be succeed prior that).
 from cashews import cache  # or: from cashews import failover
 
 # note: the key will be "__module__.get_status:name:{name}"
-@cache.failover(ttl="2h", exceptions=(ValueError, MyException))  
+@cache.failover(ttl="2h", exceptions=(ValueError, MyException))
 async def get_status(name):
     value = await api_call()
     return {"status": value}
 ```
+
 If exceptions didn't get will catch all exceptions or use default if it set by:
+
 ```python
 cache.set_default_fail_exceptions(ValueError, MyException)
 ```
-
 
 #### Hit cache
 
@@ -261,7 +260,6 @@ async def get(name):
     ...
 ```
 
-
 #### Early
 
 Cache strategy that tries to solve [Cache stampede problem](https://en.wikipedia.org/wiki/Cache_stampede)
@@ -270,13 +268,12 @@ with a hot cache recalculating result in a background.
 ```python
 from cashews import cache  # or: from cashews import early
 
-# if you call this function after 7 min, cache will be updated in a background 
-@cache.early(ttl="10m", early_ttl="7m")  
+# if you call this function after 7 min, cache will be updated in a background
+@cache.early(ttl="10m", early_ttl="7m")
 async def get(name):
     value = await api_call()
     return {"status": value}
 ```
-
 
 #### Soft
 
@@ -287,12 +284,11 @@ from cashews import cache
 
 # if you call this function after 7 min, cache will be updated and return a new result.
 # If it fail on recalculation will return current cached value (if it not more then 10 min old)
-@cache.soft(ttl="10m", soft_ttl="7m")  
+@cache.soft(ttl="10m", soft_ttl="7m")
 async def get(name):
     value = await api_call()
     return {"status": value}
 ```
-
 
 #### Locked
 
@@ -300,7 +296,7 @@ Decorator that can help you to solve [Cache stampede problem](https://en.wikiped
 Lock following function calls until the first one will be finished.
 This guarantees exactly one function call for given ttl.
 
-> :warning: **Warning: this decorator will not cache the result
+> :warning: \*\*Warning: this decorator will not cache the result
 > To do so you can combine this decorator with any cache decorator or use parameter `lock=True` with `@cache()`
 
 ```python
@@ -311,7 +307,6 @@ async def get(name):
     value = await api_call()
     return {"status": value}
 ```
-
 
 #### Rate limit
 
@@ -338,10 +333,9 @@ async def get(name):
     ...
 ```
 
-
 #### Bloom filter (experimental)
 
-Bloom filter 
+Bloom filter
 
 ```python
 from cashews import cache
@@ -359,9 +353,11 @@ await email_exists("example@example.com")
 ### Cache condition
 
 By default, any result of function call is stored, even it is a `None`.
-Caching decorators have parameter `condition`, that can be: 
+Caching decorators have parameter `condition`, that can be:
+
 - a callable object that receive result of function call, args, kwargs and a cache key
 - a string: "not_none" or "skip_none" to do not cache `None` values in
+
 ```python
 from cashews import cache, NOT_NONE
 
@@ -380,7 +376,8 @@ async def get():
 ```
 
 Also caching decorators have parameter `time_condition` - min latency in seconds (can be set like `ttl` - by string or timedelata object)
- for getting result of function call to be cached.
+for getting result of function call to be cached.
+
 ```python
 from cashews import cache
 
@@ -389,11 +386,11 @@ async def get():
     ...
 ```
 
-
 ### Template Keys
 
-Often, to compose a key, you need all the parameters of the function call. 
+Often, to compose a key, you need all the parameters of the function call.
 By default, Cashews will generate a key using the function name, module names and parameters
+
 ```python
 from cashews import cache
 
@@ -403,15 +400,16 @@ async def get_name(user, *args, version="v1", **kwargs):
 
 # a key template will be "__module__.get_name:user:{user}:{__args__}:version:{version}:{__kwargs__}"
 
-await get_name("me", version="v2") 
+await get_name("me", version="v2")
 # a key will be "__module__.get_name:user:me::version:v2"
-await get_name("me", version="v1", foo="bar") 
+await get_name("me", version="v1", foo="bar")
 # a key will be "__module__.get_name:user:me::version:v1:foo:bar"
 await get_name("me", "opt", "attr", opt="opt", attr="attr")
 # a key will be "__module__.get_name:user:me:opt:attr:version:v1:attr:attr:opt:opt"
 ```
 
 The same with a class method
+
 ```python
 from cashews import cache
 
@@ -423,11 +421,13 @@ class MyClass:
 
 # a key template will be "__module__:MyClass.get_name:self:{self}:user:{user}:version:{version}
 
-await MyClass().get_name("me", version="v2") 
+await MyClass().get_name("me", version="v2")
 # a key will be "__module__:MyClass.get_name:self:<__module__.MyClass object at 0x105edd6a0>:user:me:version:v1"
 ```
-As you can see, there is an ugly reference to the instance in the key. That is not what we expect to see. 
-That cache will not work properly. There are 3 solutions to avoid it.) define `__str__` magic method in our class 
+
+As you can see, there is an ugly reference to the instance in the key. That is not what we expect to see.
+That cache will not work properly. There are 3 solutions to avoid it.) define `__str__` magic method in our class
+
 ```python
 
 class MyClass:
@@ -439,10 +439,12 @@ class MyClass:
     def __str__(self) -> str:
         return self._host
 
-await MyClass(host="http://example.com").get_name("me", version="v2") 
+await MyClass(host="http://example.com").get_name("me", version="v2")
 # a key will be "__module__:MyClass.get_name:self:http://example.com:user:me:version:v1"
 ```
-2) Set a key template
+
+2. Set a key template
+
 ```python
 class MyClass:
 
@@ -450,10 +452,12 @@ class MyClass:
     async def get_name(self, user, version="v1"):
          ...
 
-await MyClass(host="http://example.com").get_name("me", version="v2") 
+await MyClass(host="http://example.com").get_name("me", version="v2")
 # a key will be "http://example.com:name:me:v1"
 ```
-3) Use `noself` or `noself_cache` if you want to exclude `self` from a key
+
+3. Use `noself` or `noself_cache` if you want to exclude `self` from a key
+
 ```python
 from cashews import cache, noself, noself_cache
 
@@ -468,26 +472,26 @@ class MyClass:
          ...
 # a key template will be "__module__:MyClass.get_name:user:{user}:version:{version}
 
-await MyClass().get_name("me", version="v2") 
+await MyClass().get_name("me", version="v2")
 # a key will be "__module__:MyClass.get_name:user:me:version:v1"
 ```
 
-
 Sometimes you may need to format the parameters or define your
- own template for the key and Cashews allows you to do this:
+own template for the key and Cashews allows you to do this:
+
 ```python
 @cache.failover(key="name:{user.uid}")
 async def get_name(user, version="v1"):
     ...
 
-await get_name(user, version="v2") 
+await get_name(user, version="v2")
 # a key will be "fail:name:me"
 
 @cache.hit(key="user:{token:jwt(user_name)}", prefix="new")
 async def get_name(token):
     ...
 
-await get_name(token) 
+await get_name(token)
 # a key will be "new:user:alex"
 
 from cashews import default_formatter, cache
@@ -505,7 +509,7 @@ def _decimal(value: Decimal) -> str:
 async def get_price(item):
     ...
 
-await get_name(item) 
+await get_name(item)
 # a key will be "price-10.00:USD"
 ```
 
@@ -587,10 +591,10 @@ class User:
 # or define your own class with __repr__ method
 
 class User:
-    
+
     def __init__(self, name, surname):
         self.name, self.surname = name, surname
-        
+
     def __repr__(self):
         return f"{self.name} {self.surname}"
 
@@ -647,7 +651,6 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 ```
 
-
 ### Middleware
 
 Cashews provide the interface for a "middleware" pattern:
@@ -668,10 +671,10 @@ async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
 cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
 
-
 ## Development
 
 ### Setup
+
 - Clone the project.
 - After creating a virtual environment, install [pre-commit](https://pre-commit.com/):
   ```shell
@@ -679,21 +682,24 @@ cache.setup("mem://", middlewares=(logging_middleware, ))
   ```
 
 ### Tests
+
 To run tests you can use `tox`:
+
 ```shell
 pip install tox
-tox -e py  // tests for inmemory backend 
-tox -e py-diskcache  // tests for diskcache backend 
-tox -e py-redis  // tests for redis backend  - you need to run redis 
-tox -e py-integration  // tests for integrations with aiohttp and fastapi 
+tox -e py  // tests for inmemory backend
+tox -e py-diskcache  // tests for diskcache backend
+tox -e py-redis  // tests for redis backend  - you need to run redis
+tox -e py-integration  // tests for integrations with aiohttp and fastapi
 
 tox // to run all tests for all python that is installed on your machine
 ```
 
 Or use `pytest`, but 2 tests always fail, it is OK:
+
 ```shell
 pip install .[tests,redis,diskcache,speedup] fastapi aiohttp requests
 
-pytest // run all tests with all backends   
+pytest // run all tests with all backends
 pytest -m "not redis" // all tests without tests for redis backend
 ```

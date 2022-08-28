@@ -1,13 +1,13 @@
-import sys
 import random
+import sys
+
 sys.path.append("/Users/dmitry.kryukov/Projects/my/cashews")
 import asyncio
 from datetime import timedelta
 
-from cashews import default_formatter, cache, context_cache_detect
-
 from pyinstrument import Profiler
 
+from cashews import cache, default_formatter
 
 INT_TO_STR_MAP = {
     "0": "zero",
@@ -54,15 +54,15 @@ async def example(a):
 
 async def main():
     await cache.init()
-    p = Profiler(async_mode='disabled')
+    p = Profiler(async_mode="disabled")
     with p:
-            for _ in range(10_000):
-                await asyncio.gather(
-                    example(random.randint(10, 1000)),
-                    example(random.randint(10, 10000)),
-                    example(random.randint(10, 1000)),
-                )
+        for _ in range(10_000):
+            await asyncio.gather(
+                example(random.randint(10, 1000)),
+                example(random.randint(10, 10000)),
+                example(random.randint(10, 1000)),
+            )
     p.print()
 
-asyncio.run(main())
 
+asyncio.run(main())

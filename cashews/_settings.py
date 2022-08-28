@@ -10,7 +10,7 @@ except ImportError:
     BcastClientSide, Redis = None, None
 
 try:
-    import diskcache
+    import diskcache  # noqa: F401
 except ImportError:
     DiskCache = None
 else:

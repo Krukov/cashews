@@ -201,7 +201,7 @@ class Cache(Backend):
         for _keys in backends.values():
             _values = await self._with_middlewares("get_many", _keys[0])(*_keys, default=default)
             result.update(dict(zip(_keys, _values)))
-        return tuple([result.get(key) for key in keys])
+        return tuple(result.get(key) for key in keys)
 
     def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
         return self._with_middlewares("get_bits", key)(key, *indexes, size=size)

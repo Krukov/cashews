@@ -199,7 +199,7 @@ async def test_lru(backend_factory):
         assert await cache.get(f"key:{i}") == i
 
     for i in range(6, 10):
-        assert await cache.get(f"key:{i}") == None
+        assert await cache.get(f"key:{i}") is None
 
 
 async def test_lru2(backend_factory):
@@ -219,7 +219,7 @@ async def test_lru2(backend_factory):
     assert len(cache.store) == 10
 
     for i in range(5):
-        assert await cache.get(f"key:{i}") == None
+        assert await cache.get(f"key:{i}") is None
 
     for i in range(6, 10):
         assert await cache.get(f"key:{i}") == i

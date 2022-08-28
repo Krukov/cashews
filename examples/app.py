@@ -1,30 +1,22 @@
 import asyncio
+import hashlib
 import random
 import string
-import hashlib
 import time
-
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, Depends, HTTPException, Header
-from starlette.requests import Request
-from fastapi.security import http
-from starlette.responses import JSONResponse
-from starlette.status import HTTP_403_FORBIDDEN
-from pydantic import BaseModel
-
-from cashews import (
-    cache,
-    RateLimitException,
-    cache_detect,
-    utils,
-    LockedException,
-)
-
 import databases
+import jwt
 import orm
 import sqlalchemy
-import jwt
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.security import http
+from pydantic import BaseModel
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.status import HTTP_403_FORBIDDEN
+
+from cashews import LockedException, RateLimitException, cache, utils
 
 database = databases.Database("sqlite:///db.sqlite")
 metadata = sqlalchemy.MetaData()
@@ -170,7 +162,7 @@ async def get_token(auth: Auth):
 @cache(ttl=timedelta(minutes=10), key="me:{user.name}")
 async def get_me(user: User = Depends(get_current_user)):
     friends = await database.fetch_all(
-        "SELECT name, relations.kind FROM user JOIN relations ON relations.target = user.id WHERE relations.owner = :owner",
+        "SELECT name, relations.kind FROM user JOIN relations ON relations.target = user.id WHERE relations.owner = :owner",  # noqa: E501
         {"owner": user.id},
     )
     return {"name": user.name, "friends": friends}

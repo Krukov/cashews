@@ -4,16 +4,18 @@ in theory local cache should be consistence
 GET:
 -> IN mem cache -> Y -> return
                 -> N -> in redis cache -> Y -> store in mem cache -> return
-                                       -> N -> compete -> store in mem and in redis -> notify others by channel to invalidete
+                                       -> N -> compete -> store in mem and in redis -> notify others by channel to invalidate  # noqa: E501
 
 INVALIDATE:
 
-problem with redis client side cache  - if client set he didnt receive message (so we can't update local cache on set without get on redis)
-                                        - message only for first set (2 and after will miss) (solve by request resource after message
-                                        - no control
-                                        - redis >= 6
-                                        + mem cache without ttl
-                                        + no trash
+    Redis client side cache cons:
+        - if client set he didnt receive message (so we can't update local cache on set without get on redis)
+        - message only for first set (2 and after will miss) (solve by request resource after message
+        - no control
+        - redis >= 6
+    Redis client side cache pros:
+        + mem cache without ttl
+        + no trash
 
 Redis client side caching with non broadcast option weed, with pool of connections it is hard to process connection
 lifetime and subscribe for get requests also if we set some value with ttl every client who get value from redis can

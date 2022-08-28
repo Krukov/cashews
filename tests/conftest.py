@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Type
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -32,7 +32,7 @@ def redis_dsn():
 def backend_factory():
     backend = None
 
-    async def factory(backend_cls: Type[Backend], *args, **kwargs):
+    async def factory(backend_cls: type[Backend], *args, **kwargs):
         nonlocal backend
 
         backend = backend_cls(*args, **kwargs)

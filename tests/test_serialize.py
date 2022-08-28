@@ -38,7 +38,8 @@ class TestPickleSerializerMixin:
         ctx = nullcontext()
         if pickle_serializer_mixin._hash_key:
             if value_has_empty_sign and not value_has_valid_sign:
-                # If we use a `hash_key`, but a value is signed with an empty or a wrong string, then we expect `UnSecureDataError`.
+                # If we use a `hash_key`, but a value is signed with an empty
+                # or a wrong string, then we expect `UnSecureDataError`.
                 ctx = pytest.raises(UnSecureDataError)
             elif not value_has_empty_sign:
                 # If we use a `hash_key`, but a value is not signed, then we expect `SignIsMissingError`.

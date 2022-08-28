@@ -88,7 +88,8 @@ def get_cache_key_template(
     Used function module and name as prefix if key parameter not passed
     :param func: Target function
     :param key: template for key, may contain alias to args or kwargs passed to a call
-    :param exclude_parameters: array of args and kwargs names to exclude from key template (if key parameter not passed)
+    :param exclude_parameters: array of `args` and `kwargs` names to exclude from a key
+        template (if key parameter not passed)
     :return: cache key template
     """
 
@@ -106,7 +107,8 @@ def generate_key_template(func: Callable, exclude_parameters: Container = ()):
     Generate template for function (:param func) called with args and kwargs
     Used function module and name as prefix if key parameter not passed
     :param func: Target function
-    :param exclude_parameters: array of args and kwargs names to exclude from key template (if key parameter not passed)
+    :param exclude_parameters: array of `args` and `kwargs` names to exclude
+        from a key template (if key parameter not passed)
     :return: cache key template
     """
     func_params = list(get_func_params(func))
