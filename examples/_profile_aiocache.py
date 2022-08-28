@@ -1,11 +1,9 @@
-import random
 import asyncio
+import random
 
-
-from pyinstrument import Profiler
-from aiocache import cached, Cache
+from aiocache import Cache, cached
 from aiocache.serializers import PickleSerializer
-
+from pyinstrument import Profiler
 
 INT_TO_STR_MAP = {
     "0": "zero",
@@ -30,22 +28,21 @@ def _human(func, a):
     return res
 
 
-@cached(
-    ttl=10, cache=Cache.REDIS, key_builder=_human, serializer=PickleSerializer())
+@cached(ttl=10, cache=Cache.REDIS, key_builder=_human, serializer=PickleSerializer())
 async def example(a):
     return {"1": "2"}
 
 
 async def main():
-    p = Profiler(async_mode='disabled')
+    p = Profiler(async_mode="disabled")
     with p:
-            for _ in range(10_000):
-                await asyncio.gather(
-                    example(random.randint(10, 1000)),
-                    example(random.randint(10, 10000)),
-                    example(random.randint(10, 1000)),
-                )
+        for _ in range(10_000):
+            await asyncio.gather(
+                example(random.randint(10, 1000)),
+                example(random.randint(10, 10000)),
+                example(random.randint(10, 1000)),
+            )
     p.print()
 
-asyncio.run(main())
 
+asyncio.run(main())

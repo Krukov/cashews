@@ -44,7 +44,7 @@ async def test_prefix(cache):
     await cache.set("-:key", "-value")
 
     assert await cache.get("key") == "value"
-    assert await cache.get("-:key") == None
+    assert await cache.get("-:key") is None
     assert await cache.get("-:key", default="def") == "def"
 
 

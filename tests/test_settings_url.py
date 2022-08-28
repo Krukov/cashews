@@ -57,7 +57,7 @@ def test_url_but_backend_dependency_is_not_installed(url, error):
             },
         ),
         (
-            "redis://localhost/0/?hash_key=secret&password=test&safe=1&minsize=3&create_connection_timeout=0.1&pickle_type=dill",
+            "redis://localhost/0/?hash_key=secret&password=test&safe=1&minsize=3&create_connection_timeout=0.1&pickle_type=dill",  # noqa: E501
             {
                 "backend": None,
                 "address": "redis://localhost/0/",

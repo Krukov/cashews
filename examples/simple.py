@@ -1,8 +1,8 @@
 import asyncio
+from datetime import timedelta  # noqa: F401
 from decimal import Decimal
-from datetime import timedelta
-from cashews import cache, add_prefix, context_cache_detect
-from cashews import CacheDetect
+
+from cashews import CacheDetect, add_prefix, cache, context_cache_detect  # noqa: F401
 
 
 async def main():
@@ -24,7 +24,6 @@ async def main():
 
     print(await test("key"), "== 2")
     print(detect.keys)
-
 
     with cache.disabling("get", "set"):
         print(await test("key"), "disable")

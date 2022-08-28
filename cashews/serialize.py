@@ -80,8 +80,9 @@ class PickleSerializerMixin:
             return value
         # Backward compatibility.
         DeprecationWarning(
-            "If a sign is not used to secure your data, then a value will be pickled and saved without an empty sign prepended."
-            "Values saved via 4.x package version without using a sign will not be compatible after the 5.x release."
+            "If a sign is not used to secure your data, then a value will be pickled and "
+            + "saved without an empty sign prepended. Values saved via 4.x package "
+            + "version without using a sign will not be compatible after the 5.x release."
         )
         with suppress(ValueError):
             sign, value = value.split(b"_", 1)

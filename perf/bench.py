@@ -1,11 +1,12 @@
+import asyncio
+import random
 import time
 import uuid
-import random
-import asyncio
 from statistics import mean, pstdev
 
-from cashews.backends import redis, client_side, diskcache
 from cashews import Cache
+from cashews.backends import client_side, diskcache, redis
+
 # from aiocache import caches
 
 prefix = str(uuid.uuid4())
@@ -58,8 +59,9 @@ async def run(target, test, iters=1000):
     latencies = []
     for _ in range(iters):
         latencies.append(await execute())
-    print("      max         ", "         mean        ", "      pstdev       ",  len(latencies))
+    print("      max         ", "         mean        ", "      pstdev       ", len(latencies))
     print(max(latencies), mean(latencies), pstdev(latencies))
+
 
 # caches.set_config({
 #     "default": {
@@ -81,16 +83,21 @@ async def run(target, test, iters=1000):
 #     }
 # })
 
-if __name__ == '__main__':
-    choices = input("""
+if __name__ == "__main__":
+    choices = (
+        input(
+            """
     choose a backends
     1) aiocache simple
     2) aiocache pickle
-    3) cashews hash 
-    4) cashews no hash 
+    3) cashews hash
+    4) cashews no hash
     5) cashews with client side
-    6) cashews with client side wrapper 
-    """) or "2 3"
+    6) cashews with client side wrapper
+    """
+        )
+        or "2 3"
+    )
     backends = {
         # 1: ("aiocache simple", caches.get("default")),
         # 2: ("aiocache pickle", caches.get("redis_pickle")),
@@ -98,14 +105,19 @@ if __name__ == '__main__':
         3: ("cashews hash", redis.Redis("redis://localhost/", hash_key=b"f34feyhg;s2")),
         4: ("cashews no hash", redis.Redis("redis://localhost/", hash_key=None)),
         5: ("cashews with client side", client_side.BcastClientSide("redis://localhost/", hash_key=None)),
-        6: ("cashews full", Cache().setup("redis://localhost/", hash_key="test",  client_side=True)),
-        7: ("cashews full disk", Cache().setup("redis://localhost/", hash_key="test",  client_side=True, local_cache=diskcache.DiskCache())),
+        6: ("cashews full", Cache().setup("redis://localhost/", hash_key="test", client_side=True)),
+        7: (
+            "cashews full disk",
+            Cache().setup("redis://localhost/", hash_key="test", client_side=True, local_cache=diskcache.DiskCache()),
+        ),
     }
     targets = []
     for choice in choices.split():
         targets.append(backends.get(int(choice)))
 
-    choices = input("""
+    choices = (
+        input(
+            """
         choose a test
         1) get static key
         2) get random key
@@ -118,7 +130,10 @@ if __name__ == '__main__':
         9) del static key
         10) del random key
         11) get big object
-    """) or "1 2 3 4 5 11"
+    """
+        )
+        or "1 2 3 4 5 11"
+    )
     _tests = {
         1: ("get", lambda: "test", {"init": "test"}),
         2: ("get", _key_random, {"set": "test"}),
