@@ -1,7 +1,7 @@
 import hashlib
 import hmac
 from contextlib import suppress
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from ._picklers import DEFAULT_PICKLE, get_pickler
 
@@ -109,6 +109,17 @@ class PickleSerializerMixin:
             return await super().set(key, value, *args, **kwargs)
         value = self._pickler.dumps(value)
         return await super().set(key, self._prepend_sign_to_value(key, value), *args, **kwargs)
+
+    async def set_many(self, pairs: Dict[str, Any], *args: Any, **kwargs: Any):
+        transformed_pairs = {}
+        for key, value in pairs.items():
+            transformed_value = None
+            if isinstance(value, int) and not isinstance(value, bool):
+                transformed_value = pairs[key]
+            else:
+                transformed_value = self._pickler.dumps(value)
+            transformed_pairs[key] = self._prepend_sign_to_value(key, transformed_value)
+        return await super().set_many(transformed_pairs, *args, **kwargs)
 
     def _prepend_sign_to_value(self, key: str, value: bytes) -> bytes:
         sign = self._get_sign(key, value, self._digestmod)

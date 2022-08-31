@@ -1,6 +1,6 @@
 import uuid
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Optional, Tuple
+from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 
 class LockedException(Exception):
@@ -39,6 +39,9 @@ class Backend:
         ...
 
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Optional[Any], ...]:
+        ...
+
+    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         ...
 
     async def exists(self, key: str) -> bool:
