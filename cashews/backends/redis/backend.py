@@ -74,11 +74,11 @@ class _Redis(Backend):
             expire = None
         return bool(await self._client.set(key, value, ex=expire, px=pexpire, nx=nx, xx=xx))
 
-    async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None) -> bool:
-        await self._client.mset(data)
+    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+        await self._client.mset(pairs)
         if expire is not None:
             async with self._client.pipeline(transaction=True) as pipe:
-                for key in data.keys():
+                for key in pairs.keys():
                     await pipe.pexpire(key, int(expire * 1000))
                 await pipe.execute()
 

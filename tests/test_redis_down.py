@@ -29,6 +29,8 @@ async def test_safe_redis(redis_backend):
     assert await redis.get("test") is None
     assert await redis.get_many("test", "test2") == (None, None)
 
+    await redis.set_many({"test": "test", "test2": "test2"})
+
     assert await redis.get_expire("test") == 0
     assert await redis.incr("test") is None
     assert await redis.get_size("test") == 0

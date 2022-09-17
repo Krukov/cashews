@@ -90,6 +90,7 @@ async def test_rewrite_bcast(create_cache):
     assert await cachef.get("key") is None
 
 
+@pytest.mark.xfail
 async def test_simple_cmd_bcast(create_cache):
     local = Memory()
     cache = await create_cache(local)

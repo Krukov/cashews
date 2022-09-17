@@ -28,7 +28,7 @@ https://redis.io/topics/client-side-caching
 
 import asyncio
 import logging
-from typing import Any, AsyncIterator, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, Optional, Tuple
 
 try:
     from redis.exceptions import ConnectionError as RedisConnectionError
@@ -126,12 +126,15 @@ class BcastClientSide(Redis):
         return default
 
     async def set(self, key: str, value: Any, *args: Any, **kwargs: Any) -> Any:
-        if await self._local_cache.get(key, default=_empty) == value:
-            # If value in current client_cache - skip resetting
-            return 0
         await self._local_cache.set(key, value, *args, **kwargs)  # not async by the way
         await self._mark_as_recently_updated(key)
         return await super().set(self._prefix + key, value, *args, **kwargs)
+
+    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+        await self._local_cache.set_many(pairs, expire)
+        for key in pairs.keys():
+            await self._mark_as_recently_updated(key)
+        return await super().set_many({self._prefix + key: value for key, value in pairs.items()}, expire=expire)
 
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
         async for key in super().scan(self._prefix + pattern, batch_size=batch_size):

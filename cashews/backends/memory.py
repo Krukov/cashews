@@ -72,9 +72,9 @@ class Memory(Backend):
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         return tuple(self._get(key, default=default) for key in keys)
 
-    async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None):
-        for key, value in data.items():
-            await self.set(key, value, expire=expire)
+    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+        for key, value in pairs.items():
+            self._set(key, value, expire)
 
     async def keys_match(self, pattern: str) -> AsyncIterator[str]:
         pattern = pattern.replace("*", ".*")

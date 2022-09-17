@@ -18,7 +18,12 @@ class TestPickleSerializerMixin:
     @pytest.mark.parametrize(
         ("key", "value", "value_has_empty_sign", "value_has_valid_sign"),
         [
-            ("without sign and without underscore separator", b"spam eggs", False, True),
+            (
+                "without sign and without underscore separator",
+                b"spam eggs",
+                False,
+                True,
+            ),
             (
                 "with sign as an empty string and with underscore separator",
                 b"_spam eggs",  # Check backward compatibility: when `hash_key` was not used.

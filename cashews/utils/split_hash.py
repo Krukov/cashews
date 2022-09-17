@@ -11,7 +11,12 @@ except ImportError:
     pass
 else:
     algorithms.extend(
-        [xxhash.xxh3_64_intdigest, xxhash.xxh64_intdigest, xxhash.xxh3_128_intdigest, xxhash.xxh32_intdigest]
+        [
+            xxhash.xxh3_64_intdigest,
+            xxhash.xxh64_intdigest,
+            xxhash.xxh3_128_intdigest,
+            xxhash.xxh32_intdigest,
+        ]
     )
 
 

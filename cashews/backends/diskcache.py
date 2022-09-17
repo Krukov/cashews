@@ -72,12 +72,15 @@ class DiskCache(Backend):
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
         return await self._run_in_executor(self._get_many, keys, default)
 
-    async def set_many(self, data: Dict[str, Any], expire: Optional[float] = None) -> bool:
-        for key, value in data.items():
-            await self.set(key, value, expire=expire)
-
     def _get_many(self, keys: List[str], default: Optional[Any] = None):
         return tuple(self._cache.get(key, default=default) for key in keys)
+
+    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+        return await self._run_in_executor(self._set_many, pairs, expire)
+
+    def _set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+        for key, value in pairs.items():
+            self._set(key, value, expire=expire)
 
     async def exists(self, key: str) -> bool:
         return await self._run_in_executor(self._exists, key)

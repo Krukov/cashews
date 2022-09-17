@@ -203,19 +203,13 @@ class Cache(Backend):
             result.update(dict(zip(_keys, _values)))
         return tuple(result.get(key) for key in keys)
 
-    async def set_many(
-        self,
-        pairs: Mapping[str, Any],
-        expire: Union[float, TTL, None] = None
-    )  -> None:
+    async def set_many(self, pairs: Mapping[str, Any], expire: Union[float, TTL, None] = None):
         backends = {}
         for key in pairs:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
         for backend, keys in backends.items():
-            data = {}
-            for key in keys:
-                data[key] = pairs[key]
+            data = {key: pairs[key] for key in keys}
             await self._with_middlewares("set_many", keys[0])(data, expire=ttl_to_seconds(expire))
 
     def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:

@@ -254,8 +254,7 @@ async def test_smoke_cmds(cache: Cache, target):
     target.get.assert_called_once_with(key="key", default=None)
 
     await cache.set_many({"key1": "value1", "key2": "value2"}, expire=60)
-    target.set_many.assert_called_once_with(
-        {"key1": "value1", "key2": "value2"}, expire=60)
+    target.set_many.assert_called_once_with({"key1": "value1", "key2": "value2"}, expire=60)
 
     await cache.get_many("key1", "key2")
     target.get_many.assert_called_once_with("key1", "key2", default=None)
