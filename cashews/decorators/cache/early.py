@@ -72,11 +72,19 @@ def early(
                             ttl,
                             early_ttl,
                             condition,
+                            unlock=True,
                         )
                     )
                 return result
             return await _get_result_for_early(
-                backend, func, args, kwargs, _cache_key, ttl, early_ttl, condition, unlock=True
+                backend,
+                func,
+                args,
+                kwargs,
+                _cache_key,
+                ttl,
+                early_ttl,
+                condition,
             )
 
         return _wrap
