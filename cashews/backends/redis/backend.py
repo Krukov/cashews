@@ -2,12 +2,12 @@ import asyncio
 from typing import Any, AsyncIterator, Dict, Optional, Tuple
 
 from ..interface import Backend
-from .client import SafeRedis
+from .client import Redis, SafeRedis
 
 try:
-    from redis.asyncio import BlockingConnectionPool, Redis
+    from redis.asyncio import BlockingConnectionPool
 except ImportError:
-    from aioredis import BlockingConnectionPool, Redis
+    from aioredis import BlockingConnectionPool
 
 
 _UNLOCK = """

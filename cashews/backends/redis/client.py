@@ -3,24 +3,34 @@ import logging
 import socket
 from typing import Any
 
+from cashews.backends.interface import CacheBackendInteractionException
+
 try:
-    from redis.asyncio import Redis
+    from redis.asyncio import Redis as _Redis
     from redis.exceptions import RedisError as RedisConnectionError
 except ImportError:
-    from aioredis import Redis
+    from aioredis import Redis as _Redis
     from aioredis import RedisError as RedisConnectionError
 
 
 logger = logging.getLogger(__name__)
 
 
-class SafeRedis(Redis):
+class Redis(_Redis):
     async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
-        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError):
+        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError) as exp:
+            raise CacheBackendInteractionException() from exp
+
+
+class SafeRedis(_Redis):
+    async def execute_command(self, command, *args: Any, **kwargs: Any):
+        try:
+            return await super().execute_command(command, *args, **kwargs)
+        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError) as exp:
             if command.lower() == "ping":
-                raise
+                raise CacheBackendInteractionException() from exp
             logger.error("redis: can not execute command: %s", command, exc_info=True)
             if command.lower() in ["unlink", "del", "memory", "ttl"]:
                 return 0

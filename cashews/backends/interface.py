@@ -7,6 +7,10 @@ class LockedException(Exception):
     pass
 
 
+class CacheBackendInteractionException(Exception):
+    pass
+
+
 class Backend:
     name: str = ""
     is_init: bool = False

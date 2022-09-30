@@ -133,7 +133,7 @@ you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dil
 Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 
-Any connections errors are suppressed, to disable it use `safe=False`
+Any connections errors are suppressed, to disable it use `safe=False` - a CacheBackendInteractionException will be raised
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
 Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
 
