@@ -5,7 +5,7 @@ from typing import Any
 
 try:
     from redis.asyncio import Redis
-    from redis.exceptions import ConnectionError as RedisConnectionError
+    from redis.exceptions import RedisError as RedisConnectionError
 except ImportError:
     from aioredis import Redis
     from aioredis import RedisError as RedisConnectionError

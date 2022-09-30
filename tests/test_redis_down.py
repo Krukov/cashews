@@ -18,7 +18,6 @@ async def test_safe_redis(redis_backend):
     redis = redis_backend(safe=True, address="redis://localhost:9223", hash_key=None)
     await redis.init()
 
-    assert not redis.is_init
     assert await redis.set("test", "test") is False
     assert await redis.set_raw("test", "test") is False
 

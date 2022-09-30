@@ -57,7 +57,7 @@ class _Redis(Backend):
             client_class = SafeRedis
         self._client = client_class(connection_pool=self._pool_class.from_url(self._address, **self._kwargs))
         await self._client.initialize()
-        self.__is_init = bool(self._client.connection)
+        self.__is_init = True
 
     async def clear(self):
         return await self._client.flushdb()
