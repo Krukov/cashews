@@ -36,13 +36,13 @@ def all_keys_lower():
     return _middleware
 
 
-def memory_limit(min=0, max=None):
+def memory_limit(min_bytes=0, max_bytes=None):
     async def _memory_middleware(call, *args, backend=None, cmd=None, **kwargs):
         if cmd != "set":
             return await call(*args, **kwargs)
         call_values = get_call_values(call, args, kwargs)
         value_size = get_obj_size(call_values["value"])
-        if max and value_size > max or value_size < min:
+        if max_bytes and value_size > max_bytes or value_size < min_bytes:
             return None
         return await call(*args, **kwargs)
 

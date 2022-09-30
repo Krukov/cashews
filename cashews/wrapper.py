@@ -139,25 +139,27 @@ class Cache(Backend):
             call = partial(middleware, call, cmd=cmd, backend=backend)
         return call
 
-    def set(
+    async def set(
         self,
         key: str,
         value: Any,
         expire: Union[float, TTL, None] = None,
         exist: Optional[bool] = None,
     ) -> bool:
-        return self._with_middlewares("set", key)(key=key, value=value, expire=ttl_to_seconds(expire), exist=exist)
+        return await self._with_middlewares("set", key)(
+            key=key, value=value, expire=ttl_to_seconds(expire), exist=exist
+        )
 
-    def set_raw(self, key: str, value: Any, **kwargs):
-        return self._with_middlewares("set_raw", key)(key=key, value=value, **kwargs)
+    async def set_raw(self, key: str, value: Any, **kwargs):
+        return await self._with_middlewares("set_raw", key)(key=key, value=value, **kwargs)
 
-    def get(self, key: str, default: Optional[Any] = None) -> Any:
-        return self._with_middlewares("get", key)(key=key, default=default)
+    async def get(self, key: str, default: Optional[Any] = None) -> Any:
+        return await self._with_middlewares("get", key)(key=key, default=default)
 
-    def get_raw(self, key: str) -> Any:
-        return self._with_middlewares("get_raw", key)(key=key)
+    async def get_raw(self, key: str) -> Any:
+        return await self._with_middlewares("get_raw", key)(key=key)
 
-    async def keys_match(self, pattern: str):
+    async def keys_match(self, pattern: str) -> AsyncIterator[str]:
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(_pattern):
@@ -212,42 +214,42 @@ class Cache(Backend):
             data = {key: pairs[key] for key in keys}
             await self._with_middlewares("set_many", keys[0])(data, expire=ttl_to_seconds(expire))
 
-    def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
-        return self._with_middlewares("get_bits", key)(key, *indexes, size=size)
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+        return await self._with_middlewares("get_bits", key)(key, *indexes, size=size)
 
-    def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
-        return self._with_middlewares("incr_bits", key)(key, *indexes, size=size, by=by)
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
+        return await self._with_middlewares("incr_bits", key)(key, *indexes, size=size, by=by)
 
-    def incr(self, key: str) -> int:
-        return self._with_middlewares("incr", key)(key=key)
+    async def incr(self, key: str) -> int:
+        return await self._with_middlewares("incr", key)(key=key)
 
-    def delete(self, key: str):
-        return self._with_middlewares("delete", key)(key=key)
+    async def delete(self, key: str):
+        return await self._with_middlewares("delete", key)(key=key)
 
-    def delete_match(self, pattern: str):
-        return self._with_middlewares("delete_match", pattern)(pattern=pattern)
+    async def delete_match(self, pattern: str):
+        return await self._with_middlewares("delete_match", pattern)(pattern=pattern)
 
-    def expire(self, key: str, timeout: TTL):
-        return self._with_middlewares("expire", key)(key=key, timeout=ttl_to_seconds(timeout))
+    async def expire(self, key: str, timeout: TTL):
+        return await self._with_middlewares("expire", key)(key=key, timeout=ttl_to_seconds(timeout))
 
-    def get_expire(self, key: str):
-        return self._with_middlewares("get_expire", key)(key=key)
+    async def get_expire(self, key: str):
+        return await self._with_middlewares("get_expire", key)(key=key)
 
-    def exists(self, key: str):
-        return self._with_middlewares("exists", key)(key=key)
+    async def exists(self, key: str):
+        return await self._with_middlewares("exists", key)(key=key)
 
-    def set_lock(self, key: str, value: Any, expire: TTL):
-        return self._with_middlewares("set_lock", key)(key=key, value=value, expire=ttl_to_seconds(expire))
+    async def set_lock(self, key: str, value: Any, expire: TTL):
+        return await self._with_middlewares("set_lock", key)(key=key, value=value, expire=ttl_to_seconds(expire))
 
-    def unlock(self, key: str, value: str):
-        return self._with_middlewares("unlock", key)(key=key, value=value)
+    async def unlock(self, key: str, value: str):
+        return await self._with_middlewares("unlock", key)(key=key, value=value)
 
-    def get_size(self, key: str):
-        return self._with_middlewares("get_size", key)(key)
+    async def get_size(self, key: str):
+        return await self._with_middlewares("get_size", key)(key)
 
-    def ping(self, message: Optional[bytes] = None) -> str:
+    async def ping(self, message: Optional[bytes] = None) -> str:
         message = b"PING" if message is None else message
-        return self._with_middlewares("ping", message.decode())(message=message)
+        return await self._with_middlewares("ping", message.decode())(message=message)
 
     async def clear(self):
         for backend, _ in self._backends.values():
@@ -257,13 +259,13 @@ class Cache(Backend):
         for backend, _ in self._backends.values():
             backend.close()
 
-    def is_locked(
+    async def is_locked(
         self,
         key: str,
         wait: Union[float, None, TTL] = None,
         step: Union[int, float] = 0.1,
     ) -> bool:
-        return self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
+        return await self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
     def _wrap_on(self, decorator_fabric, upper, **decor_kwargs):
         if upper:

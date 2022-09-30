@@ -20,6 +20,7 @@ async def test_safe_redis(redis_backend):
 
     assert not redis.is_init
     assert await redis.set("test", "test") is False
+    assert await redis.set_raw("test", "test") is False
 
     assert await redis.set_lock("test", "test", 1) is False
     assert await redis.unlock("test", "test") is None
@@ -27,8 +28,10 @@ async def test_safe_redis(redis_backend):
 
     assert await redis.get("test", default="no") == "no"
     assert await redis.get("test") is None
+    assert await redis.get_raw("test") is None
     assert await redis.get_many("test", "test2") == (None, None)
 
+    # await redis.set_many({"test": "test", "test2": "test2"}, expire=1)  # failed - need to fix
     await redis.set_many({"test": "test", "test2": "test2"})
 
     assert await redis.get_expire("test") == 0
@@ -39,8 +42,11 @@ async def test_safe_redis(redis_backend):
 
     async for _ in redis.get_match("*"):
         assert False
+    async for _ in redis.keys_match("*"):
+        assert False
 
     assert await redis.delete("test") == 0
+    await redis.delete_match("*")
 
     with pytest.raises(Exception):
         await redis.ping()
