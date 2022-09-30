@@ -15,7 +15,6 @@ pytestmark = pytest.mark.asyncio
     params=[
         "memory",
         pytest.param("redis", marks=pytest.mark.redis),
-        pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
 )
 async def _cache(request, redis_dsn, backend_factory):
@@ -55,8 +54,6 @@ async def test_bloom_simple(backend):
 
 async def test_bloom_simple_big_size(backend):
     n = 1_000_000
-    if backend.name == "diskcache":
-        n = 10_000
     call = Mock()
 
     @bloom(backend=backend, name="name:{k}", false_positives=1, capacity=n)
