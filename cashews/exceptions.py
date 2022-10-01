@@ -3,9 +3,7 @@ class CacheError(Exception):
 
 
 class UnsupportedPicklerError(CacheError):
-    """
-    Unknown or unsupported pickle type
-    """
+    """Unknown or unsupported pickle type."""
 
 
 class UnSecureDataError(CacheError):
@@ -17,7 +15,7 @@ class SignIsMissingError(CacheError):
 
 
 class WrongKeyError(CacheError):
-    """Raised If key template have wrong parameter"""
+    """Raised If key template have wrong parameter."""
 
 
 class LockedError(CacheError):
