@@ -137,7 +137,6 @@ async def test_cache_simple_none(backend):
         mock()
         return None
 
-    assert False
     assert await func() is None
     assert mock.call_count == 1
 
