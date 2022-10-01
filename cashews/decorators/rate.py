@@ -9,12 +9,12 @@ from ..key import get_cache_key, get_cache_key_template
 logger = logging.getLogger(__name__)
 
 
-class RateLimitException(Exception):
+class RateLimitError(Exception):
     pass
 
 
 def _default_action(*args: Any, **kwargs: Any) -> NoReturn:
-    raise RateLimitException()
+    raise RateLimitError()
 
 
 def rate_limit(
@@ -33,7 +33,7 @@ def rate_limit(
     :param limit: number of calls
     :param period: Period
     :param ttl: time ban, default == period
-    :param action: call when rate limit reached, default raise RateLimitException
+    :param action: call when rate limit reached, default raise RateLimitError
     :param prefix: custom prefix for key, default 'rate_limit'
     """
     action = _default_action if action is None else action

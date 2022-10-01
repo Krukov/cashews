@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Optional, Union
 
-from ..backends.interface import Backend, LockedException
+from ..backends.interface import Backend, LockedError
 from ..key import get_cache_key, get_cache_key_template
 
 __all__ = ("locked",)
@@ -36,7 +36,7 @@ def locked(
             try:
                 async with backend.lock(_cache_key, ttl or max_lock_ttl):
                     return await func(*args, **kwargs)
-            except LockedException:
+            except LockedError:
                 if not await backend.is_locked(_cache_key, wait=ttl, step=step):
                     return await func(*args, **kwargs)
                 raise

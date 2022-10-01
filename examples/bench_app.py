@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from fastapi import FastAPI
 
-from cashews import Cache, LockedException, RateLimitException, cache, context_cache_detect, mem, utils  # noqa: F401
+from cashews import Cache, LockedError, RateLimitError, cache, context_cache_detect, mem, utils  # noqa: F401
 
 app = FastAPI()
 cache.setup("mem://")

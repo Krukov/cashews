@@ -11,7 +11,7 @@ _ARGS = "__args__"
 _ARGS_KWARGS = (_ARGS, _KWARGS)
 
 
-class WrongKeyException(ValueError):
+class WrongKeyError(ValueError):
     """Raised If key template have wrong parameter"""
 
 
@@ -144,7 +144,7 @@ def _check_key_params(key, func_params):
     check = _ReplaceFormatter(default=_default)
     check.format(key, **func_params)
     if errors:
-        raise WrongKeyException(f"Wrong parameter placeholder '{errors}' in the key ")
+        raise WrongKeyError(f"Wrong parameter placeholder '{errors}' in the key ")
 
 
 def get_call_values(func: Callable, args, kwargs) -> Dict:
