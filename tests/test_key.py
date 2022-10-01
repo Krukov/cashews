@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 
+from cashews.exceptions import WrongKeyError
 from cashews.formatter import default_formatter, get_template_and_func_for, get_template_for_key, register_template
 from cashews.key import get_cache_key, get_cache_key_template, ttl_to_seconds
 
@@ -208,7 +209,7 @@ def test_get_key_template(func, key, template):
 
 
 def test_get_key_template_error():
-    with pytest.raises(ValueError) as exc:
+    with pytest.raises(WrongKeyError) as exc:
         get_cache_key_template(func1, "key:{wrong_key}:{a}")
     exc.match("wrong_key")
 

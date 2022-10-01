@@ -4,15 +4,12 @@ from functools import lru_cache
 from typing import Any, Callable, Container, Dict, Optional, Tuple, Union
 
 from ._typing import TTL
+from .exceptions import WrongKeyError
 from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
 
 _KWARGS = "__kwargs__"
 _ARGS = "__args__"
 _ARGS_KWARGS = (_ARGS, _KWARGS)
-
-
-class WrongKeyError(ValueError):
-    """Raised If key template have wrong parameter"""
 
 
 def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
