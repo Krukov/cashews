@@ -1,7 +1,0 @@
-uvicorn
-pyjwt
-gunicorn
-
-databases[sqlite]
-locust
-orm

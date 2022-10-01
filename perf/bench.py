@@ -59,7 +59,12 @@ async def run(target, test, iters=1000):
     latencies = []
     for _ in range(iters):
         latencies.append(await execute())
-    print("      max         ", "         mean        ", "      pstdev       ", len(latencies))
+    print(
+        "      max         ",
+        "         mean        ",
+        "      pstdev       ",
+        len(latencies),
+    )
     print(max(latencies), mean(latencies), pstdev(latencies))
 
 
@@ -104,11 +109,22 @@ if __name__ == "__main__":
         2: ("cashews disk", diskcache.DiskCache()),
         3: ("cashews hash", redis.Redis("redis://localhost/", hash_key=b"f34feyhg;s2")),
         4: ("cashews no hash", redis.Redis("redis://localhost/", hash_key=None)),
-        5: ("cashews with client side", client_side.BcastClientSide("redis://localhost/", hash_key=None)),
-        6: ("cashews full", Cache().setup("redis://localhost/", hash_key="test", client_side=True)),
+        5: (
+            "cashews with client side",
+            client_side.BcastClientSide("redis://localhost/", hash_key=None),
+        ),
+        6: (
+            "cashews full",
+            Cache().setup("redis://localhost/", hash_key="test", client_side=True),
+        ),
         7: (
             "cashews full disk",
-            Cache().setup("redis://localhost/", hash_key="test", client_side=True, local_cache=diskcache.DiskCache()),
+            Cache().setup(
+                "redis://localhost/",
+                hash_key="test",
+                client_side=True,
+                local_cache=diskcache.DiskCache(),
+            ),
         ),
     }
     targets = []

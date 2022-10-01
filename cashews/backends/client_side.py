@@ -30,10 +30,7 @@ import asyncio
 import logging
 from typing import Any, AsyncIterator, Dict, Optional, Tuple
 
-try:
-    from redis.exceptions import ConnectionError as RedisConnectionError
-except ImportError:
-    from aioredis import RedisError as RedisConnectionError
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from .memory import Memory
 from .redis import Redis

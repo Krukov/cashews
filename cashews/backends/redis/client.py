@@ -3,15 +3,10 @@ import logging
 import socket
 from typing import Any
 
+from redis.asyncio import Redis as _Redis
+from redis.exceptions import RedisError as RedisConnectionError
+
 from ...exceptions import CacheBackendInteractionError
-
-try:
-    from redis.asyncio import Redis as _Redis
-    from redis.exceptions import RedisError as RedisConnectionError
-except ImportError:
-    from aioredis import Redis as _Redis
-    from aioredis import RedisError as RedisConnectionError
-
 
 logger = logging.getLogger(__name__)
 
