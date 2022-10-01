@@ -2,13 +2,7 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
-
-class LockedError(Exception):
-    pass
-
-
-class CacheBackendInteractionError(Exception):
-    pass
+from ..exceptions import LockedError
 
 
 class Backend:

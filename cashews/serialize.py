@@ -4,16 +4,9 @@ from contextlib import suppress
 from typing import Any, Dict, Optional, Tuple, Union
 
 from ._picklers import DEFAULT_PICKLE, get_pickler
+from .exceptions import SignIsMissingError, UnSecureDataError
 
 BLANK_DIGEST = b""
-
-
-class UnSecureDataError(Exception):
-    pass
-
-
-class SignIsMissingError(Exception):
-    ...
 
 
 class PickleSerializerMixin:

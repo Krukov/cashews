@@ -3,7 +3,7 @@ import logging
 import socket
 from typing import Any
 
-from cashews.backends.interface import CacheBackendInteractionError
+from ...exceptions import CacheBackendInteractionError
 
 try:
     from redis.asyncio import Redis as _Redis

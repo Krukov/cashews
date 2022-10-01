@@ -3,14 +3,11 @@ from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
 from ..backends.interface import Backend
+from ..exceptions import RateLimitError
 from ..formatter import register_template
 from ..key import get_cache_key, get_cache_key_template
 
 logger = logging.getLogger(__name__)
-
-
-class RateLimitError(Exception):
-    pass
 
 
 def _default_action(*args: Any, **kwargs: Any) -> NoReturn:

@@ -1,7 +1,8 @@
 from functools import wraps
 from typing import Optional, Union
 
-from ..backends.interface import Backend, LockedError
+from ..backends.interface import Backend
+from ..exceptions import LockedError
 from ..key import get_cache_key, get_cache_key_template
 
 __all__ = ("locked",)

@@ -1,6 +1,8 @@
 import pickle
 from typing import Any
 
+from .exceptions import UnsupportedPicklerError
+
 _SQLALC_PICKLE = True
 try:
     from sqlalchemy.ext import serializer as sqlalchemy_pickle
@@ -56,12 +58,6 @@ _picklers = {
     "sqlalchemy": SQLAlchemyPickler,
     "dill": DillPickler,
 }
-
-
-class UnsupportedPicklerError(Exception):
-    """
-    Unknown or unsupported pickle type
-    """
 
 
 def get_pickler(name: str):

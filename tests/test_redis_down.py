@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews.backends.interface import CacheBackendInteractionError
+from cashews import CacheBackendInteractionError
 from cashews.wrapper import Cache
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
