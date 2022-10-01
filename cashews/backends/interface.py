@@ -3,11 +3,11 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 
-class LockedException(Exception):
+class LockedError(Exception):
     pass
 
 
-class CacheBackendInteractionException(Exception):
+class CacheBackendInteractionError(Exception):
     pass
 
 
@@ -121,7 +121,7 @@ class Backend:
             except Exception:
                 pass
             else:
-                raise LockedException(f"Key {key} already locked")
+                raise LockedError(f"Key {key} already locked")
         try:
             yield
         finally:

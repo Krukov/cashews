@@ -58,7 +58,7 @@ _picklers = {
 }
 
 
-class UnsupportedPicklerException(Exception):
+class UnsupportedPicklerError(Exception):
     """
     Unknown or unsupported pickle type
     """
@@ -66,12 +66,12 @@ class UnsupportedPicklerException(Exception):
 
 def get_pickler(name: str):
     if name not in _picklers:
-        raise UnsupportedPicklerException()
+        raise UnsupportedPicklerError()
 
     if name == "sqlalchemy" and not _SQLALC_PICKLE:
-        raise UnsupportedPicklerException()
+        raise UnsupportedPicklerError()
 
     if name == "dill" and not _DILL_PICKLE:
-        raise UnsupportedPicklerException()
+        raise UnsupportedPicklerError()
 
     return _picklers[name]

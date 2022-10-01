@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews.backends.interface import CacheBackendInteractionException
+from cashews.backends.interface import CacheBackendInteractionError
 from cashews.wrapper import Cache
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
@@ -48,16 +48,16 @@ async def test_safe_redis(redis_backend):
     assert await redis.delete("test") == 0
     await redis.delete_match("*")
 
-    with pytest.raises(CacheBackendInteractionException):
+    with pytest.raises(CacheBackendInteractionError):
         await redis.ping()
 
 
 async def test_unsafe_redis_down(redis_backend):
     redis = redis_backend(safe=False, address="redis://localhost:9223", hash_key=None)
     await redis.init()
-    with pytest.raises(CacheBackendInteractionException):
+    with pytest.raises(CacheBackendInteractionError):
         await redis.ping()
-    with pytest.raises(CacheBackendInteractionException):
+    with pytest.raises(CacheBackendInteractionError):
         await redis.set("key", "value")
 
 

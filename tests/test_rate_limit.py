@@ -6,7 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from cashews.backends.memory import Memory
-from cashews.decorators.rate import RateLimitException
+from cashews.decorators.rate import RateLimitError
 from cashews.decorators.rate import rate_limit as _rate_limit
 
 pytestmark = pytest.mark.asyncio
@@ -26,7 +26,7 @@ async def test_rate_limit_simple(rate_limit, n):
     for i in range(n):
         assert await func() == 1
 
-    with pytest.raises(RateLimitException):
+    with pytest.raises(RateLimitError):
         await func()
 
     await asyncio.sleep(0.01)
@@ -40,11 +40,11 @@ async def test_rate_limit_ttl(rate_limit):
 
     assert await func() == 1
 
-    with pytest.raises(RateLimitException):
+    with pytest.raises(RateLimitError):
         await func()
 
     await asyncio.sleep(0.01)
-    with pytest.raises(RateLimitException):
+    with pytest.raises(RateLimitError):
         await func()
 
     await asyncio.sleep(0.01)
@@ -60,7 +60,7 @@ async def test_rate_limit_func_args_dict(rate_limit):
 
     assert await func(obj) == "test"
 
-    with pytest.raises(RateLimitException):
+    with pytest.raises(RateLimitError):
         await func(obj)
 
     obj = type("user", (), {"name": "new"})()

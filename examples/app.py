@@ -16,7 +16,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.status import HTTP_403_FORBIDDEN
 
-from cashews import LockedException, RateLimitException, cache, utils
+from cashews import LockedError, RateLimitError, cache, utils
 
 database = databases.Database("sqlite:///db.sqlite")
 metadata = sqlalchemy.MetaData()
@@ -109,16 +109,16 @@ async def add_from_cache_headers(request: Request, call_next):
     return response
 
 
-@app.exception_handler(RateLimitException)
-async def rate_limit_handler(request, exc: RateLimitException):
+@app.exception_handler(RateLimitError)
+async def rate_limit_handler(request, exc: RateLimitError):
     return JSONResponse(
         status_code=429,
         content={"error": "too much"},
     )
 
 
-@app.exception_handler(LockedException)
-async def lock_handler(request, exc: LockedException):
+@app.exception_handler(LockedError)
+async def lock_handler(request, exc: LockedError):
     return JSONResponse(
         status_code=500,
         content={"error": "LOCK"},
@@ -168,7 +168,7 @@ async def get_me(user: User = Depends(get_current_user)):
     return {"name": user.name, "friends": friends}
 
 
-class RedisDownException(Exception):
+class RedisDownError(Exception):
     pass
 
 
