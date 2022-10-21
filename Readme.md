@@ -26,7 +26,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
 - Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
-- Set ttl with string (2h5m) or with `timedelta`
+- Set ttl with string (2h5m), by `timedelta` or a function
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
@@ -39,7 +39,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 ```python
 from cashews import cache
 
-cache.setup("mem://")  # configure as in-memory cache, but redis is also supported
+cache.setup("mem://")  # configure as in-memory cache, but redis/diskcache is also supported
 
 # use a decorator-based API
 @cache(ttl="3h", key="user:{request.user.uid}")
@@ -48,7 +48,7 @@ async def long_running_function(request):
 
 # or for fine-grained control, use it directly in a function
 async def cache_using_function(request):
-    await cache.set(key=request.user.uid, value=request.user, expire=60)
+    await cache.set(key=request.user.uid, value=request.user, expire="20h")
     ...
 ```
 
@@ -60,6 +60,7 @@ async def cache_using_function(request):
 - [Strategies](#strategies)
   - [Cache condition](#cache-condition)
   - [Keys templating](#template-keys)
+  - [TTL](#ttl)
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
@@ -134,7 +135,7 @@ you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dil
 Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 
-Any connections errors are suppressed, to disable it use `safe=False` - a `CacheBackendInteractionException` will be raised
+Any connections errors are suppressed, to disable it use `safe=False` - a `CacheBackendInteractionError` will be raised
 
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
 Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
@@ -377,13 +378,13 @@ async def get():
 
 ```
 
-Also caching decorators have parameter `time_condition` - min latency in seconds (can be set like `ttl` - by string or timedelata object)
-for getting result of function call to be cached.
+Also caching decorators have parameter `time_condition` - min latency in seconds (can be set like `ttl`)
+of getting result of function call to be cached.
 
 ```python
 from cashews import cache
 
-@cache(ttl="1h", time_condition="3s")
+@cache(ttl="1h", time_condition="3s")  # cache for  1 hour if execution takes more than 3 seconds
 async def get():
     ...
 ```
@@ -515,10 +516,45 @@ await get_name(item)
 # a key will be "price-10.00:USD"
 ```
 
+### TTL
+
+Cache time to live (`ttl`) is a required parameter for all cache decorators.
+TTL can be
+
+- an integer as numbers of seconds
+- a `timedelta`
+- a string like in golang e.g `1d2h3m50s`
+- a callable object like a function that receive `args` and `kwargs` and return one of previous format for ttl
+
+Examples:
+
+```python
+from cashews import cache
+from datetime import timedelta
+
+@cache(ttl=60 * 10)
+async def get(item_id: int) -> Item:
+    pass
+
+@cache(ttl=timedelta(minutes=10))
+async def get(item_id: int) -> Item:
+    pass
+
+@cache(ttl="10m")
+async def get(item_id: int) -> Item:
+    pass
+
+def _ttl(item_id: int) -> str:
+    return "2h" if item_id > 10 else "1h"
+
+@cache(ttl=_ttl)
+async def get(item_id: int) -> Item:
+    pass
+```
+
 ### Cache invalidation
 
 Cache invalidation - one of the main Computer Science well known problem.
-That's why `ttl` is a required parameter for all cache decorators.
 
 Sometimes, you want to invalidate cache after some action is triggered.
 Consider this example:
@@ -611,29 +647,16 @@ async def get_user(user_id):
 Decorators give us a very simple API but also make it difficult to understand where
 result is coming from - cache or direct call.
 
-To solve this problem `cashews` has `context_cache_detect` context manager:
+To solve this problem `cashews` has `cache_detect` context manager:
 
 ```python
-from cashews import context_cache_detect
+from cashews import cache_detect
 
-with context_cache_detect as detector:
-    response = await decorated_function()
+with cache_detect as detector:
+    response = await something_that_use_cache()
     keys = detector.get()
 print(keys)
-# >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": timedelta(hours=10), "exc": RateLimit}, "name": "fail", "backend": "mem"],}
-```
-
-or you can use `CacheDetect` class:
-
-```python
-from cashews import CacheDetect
-
-cache_detect = CacheDetect()
-await func(_from_cache=cache_detect)
-assert cache_detect.keys == {}
-
-await func(_from_cache=cache_detect)
-assert len(cache_detect.keys) == 1
+# >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": 10, "exc": RateLimit}, "name": "fail", "backend": "mem"],}
 ```
 
 A simple middleware to use it in a web app:

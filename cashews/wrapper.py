@@ -10,7 +10,7 @@ from ._typing import TTL, CacheCondition
 from .backends.interface import Backend
 from .backends.memory import Memory
 from .disable_control import ControlMixin, _is_disable_middleware
-from .key import ttl_to_seconds
+from .ttl import ttl_to_seconds
 
 try:
     from .backends.client_side import BcastClientSide
@@ -340,7 +340,7 @@ class Cache(Backend):
             decorators.cache,
             upper,
             lock=lock,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
@@ -361,7 +361,7 @@ class Cache(Backend):
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_with_condition(
             decorators.failover,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             exceptions=exceptions,
             key=key,
             condition=get_cache_condition(condition),
@@ -382,9 +382,9 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.early,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
-            early_ttl=ttl_to_seconds(early_ttl),
+            early_ttl=early_ttl,
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
@@ -404,7 +404,7 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.soft,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
             soft_ttl=ttl_to_seconds(soft_ttl),
             exceptions=exceptions,
@@ -427,7 +427,7 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.hit,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             cache_hits=cache_hits,
             update_after=update_after,
             key=key,
@@ -448,7 +448,7 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.hit,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             cache_hits=3,
             update_after=1,
             key=key,
@@ -503,8 +503,8 @@ class Cache(Backend):
         return decorators.rate_limit(
             backend=self,
             limit=limit,
-            period=ttl_to_seconds(period),
-            ttl=ttl_to_seconds(ttl),
+            period=period,
+            ttl=ttl,
             action=action,
             prefix=prefix,
         )
@@ -518,7 +518,7 @@ class Cache(Backend):
     ):
         return decorators.locked(
             backend=self,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
             step=step,
             prefix=prefix,
