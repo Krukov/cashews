@@ -1,14 +1,10 @@
 import asyncio
 from typing import Any, AsyncIterator, Dict, Optional, Tuple
 
+from redis.asyncio import BlockingConnectionPool
+
 from ..interface import Backend
 from .client import Redis, SafeRedis
-
-try:
-    from redis.asyncio import BlockingConnectionPool
-except ImportError:
-    from aioredis import BlockingConnectionPool
-
 
 _UNLOCK = """
 if redis.call("get",KEYS[1]) == ARGV[1] then

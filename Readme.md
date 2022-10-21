@@ -7,7 +7,6 @@
 ```bash
 pip install cashews
 pip install cashews[redis]  # Aioredis is now in redis-py 4.2.0rc1+
-pip install cashews[aioredis]  # Please install "redis" instead, unless you must maintain a legacy code.
 pip install cashews[diskcache]
 pip install cashews[dill] # can cache in redis more types of objects
 pip install cashews[speedup] # for bloom filters
@@ -125,15 +124,18 @@ _Note: If you must support a legacy code that uses `aioredis`, then install [aio
 
 This will use Redis as a storage.
 
-This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to store
+This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to serialize
 values, but the cashes can store values with sha1-keyed hash.
+
 Use `hash_key` parameter to protect your application from security vulnerabilities.
 Pickle can't serialize any type of objects. In case you need to store more complex types
+
 you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`.
 Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 
-Any connections errors are suppressed, to disable it use `safe=False` - a CacheBackendInteractionException will be raised
+Any connections errors are suppressed, to disable it use `safe=False` - a `CacheBackendInteractionException` will be raised
+
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
 Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
 

@@ -24,7 +24,7 @@ def test_url(url, params):
     (
         (
             "redis://localhost:9000/0",
-            "Redis backend requires `redis` (or `aioredis`) to be installed.",
+            "Redis backend requires `redis` to be installed.",
         ),
         ("disk://", "Disk backend requires `diskcache` to be installed."),
     ),
