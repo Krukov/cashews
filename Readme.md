@@ -128,7 +128,10 @@ This will use Redis as a storage.
 This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to serialize
 values, but the cashes can store values with sha1-keyed hash.
 
-Use `hash_key` parameter to protect your application from security vulnerabilities.
+Use `hash_key` and `digestmod` parameter to protect your application from security vulnerabilities.
+The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`
+The `hash_key` is a salt for a hash - it can be any secret string.
+
 Pickle can't serialize any type of objects. In case you need to store more complex types
 
 you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`.

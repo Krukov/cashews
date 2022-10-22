@@ -89,9 +89,9 @@ class _FuncFormatter(_ReplaceFormatter):
 
     def format_field(self, value, format_spec):
         format_spec, args = self.parse_format_spec(format_spec)
+        value = super().format_field(value, format_spec if format_spec not in self._functions else "")
         if format_spec in self._functions:
             value = self._functions[format_spec](value, *args)
-        value = super().format_field(value, format_spec if format_spec not in self._functions else "")
         return value
 
     @staticmethod
@@ -103,7 +103,7 @@ class _FuncFormatter(_ReplaceFormatter):
 
 
 default_formatter = _FuncFormatter(lambda name: "")
-default_formatter._register("len", len)
+default_formatter._register("len", lambda x: str(len(x)))
 
 
 @default_formatter.register("jwt")

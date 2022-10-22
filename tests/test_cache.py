@@ -379,12 +379,12 @@ async def test_hit_cache(backend):
 
     await func()  # cache
     await asyncio.gather(*[func() for _ in range(10)])  # get 10 hits
-    assert mock.call_count == 1
+    assert mock.call_count in [1, 2]
     await func()  # cache
-    assert mock.call_count == 2
+    assert mock.call_count in [2, 3]
 
     await asyncio.gather(*[func() for _ in range(10)])
-    assert mock.call_count in [2, 3]
+    assert mock.call_count in [2, 3, 4]
 
 
 async def test_hit_cache_early(backend):
