@@ -23,17 +23,17 @@ async def test_set_get_bcast(create_cache):
     caches_local = Memory()
     caches = await create_cache(caches_local)
 
-    await cachef.set("key", b"value", expire=0.1)
+    await cachef.set("cashews", b"value", expire=0.1)
     await asyncio.sleep(0.01)  # skip init signal about invalidation
-    assert await cachef.get("key") == b"value"
-    assert await caches.get("key") == b"value"
-    assert await cachef_local.get("key") == b"value"
-    assert await caches_local.get("key") == b"value"
+    assert await cachef.get("cashews") == b"value"
+    assert await caches.get("cashews") == b"value"
+    assert await cachef_local.get("cashews") == b"value"
+    assert await caches_local.get("cashews") == b"value"
     await asyncio.sleep(0.2)
-    assert await cachef_local.get("key") is None
-    assert await caches_local.get("key") is None
+    assert await cachef_local.get("cashews") is None
+    assert await caches_local.get("cashews") is None
 
-    assert await caches.get("key") is None
+    assert await caches.get("cashews") is None
 
 
 async def test_set_none_bcast(create_cache):
@@ -42,10 +42,15 @@ async def test_set_none_bcast(create_cache):
     caches_local = Memory()
     caches = await create_cache(caches_local)
 
-    await cachef.set("key", None, expire=0.1)
+    assert await caches.get("key") is None
+    assert not await caches.exists("key")
+    assert await caches_local.exists("key")
+    assert await caches.get("key") is None
+
+    await cachef.set("key", None, expire=10000)
     await asyncio.sleep(0.01)  # skip init signal about invalidation
-    assert await cachef_local.exists("key")
     assert await cachef.exists("key")
+    assert await cachef_local.exists("key")
 
     assert await caches.get("key") is None
     assert await caches.exists("key")
@@ -92,6 +97,8 @@ async def test_rewrite_bcast(create_cache):
 
 @pytest.mark.xfail
 async def test_simple_cmd_bcast(create_cache):
+    from cashews.backends.client_side import _default
+
     local = Memory()
     cache = await create_cache(local)
 
@@ -99,7 +106,7 @@ async def test_simple_cmd_bcast(create_cache):
     assert await cache.get("key:2") == 1
     await cache.delete("key:2")
     assert await cache.get("key:2") is None
-    assert await local.get("key:2") is None
+    assert await local.get("key:2") is _default
 
     await cache.set("key:1", "test", 10)
     assert await cache.get("key:1") == "test"
@@ -115,6 +122,8 @@ async def test_simple_cmd_bcast(create_cache):
 
 
 async def test_simple_cmd_bcast_many(create_cache):
+    from cashews.backends.client_side import _default
+
     local = Memory()
     cache = await create_cache(local)
     await cache.set("key:1", "test")
@@ -151,7 +160,7 @@ async def test_simple_cmd_bcast_many(create_cache):
 
     assert await cache.delete_match("key:*")
     assert await cache.get("key:1") is None
-    assert await local.get("key:1") is None
+    assert await local.get("key:1") is _default
 
     async for _ in cache.scan("key:*"):
         assert False

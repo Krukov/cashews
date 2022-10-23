@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import TYPE_CHECKING
 
@@ -38,6 +39,7 @@ def backend_factory():
         backend = backend_cls(*args, **kwargs)
         await backend.init()
         await backend.clear()
+        await asyncio.sleep(0.001)
 
         return backend
 

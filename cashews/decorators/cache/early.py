@@ -49,7 +49,7 @@ def early(
             if early_ttl is None:
                 _early_ttl = _ttl * 0.33
             else:
-                _early_ttl = early_ttl
+                _early_ttl = ttl_to_seconds(early_ttl, *args, **kwargs)
 
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
