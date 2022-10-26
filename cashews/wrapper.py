@@ -182,16 +182,18 @@ class Cache(Backend):
             yield key
 
     async def get_match(
-        self, pattern: str, batch_size: int = 100, default: Optional[Any] = None
+        self,
+        pattern: str,
+        batch_size: int = 100,
     ) -> AsyncIterator[Tuple[str, Any]]:
         backend, middlewares = self._get_backend_and_config(pattern)
 
-        async def call(_pattern, _batch_size, _default):
-            return backend.get_match(_pattern, batch_size=_batch_size, default=_default)
+        async def call(_pattern, _batch_size):
+            return backend.get_match(_pattern, batch_size=_batch_size)
 
         for middleware in middlewares:
             call = partial(middleware, call, cmd="get_match", backend=backend)
-        async for key, value in (await call(pattern, batch_size, default)):
+        async for key, value in (await call(pattern, batch_size)):
             yield key, value
 
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:

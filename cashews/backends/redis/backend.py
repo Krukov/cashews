@@ -13,6 +13,7 @@ else
     return 0
 end
 """
+_empty = object()
 # pylint: disable=arguments-differ
 # pylint: disable=abstract-method
 
@@ -140,18 +141,17 @@ class _Redis(Backend):
             await self._client.unlink(keys[0], *keys[1:])
         return True
 
-    async def get_match(
-        self, pattern: str, batch_size: int = 100, default: Optional[Any] = None
-    ) -> AsyncIterator[Tuple[str, bytes]]:
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[str, bytes]]:
         cursor = b"0"
         while cursor:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
             if not keys:
                 continue
             keys = [key.decode() for key in keys]
-            values = await self.get_many(*keys, default=default)
+            values = await self.get_many(*keys, default=_empty)
             for key, value in zip(keys, values):
-                yield key, value
+                if value is not _empty:  # key can be deleted after scan
+                    yield key, value
 
     async def get_size(self, key: str) -> int:
         size = await self._client.memory_usage(key) or 0

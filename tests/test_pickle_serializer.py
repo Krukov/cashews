@@ -39,7 +39,7 @@ class DummyCache:
     async def get_many(self, *keys, default=None):
         return [self.store.get(key, default) for key in keys]
 
-    async def set_many(self, pairs, **kwargs):
+    async def set_many(self, pairs, expire=None):
         self.store.update(pairs)
 
 

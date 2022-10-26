@@ -28,7 +28,7 @@ https://redis.io/topics/client-side-caching
 
 import asyncio
 import logging
-from typing import Any, AsyncIterator, Dict, Optional, Tuple
+from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 
@@ -37,7 +37,7 @@ from .redis import Redis
 
 _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
-_default = object()
+_empty_in_redis = object()  # set when we know that key not in redis
 _RECONNECT_WAIT = 10
 _DEFAULT_PREFIX = "cashews:"
 BCAST_ON = "CLIENT TRACKING on REDIRECT {client_id} BCAST PREFIX {prefix}"
@@ -123,7 +123,7 @@ class BcastClientSide(Redis):
     async def get(self, key: str, default: Any = None) -> Any:
         if self._listen_started.is_set():
             value = await self._local_cache.get(key, default=_empty)
-            if value is _default:
+            if value is _empty_in_redis:
                 return default
             if value is not _empty:
                 return value
@@ -131,7 +131,7 @@ class BcastClientSide(Redis):
         if value is not _empty:
             await self._local_cache.set(key, value)
             return value
-        await self._local_cache.set(key, _default)
+        await self._local_cache.set(key, _empty_in_redis)
         return default
 
     async def set(self, key: str, value: Any, *args: Any, **kwargs: Any) -> Any:
@@ -139,7 +139,7 @@ class BcastClientSide(Redis):
         await self._mark_as_recently_updated(key)
         return await super().set(self._add_prefix(key), value, *args, **kwargs)
 
-    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         await self._local_cache.set_many(pairs, expire)
         for key in pairs.keys():
             await self._mark_as_recently_updated(key)
@@ -154,11 +154,11 @@ class BcastClientSide(Redis):
         values = {key: default for key in keys}
         if self._listen_started.is_set():
             for i, value in enumerate(await self._local_cache.get_many(*keys, default=_empty)):
+                key = keys[i]
                 if value is _empty:
                     continue
-                if value is _default:
+                if value is _empty_in_redis:
                     value = default
-                key = keys[i]
                 values[key] = value
                 missed_keys.remove(self._add_prefix(key))
         missed_values = await super().get_many(*missed_keys, default=default)
@@ -167,36 +167,29 @@ class BcastClientSide(Redis):
             if value is not default:
                 await self._local_cache.set(key, value)
             else:
-                await self._local_cache.set(key, _default)
+                await self._local_cache.set(key, _empty_in_redis)
         return tuple(missed.get(key, value) for key, value in values.items())
 
-    async def get_match(
-        self, pattern: str, batch_size: int = 100, default: Optional[Any] = None
-    ) -> AsyncIterator[Tuple[str, bytes]]:
-        keys_in_local_cache = set()
-        async for key, value in self._local_cache.get_match(pattern, batch_size=batch_size, default=_empty):
-            if value is _default:
-                continue
-            keys_in_local_cache.add(self._remove_prefix(key))
-            yield key, value
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[str, bytes]]:
         cursor = b"0"
         while cursor:
             cursor, keys = await self._client.scan(cursor, match=self._add_prefix(pattern), count=batch_size)
             if not keys:
                 continue
-            keys = [key.decode() for key in keys]
-            keys = [key for key in keys if key not in keys_in_local_cache]
-            values = await super().get_many(*keys, default=default)
+            keys = [self._remove_prefix(key.decode()) for key in keys]
+            values = await self.get_many(*keys, default=_empty)
             for key, value in zip(keys, values):
-                yield self._remove_prefix(key), value
+                if value is not _empty:
+                    yield key, value
 
     async def incr(self, key: str) -> int:
-        await self._local_cache.incr(key)
+        value = await super().incr(self._add_prefix(key))
+        await self._local_cache.set(key, value)
         await self._mark_as_recently_updated(key)
-        return await super().incr(self._add_prefix(key))
+        return value
 
     async def delete(self, key: str) -> bool:
-        await self._local_cache.delete(key)
+        await self._local_cache.set(key, _empty_in_redis)
         return await super().delete(self._add_prefix(key))
 
     async def delete_match(self, pattern: str):
@@ -205,7 +198,7 @@ class BcastClientSide(Redis):
 
     async def expire(self, key: str, timeout: Optional[float]):
         local_value = await self._local_cache.get(key, default=_empty)
-        if local_value not in (_empty, _default):
+        if local_value not in (_empty, _empty_in_redis):
             await self._local_cache.expire(key, timeout)
             await self._mark_as_recently_updated(key)
         result = await super().expire(self._add_prefix(key), timeout)
@@ -222,7 +215,7 @@ class BcastClientSide(Redis):
     async def exists(self, key) -> bool:
         if self._listen_started.is_set():
             local_value = await self._local_cache.get(key, default=_empty)
-            if local_value not in (_empty, _default):
+            if local_value not in (_empty, _empty_in_redis):
                 return True
         return await super().exists(self._add_prefix(key))
 

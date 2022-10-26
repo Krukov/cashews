@@ -1,6 +1,6 @@
 import hashlib
 import hmac
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Mapping, Optional, Tuple, Union
 
 from ._picklers import DEFAULT_PICKLE, get_pickler
 from .exceptions import SignIsMissingError, UnSecureDataError
@@ -109,12 +109,12 @@ class PickleSerializerMixin:
         value = self._pickler.dumps(value)
         return await super().set(key, self._prepend_sign_to_value(key, value), *args, **kwargs)
 
-    async def set_many(self, pairs: Dict[str, Any], *args: Any, **kwargs: Any):
+    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         transformed_pairs = {}
         for key, value in pairs.items():
             value = self._pickler.dumps(value)
             transformed_pairs[key] = self._prepend_sign_to_value(key, value)
-        return await super().set_many(transformed_pairs, *args, **kwargs)
+        return await super().set_many(transformed_pairs, expire=expire)
 
     def _prepend_sign_to_value(self, key: str, value: bytes) -> bytes:
         sign = self._gen_sign(key, value, self._digestmod)

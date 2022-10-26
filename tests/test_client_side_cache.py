@@ -94,10 +94,13 @@ async def test_rewrite_bcast(create_cache):
     assert await caches.get("key") is None
     assert await cachef.get("key") is None
 
+    assert await cachef.incr("key") == 1
+    assert await caches.incr("key") == 2
+
 
 @pytest.mark.xfail
 async def test_simple_cmd_bcast(create_cache):
-    from cashews.backends.client_side import _default
+    from cashews.backends.client_side import _empty_in_redis
 
     local = Memory()
     cache = await create_cache(local)
@@ -106,7 +109,7 @@ async def test_simple_cmd_bcast(create_cache):
     assert await cache.get("key:2") == 1
     await cache.delete("key:2")
     assert await cache.get("key:2") is None
-    assert await local.get("key:2") is _default
+    assert await local.get("key:2") is _empty_in_redis
 
     await cache.set("key:1", "test", 10)
     assert await cache.get("key:1") == "test"
@@ -122,7 +125,7 @@ async def test_simple_cmd_bcast(create_cache):
 
 
 async def test_simple_cmd_bcast_many(create_cache):
-    from cashews.backends.client_side import _default
+    from cashews.backends.client_side import _empty_in_redis
 
     local = Memory()
     cache = await create_cache(local)
@@ -131,6 +134,7 @@ async def test_simple_cmd_bcast_many(create_cache):
     assert await local.get("key:1") == "test"
 
     assert await cache.get_many("key:1", "key:2") == ("test", None)
+    assert await local.get("key:2") is _empty_in_redis
 
     async for key in cache.scan("key:*"):
         assert key == "key:1"
@@ -160,7 +164,7 @@ async def test_simple_cmd_bcast_many(create_cache):
 
     assert await cache.delete_match("key:*")
     assert await cache.get("key:1") is None
-    assert await local.get("key:1") is _default
+    assert await local.get("key:1") is _empty_in_redis
 
     async for _ in cache.scan("key:*"):
         assert False
