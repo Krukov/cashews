@@ -527,7 +527,7 @@ TTL can be
 - an integer as numbers of seconds
 - a `timedelta`
 - a string like in golang e.g `1d2h3m50s`
-- a callable object like a function that receive `args` and `kwargs` and return one of previous format for ttl
+- a callable object like a function that receive `args` and `kwargs` of the decorated function and return one of previous format for TTL
 
 Examples:
 
