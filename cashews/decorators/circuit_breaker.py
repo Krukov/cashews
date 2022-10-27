@@ -5,6 +5,7 @@ from typing import Optional, Tuple, Type, Union
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template
+from .._typing import Callable_T
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
 
@@ -39,7 +40,7 @@ def circuit_breaker(
     """
     assert 0 < errors_rate < 100
 
-    def _decor(func):
+    def _decor(func: Callable_T) -> Callable_T:
         _key = ":".join([func.__module__, func.__name__])
         _key_template = get_cache_key_template(func, key=key or _key, prefix=prefix)
 

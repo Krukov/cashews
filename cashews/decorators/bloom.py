@@ -2,23 +2,24 @@ import asyncio
 import math
 import warnings
 from functools import wraps
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union, Iterable
 
 from cashews.utils import get_hashes
 
 from ..backends.interface import Backend
 from ..key import get_cache_key, get_cache_key_template
+from .._typing import Callable_T
 
 __all__ = ("bloom",)
 
 all_not_zeros = all
 
 
-def all_zeros(values) -> bool:
+def all_zeros(values: Iterable[int]) -> bool:
     return all(v == 0 for v in values)
 
 
-def at_least_one_zero(values) -> bool:
+def at_least_one_zero(values: Iterable[bool]) -> bool:
     return not all(values)
 
 
@@ -57,7 +58,7 @@ def bloom(
         assert 0 < false_positives < 100
         index_size, number_of_hashes = params_for(capacity, false_positives / 100)
 
-    def _decor(func):
+    def _decor(func: Callable_T) -> Callable_T:
         _name = get_cache_key_template(func, key=name)
         _cache_key = f"{_name}:{index_size}"
         if prefix:
@@ -127,7 +128,7 @@ def dual_bloom(
     """
     filters_params = _get_params_for_filters(index_size, number_of_hashes, false, capacity)
 
-    def _decor(func):
+    def _decor(func: Callable_T) -> Callable_T:
         _cache_key = get_cache_key_template(func, key=name)
         if prefix:
             _cache_key = f"{prefix}:{_cache_key}"
@@ -237,7 +238,7 @@ def _counting_bloom(
         assert 0 < false_positives < 100
         index_size, number_of_hashes = params_for(capacity, false_positives / 100)
 
-    def _decor(func):
+    def _decor(func: Callable_T) -> Callable_T:
         _name = get_cache_key_template(func, key=name)
         _cache_key = prefix + _name + f":{index_size}"
 
