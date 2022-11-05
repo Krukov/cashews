@@ -253,7 +253,7 @@ async def test_smoke_cmds(cache: Cache, target):
     target.keys_match.assert_called_once_with("key:*")
 
     [key_value async for key_value in cache.get_match("key:*")]
-    target.get_match.assert_called_once_with("key:*", batch_size=100, default=None)
+    target.get_match.assert_called_once_with("key:*", batch_size=100)
 
 
 async def test_disable_cache_on_fail_return(cache: Cache):

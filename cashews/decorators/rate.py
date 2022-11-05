@@ -3,10 +3,12 @@ from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
 from .._typing import Callable_T
+from .._typing import TTL
 from ..backends.interface import Backend
 from ..exceptions import RateLimitError
 from ..formatter import register_template
 from ..key import get_cache_key, get_cache_key_template
+from ..ttl import ttl_to_seconds
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +20,8 @@ def _default_action(*args: Any, **kwargs: Any) -> NoReturn:
 def rate_limit(
     backend: Backend,
     limit: int,
-    period: int,
-    ttl: Optional[int] = None,
+    period: TTL,
+    ttl: Optional[TTL] = None,
     key: Optional[str] = None,
     action: Optional[Callable] = None,
     prefix: str = "rate_limit",
@@ -31,6 +33,7 @@ def rate_limit(
     :param limit: number of calls
     :param period: Period
     :param ttl: time ban, default == period
+    :param key: a cache key template
     :param action: call when rate limit reached, default raise RateLimitError
     :param prefix: custom prefix for key, default 'rate_limit'
     """
@@ -42,17 +45,19 @@ def rate_limit(
 
         @wraps(func)
         async def wrapped_func(*args, **kwargs):
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs)
+            _period = ttl_to_seconds(period, *args, **kwargs)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
 
             requests_count = await backend.incr(key=_cache_key)  # set 1 if not exists
             if requests_count and requests_count > limit:
                 if ttl and requests_count == limit + 1:
-                    await backend.expire(key=_cache_key, timeout=ttl)
+                    await backend.expire(key=_cache_key, timeout=_ttl)
                 logger.info("Rate limit reach for %s", _cache_key)
                 action(*args, **kwargs)
 
             if requests_count == 1:
-                await backend.expire(key=_cache_key, timeout=period)
+                await backend.expire(key=_cache_key, timeout=_period)
 
             return await func(*args, **kwargs)
 

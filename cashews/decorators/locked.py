@@ -2,9 +2,11 @@ from functools import wraps
 from typing import Optional, Union
 
 from .._typing import Callable_T
+from .._typing import TTL
 from ..backends.interface import Backend
 from ..exceptions import LockedError
 from ..key import get_cache_key, get_cache_key_template
+from ..ttl import ttl_to_seconds
 
 __all__ = ("locked",)
 
@@ -12,7 +14,7 @@ __all__ = ("locked",)
 def locked(
     backend: Backend,
     key: Optional[str] = None,
-    ttl: Optional[int] = None,
+    ttl: Optional[TTL] = None,
     max_lock_ttl: int = 10,
     step: Union[float, int] = 0.1,
     prefix: str = "lock",
@@ -25,7 +27,8 @@ def locked(
     :param backend: cache backend
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param ttl: duration to lock wrapped function call
-    :param max_lock_ttl: custom prefix for key, default 'lock'
+    :param max_lock_ttl: default ttl if it not set
+    :param step: duration between lock check
     :param prefix: custom prefix for key, default 'lock'
     """
 
@@ -34,12 +37,13 @@ def locked(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             try:
-                async with backend.lock(_cache_key, ttl or max_lock_ttl):
+                async with backend.lock(_cache_key, _ttl or max_lock_ttl):
                     return await func(*args, **kwargs)
             except LockedError:
-                if not await backend.is_locked(_cache_key, wait=ttl, step=step):
+                if not await backend.is_locked(_cache_key, wait=_ttl, step=step):
                     return await func(*args, **kwargs)
                 raise
 
