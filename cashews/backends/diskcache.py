@@ -1,7 +1,7 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Tuple
 
 from diskcache import Cache, FanoutCache
 
@@ -75,10 +75,10 @@ class DiskCache(Backend):
     def _get_many(self, keys: List[str], default: Optional[Any] = None):
         return tuple(self._cache.get(key, default=default) for key in keys)
 
-    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         return await self._run_in_executor(self._set_many, pairs, expire)
 
-    def _set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+    def _set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         for key, value in pairs.items():
             self._set(key, value, expire=expire)
 
@@ -88,12 +88,12 @@ class DiskCache(Backend):
     def _exists(self, key: str) -> bool:
         return key in self._cache
 
-    async def keys_match(self, pattern: str):
+    async def keys_match(self, pattern: str) -> AsyncIterator[str]:  # type: ignore
         if not self._sharded:
             for key in await self._run_in_executor(self._keys_match, pattern):
                 yield key
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         async for key in self.keys_match(pattern):
             yield key
 
@@ -104,7 +104,7 @@ class DiskCache(Backend):
             if regexp.fullmatch(key):
                 yield key
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         value = await self.get(key, default=0)
         array = Bitarray(str(value))
         result = []
@@ -112,7 +112,7 @@ class DiskCache(Backend):
             result.append(array.get(index, size))
         return tuple(result)
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         value = await self.get(key, default=0)
         array = Bitarray(str(value))
         result = []

@@ -1,6 +1,7 @@
 from functools import wraps
 from typing import Optional, Union
 
+from .._typing import Callable_T
 from .._typing import TTL
 from ..backends.interface import Backend
 from ..exceptions import LockedError
@@ -31,7 +32,7 @@ def locked(
     :param prefix: custom prefix for key, default 'lock'
     """
 
-    def _decor(func):
+    def _decor(func: Callable_T) -> Callable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
 
         @wraps(func)

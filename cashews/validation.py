@@ -3,6 +3,7 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
+from ._typing import Callable_T
 from .backends.interface import Backend
 from .formatter import get_templates_for_func, template_to_pattern
 from .key import get_call_values, get_func_params
@@ -24,7 +25,7 @@ def invalidate(
     args_map = args_map or {}
     defaults = defaults or {}
 
-    def _decor(func):
+    def _decor(func: Callable_T) -> Callable_T:
         @wraps(func)
         async def _wrap(*args, **kwargs):
             result = await func(*args, **kwargs)

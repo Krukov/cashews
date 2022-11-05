@@ -1,11 +1,12 @@
 import asyncio
+from typing import Optional
 from unittest.mock import Mock
 
 import pytest
 import pytest_asyncio
 
 from cashews import decorators, noself
-from cashews.backends.memory import Backend, Memory
+from cashews.backends.memory import Memory
 from cashews.formatter import _REGISTER, get_templates_for_func
 
 pytestmark = pytest.mark.asyncio
@@ -352,7 +353,11 @@ async def test_lock_cache_parallel_ttl(backend):
 
 
 async def test_lock_cache_broken_backend():
-    backend = Mock(wraps=Backend())
+    class BrokenMemoryBackend(Memory):
+        async def ping(self, message: Optional[bytes] = None) -> bytes:
+            raise Exception("broken")
+
+    backend = Mock(wraps=BrokenMemoryBackend())
     mock = Mock()
 
     @decorators.locked(backend, key="key", step=0.01)

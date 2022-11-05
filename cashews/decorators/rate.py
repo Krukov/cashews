@@ -2,6 +2,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
+from .._typing import Callable_T
 from .._typing import TTL
 from ..backends.interface import Backend
 from ..exceptions import RateLimitError
@@ -38,7 +39,7 @@ def rate_limit(
     """
     action = _default_action if action is None else action
 
-    def decorator(func):
+    def decorator(func: Callable_T) -> Callable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 
