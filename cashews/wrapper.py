@@ -5,11 +5,11 @@ from typing import Any, AsyncIterator, Callable, Dict, Iterable, Mapping, Option
 
 from . import decorators, validation
 from ._typing import TTL, AsyncCallable_T, CacheCondition
+from .backend_settings import settings_url_parse
 from .backends.interface import Backend, _BackendInterface
 from .backends.memory import Memory
 from .cache_condition import create_time_condition, get_cache_condition
 from .disable_control import _is_disable_middleware
-from .settings import settings_url_parse
 from .ttl import ttl_to_seconds
 
 try:
@@ -97,16 +97,13 @@ class Cache(_BackendInterface):
         return backend
 
     def setup(self, settings_url: str, middlewares: Tuple = (), prefix: str = default_prefix, **kwargs) -> Backend:
-        params = settings_url_parse(settings_url)
+        backend_class, params = settings_url_parse(settings_url)
         params.update(kwargs)
 
-        if params.pop("client_side", None):
-            params["backend"] = BcastClientSide
-        backend_class = params.pop("backend")
         if "disable" in params:
             disable = params.pop("disable")
         else:
-            disable = not kwargs.pop("params", True)
+            disable = not params.pop("enable", True)
 
         backend = backend_class(**params)
         backend._set_disable(disable)

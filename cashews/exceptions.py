@@ -2,12 +2,16 @@ class CacheError(Exception):
     pass
 
 
+class BackendNotAvailable(CacheError):
+    """For wrong or not available cache alias"""
+
+
 class UnsupportedPicklerError(CacheError):
     """Unknown or unsupported pickle type."""
 
 
 class UnSecureDataError(CacheError):
-    pass
+    """Unsecure data in cache storage"""
 
 
 class SignIsMissingError(CacheError):
@@ -19,12 +23,12 @@ class WrongKeyError(CacheError):
 
 
 class LockedError(CacheError):
-    pass
+    """Raised if a key already locked"""
 
 
 class CacheBackendInteractionError(CacheError):
-    pass
+    """Raised if redis not available and safe is set to false"""
 
 
 class RateLimitError(CacheError):
-    pass
+    """Raised by @rate_limit if rate limit is reached"""

@@ -159,7 +159,7 @@ def test_cache_func_key_dict():
             "{arg2}:{kwarg1}:{kwarg3}",
             "2:K1:",
         ),
-        (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:len}", "4"),
+        (("a1", "a2"), {"kwarg1": 1234}, "{kwarg1:len}", "4"),
         (
             ("a1", "a2"),
             {"user": type("user", (), {"name": "test"})()},

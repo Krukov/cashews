@@ -33,6 +33,29 @@ async def test_disable_cmd(cache):
     assert await cache.get("test") == 11
 
 
+async def test_init_disable(cache):
+    cache.setup("mem://localhost?disable=1")
+    assert cache.is_disable()
+
+    cache.setup("mem://localhost?enable=1")
+    assert cache.is_enable()
+    assert not cache.is_disable()
+
+
+async def test_prefix(cache):
+    cache.setup("mem://localhost")
+    cache.setup("://", prefix="-", disable=True)
+    assert not cache.is_disable()
+    assert cache.is_disable(prefix="-")
+
+    await cache.set("key", "value")
+    await cache.set("-:key", "-value")
+
+    assert await cache.get("key") == "value"
+    assert await cache.get("-:key") is None
+    assert await cache.get("-:key", default="def") == "def"
+
+
 async def test_disable_ctz(cache):
     await cache.init("mem://localhost")
     cache.enable()

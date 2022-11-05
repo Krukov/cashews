@@ -23,25 +23,6 @@ def __cache(target):
     return _cache
 
 
-async def test_init_disable(cache):
-    await cache.init("mem://localhost?disable=1")
-    assert cache.is_disable()
-
-
-async def test_prefix(cache):
-    await cache.init("mem://localhost")
-    await cache.init("://", prefix="-")
-    assert not cache.is_disable()
-    assert cache.is_disable(prefix="-")
-
-    await cache.set("key", "value")
-    await cache.set("-:key", "-value")
-
-    assert await cache.get("key") == "value"
-    assert await cache.get("-:key") is None
-    assert await cache.get("-:key", default="def") == "def"
-
-
 async def test_prefix_many(cache):
     await cache.init("mem://")
     await cache.init("mem://", prefix="-")
