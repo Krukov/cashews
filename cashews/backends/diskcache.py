@@ -1,7 +1,7 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple, Mapping
+from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Tuple
 
 from diskcache import Cache, FanoutCache
 
@@ -93,7 +93,7 @@ class DiskCache(Backend):
             for key in await self._run_in_executor(self._keys_match, pattern):
                 yield key
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]: # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         async for key in self.keys_match(pattern):
             yield key
 

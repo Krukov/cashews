@@ -2,15 +2,13 @@ import logging
 from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
+from .._typing import Callable_T
 from ..backends.interface import Backend
 from ..exceptions import RateLimitError
 from ..formatter import register_template
 from ..key import get_cache_key, get_cache_key_template
-from .._typing import Callable_T
 
 logger = logging.getLogger(__name__)
-
-
 
 
 def _default_action(*args: Any, **kwargs: Any) -> NoReturn:

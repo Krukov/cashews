@@ -1,7 +1,7 @@
 import uuid
+from abc import ABCMeta, abstractmethod
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Mapping, Optional, Tuple
-from abc import abstractmethod, ABCMeta
 
 from ..exceptions import LockedError
 

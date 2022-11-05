@@ -3,10 +3,10 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
+from ._typing import Callable_T
 from .backends.interface import Backend
 from .formatter import get_templates_for_func, template_to_pattern
 from .key import get_call_values, get_func_params
-from ._typing import Callable_T
 
 
 async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None) -> None:

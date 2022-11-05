@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator, Callable, Dict, Iterable, Mapping, Option
 from . import decorators, validation
 from ._cache_condition import create_time_condition, get_cache_condition
 from ._settings import settings_url_parse
-from ._typing import TTL, CacheCondition, AsyncCallable_T
+from ._typing import TTL, AsyncCallable_T, CacheCondition
 from .backends.interface import Backend
 from .backends.memory import Memory
 from .disable_control import ControlMixin, _is_disable_middleware
