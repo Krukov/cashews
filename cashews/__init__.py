@@ -1,4 +1,4 @@
-from ._cache_condition import NOT_NONE  # noqa
+from .cache_condition import NOT_NONE  # noqa
 from .decorators import CacheDetect, CircuitBreakerOpen, RateLimitError, context_cache_detect, fast_condition  # noqa
 from .exceptions import CacheBackendInteractionError, LockedError  # noqa
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key  # noqa

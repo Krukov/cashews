@@ -3,8 +3,8 @@ from unittest.mock import Mock, PropertyMock
 
 import pytest
 
-from cashews._cache_condition import NOT_NONE
 from cashews.backends.memory import Memory
+from cashews.cache_condition import NOT_NONE
 from cashews.formatter import get_templates_for_func
 from cashews.wrapper import Cache, _create_auto_init
 
