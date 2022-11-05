@@ -6,6 +6,7 @@ from typing import Any, Callable, Dict, Optional, Union
 from .backends.interface import Backend
 from .formatter import get_templates_for_func, template_to_pattern
 from .key import get_call_values, get_func_params
+from ._typing import Callable_T
 
 
 async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None) -> None:
@@ -24,7 +25,7 @@ def invalidate(
     args_map = args_map or {}
     defaults = defaults or {}
 
-    def _decor(func):
+    def _decor(func: Callable_T) -> Callable_T:
         @wraps(func)
         async def _wrap(*args, **kwargs):
             result = await func(*args, **kwargs)

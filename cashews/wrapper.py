@@ -6,7 +6,7 @@ from typing import Any, AsyncIterator, Callable, Dict, Iterable, Mapping, Option
 from . import decorators, validation
 from ._cache_condition import create_time_condition, get_cache_condition
 from ._settings import settings_url_parse
-from ._typing import TTL, CacheCondition
+from ._typing import TTL, CacheCondition, AsyncCallable_T
 from .backends.interface import Backend
 from .backends.memory import Memory
 from .disable_control import ControlMixin, _is_disable_middleware
@@ -273,7 +273,7 @@ class Cache(Backend):
         return self._wrap(decorator_fabric, **decor_kwargs)
 
     def _wrap(self, decorator_fabric, lock=False, time_condition=None, **decor_kwargs):
-        def _decorator(func):
+        def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
             if time_condition is not None:
                 condition, _decor = create_time_condition(time_condition)
                 func = _decor(func)
@@ -295,7 +295,7 @@ class Cache(Backend):
         return _decorator
 
     def _wrap_with_condition(self, decorator_fabric, condition, lock=False, time_condition=None, **decor_kwargs):
-        def _decorator(func):
+        def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
             _condition = condition
             if time_condition is not None:
                 _condition, _decor = create_time_condition(time_condition)

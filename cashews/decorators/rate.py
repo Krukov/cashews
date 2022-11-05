@@ -6,8 +6,11 @@ from ..backends.interface import Backend
 from ..exceptions import RateLimitError
 from ..formatter import register_template
 from ..key import get_cache_key, get_cache_key_template
+from .._typing import Callable_T
 
 logger = logging.getLogger(__name__)
+
+
 
 
 def _default_action(*args: Any, **kwargs: Any) -> NoReturn:
@@ -18,7 +21,7 @@ def rate_limit(
     backend: Backend,
     limit: int,
     period: int,
-    ttl: int = None,
+    ttl: Optional[int] = None,
     key: Optional[str] = None,
     action: Optional[Callable] = None,
     prefix: str = "rate_limit",
@@ -35,7 +38,7 @@ def rate_limit(
     """
     action = _default_action if action is None else action
 
-    def decorator(func):
+    def decorator(func: Callable_T) -> Callable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 
