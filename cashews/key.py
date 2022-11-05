@@ -1,48 +1,13 @@
 import inspect
-from datetime import timedelta
 from functools import lru_cache
-from typing import Any, Callable, Container, Dict, Optional, Tuple, Union
+from typing import Any, Callable, Container, Dict, Optional, Tuple
 
-from ._typing import TTL
 from .exceptions import WrongKeyError
 from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
 
 _KWARGS = "__kwargs__"
 _ARGS = "__args__"
 _ARGS_KWARGS = (_ARGS, _KWARGS)
-
-
-def ttl_to_seconds(ttl: Union[float, None, TTL]) -> Union[int, None, float]:
-    timeout = ttl() if callable(ttl) else ttl
-    if isinstance(timeout, timedelta):
-        return timeout.total_seconds()
-    if isinstance(timeout, str):
-        return _ttl_from_str(timeout)
-    return timeout
-
-
-_STR_TO_DELTA = {
-    "h": timedelta(hours=1),
-    "m": timedelta(minutes=1),
-    "s": timedelta(seconds=1),
-    "d": timedelta(days=1),
-}
-
-
-def _ttl_from_str(ttl: str) -> int:
-    result = 0
-    mul = ""
-    for char in ttl.strip().lower():
-        if char.isdigit():
-            mul += char
-        elif char in _STR_TO_DELTA:
-            result += int(mul) * _STR_TO_DELTA[char].total_seconds()
-            mul = ""
-        else:
-            raise ValueError(f"ttl '{ttl}' has wrong string representation")
-    if mul != "" and not result:
-        return int(mul)
-    return result
 
 
 def get_cache_key(

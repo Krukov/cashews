@@ -60,9 +60,7 @@ class Backend:
     async def delete_match(self, pattern: str):
         ...
 
-    async def get_match(
-        self, pattern: str, batch_size: int = 100, default: Optional[Any] = None
-    ) -> AsyncIterator[Tuple[str, Any]]:
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[str, Any]]:
         ...
 
     async def expire(self, key: str, timeout: float):
