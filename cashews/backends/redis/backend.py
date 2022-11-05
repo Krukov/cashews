@@ -19,8 +19,6 @@ _empty = object()
 
 
 class _Redis(Backend):
-    name = "redis"
-
     def __init__(self, address, safe: bool = True, **kwargs: Any) -> None:
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)

@@ -18,8 +18,6 @@ class Memory(Backend):
     Inmemory backend lru with ttl
     """
 
-    name = "mem"
-
     def __init__(self, size: int = 1000, check_interval: float = 1):
         self.store: OrderedDict = OrderedDict()
         self._check_interval = check_interval

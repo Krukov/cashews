@@ -7,9 +7,9 @@ from . import decorators, validation
 from ._cache_condition import create_time_condition, get_cache_condition
 from ._settings import settings_url_parse
 from ._typing import TTL, AsyncCallable_T, CacheCondition
-from .backends.interface import Backend
+from .backends.interface import Backend, _BackendInterface
 from .backends.memory import Memory
-from .disable_control import ControlMixin, _is_disable_middleware
+from .disable_control import _is_disable_middleware
 from .ttl import ttl_to_seconds
 
 try:
@@ -41,7 +41,7 @@ def _create_auto_init():
     return _auto_init
 
 
-class Cache(Backend):
+class Cache(_BackendInterface):
     default_prefix = ""
 
     def __init__(self, name: Optional[str] = None):
@@ -51,9 +51,9 @@ class Cache(Backend):
             _create_auto_init(),
             validation._invalidate_middleware,
         )
-        self._name = name
+        self.name = name
         self._default_fail_exceptions = Exception
-        self._add_backend(Memory)
+        self._add_backend(Memory())
 
     detect = decorators.context_cache_detect
 
@@ -96,23 +96,26 @@ class Cache(Backend):
         backend, _ = self._get_backend_and_config(key)
         return backend
 
-    def setup(self, settings_url: str, middlewares: Tuple = (), prefix: str = default_prefix, **kwargs):
+    def setup(self, settings_url: str, middlewares: Tuple = (), prefix: str = default_prefix, **kwargs) -> Backend:
         params = settings_url_parse(settings_url)
         params.update(kwargs)
 
         if params.pop("client_side", None):
             params["backend"] = BcastClientSide
-        backend = params.pop("backend")
+        backend_class = params.pop("backend")
+        if "disable" in params:
+            disable = params.pop("disable")
+        else:
+            disable = not kwargs.pop("params", True)
 
-        self._add_backend(backend, middlewares, prefix, **params)
-        return self._backends[prefix][0]
+        backend = backend_class(**params)
+        backend._set_disable(disable)
+        self._add_backend(backend, middlewares, prefix)
+        return backend
 
-    def _add_backend(self, backend_class: Type[Backend], middlewares=(), prefix: str = default_prefix, **params):
-        class _backend_class(ControlMixin, backend_class):
-            pass
-
+    def _add_backend(self, backend: Backend, middlewares=(), prefix: str = default_prefix):
         self._backends[prefix] = (
-            _backend_class(**params),
+            backend,
             self._default_middlewares + middlewares,
         )
 
@@ -196,7 +199,7 @@ class Cache(Backend):
         async for key, value in (await call(pattern, batch_size)):
             yield key, value
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         backends = {}
         for key in keys:
             backend = self._get_backend(key)

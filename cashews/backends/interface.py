@@ -3,16 +3,15 @@ from abc import ABCMeta, abstractmethod
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
+from ..disable_control import ControlMixin
 from ..exceptions import LockedError
 
 
-class Backend(metaclass=ABCMeta):
-    name: str = ""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        ...
+class _BackendInterface(metaclass=ABCMeta):
+    name = None
 
     @property
+    @abstractmethod
     def is_init(self) -> bool:
         ...
 
@@ -150,3 +149,8 @@ class Backend(metaclass=ABCMeta):
             yield
         finally:
             await self.unlock(key, identifier)
+
+
+class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
+    def __init__(self, *args, **kwargs):
+        super().__init__()

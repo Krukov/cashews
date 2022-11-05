@@ -4,7 +4,6 @@ import pytest
 
 from cashews import Cache
 from cashews.backends.memory import Memory
-from cashews.disable_control import ControlMixin
 from cashews.helpers import add_prefix, all_keys_lower, memory_limit
 
 pytestmark = pytest.mark.asyncio
@@ -12,7 +11,7 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(name="target")
 def _target() -> Mock:
-    class MemCache(ControlMixin, Memory):
+    class MemCache(Memory):
         pass
 
     return Mock(wraps=MemCache())
@@ -21,8 +20,7 @@ def _target() -> Mock:
 @pytest.fixture(name="cache")
 def __cache(target):
     _cache = Cache()
-    _cache._add_backend(Memory)
-    _cache._backends[""] = (target, _cache._backends[""][1])
+    _cache._add_backend(target)
     return _cache
 
 

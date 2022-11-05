@@ -1,8 +1,7 @@
 from functools import wraps
 from typing import Optional, Union
 
-from .._typing import Callable_T
-from .._typing import TTL
+from .._typing import TTL, Callable_T
 from ..backends.interface import Backend
 from ..exceptions import LockedError
 from ..key import get_cache_key, get_cache_key_template

@@ -316,11 +316,11 @@ async def test_early_cache_parallel(backend):
 
     assert mock.call_count == 1
 
-    for _ in range(8):  # 8 * 0.01 = 0.08 - 1 more time should be executed
+    for _ in range(8):
         await asyncio.sleep(0.01)
         await asyncio.gather(*[func() for _ in range(10)])
 
-    assert mock.call_count in [2, 3]
+    assert mock.call_count in (2, 3, 4)  # depends on backend
 
 
 async def test_lock_cache_parallel(backend):

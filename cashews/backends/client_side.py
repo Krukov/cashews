@@ -53,8 +53,6 @@ class BcastClientSide(Redis):
     https://redis.io/topics/client-side-caching
     """
 
-    name = "redis_mem"
-
     def __init__(self, *args: Any, local_cache=None, client_side_prefix: str = _DEFAULT_PREFIX, **kwargs: Any) -> None:
         self._local_cache = Memory() if local_cache is None else local_cache
         self._prefix = client_side_prefix

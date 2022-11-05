@@ -46,5 +46,5 @@ def backend_factory():
     try:
         yield factory
     finally:
-        assert backend is not None, "Fixture `backend_factory` wasn't called."
-        backend.close()
+        if backend is not None:
+            backend.close()

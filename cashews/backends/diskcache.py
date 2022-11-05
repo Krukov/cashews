@@ -11,8 +11,6 @@ from .interface import Backend
 
 
 class DiskCache(Backend):
-    name = "diskcache"
-
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         self.__is_init = False
         self._set_locks: Dict[str, asyncio.Lock] = {}

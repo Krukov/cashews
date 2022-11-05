@@ -27,7 +27,7 @@ def get_cache_condition(condition: CacheCondition) -> Callable[[Any, Tuple, Dict
     return condition
 
 
-_spent = ContextVar("spent", default=0)
+_spent = ContextVar("spent", default=0.0)
 
 
 def create_time_condition(limit: float):

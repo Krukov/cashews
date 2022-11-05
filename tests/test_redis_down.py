@@ -64,7 +64,7 @@ async def test_unsafe_redis_down(redis_backend):
 async def test_cache_decorators_on_redis_down(redis_backend):
     mock = Mock(return_value="val")
     cache = Cache()
-    cache._add_backend(redis_backend, safe=True, address="redis://localhost:9223", hash_key=None)
+    cache._add_backend(redis_backend(safe=True, address="redis://localhost:9223", hash_key=None))
 
     @cache(ttl=1)
     @cache.failover(1)

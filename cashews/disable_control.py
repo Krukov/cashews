@@ -1,5 +1,4 @@
 from contextvars import ContextVar
-from typing import Any
 
 _ALL = "_"
 
@@ -13,13 +12,8 @@ async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
 
 
 class ControlMixin:
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self) -> None:
         self.__disable = ContextVar(str(id(self)), default=())
-        if "disable" in kwargs:
-            self._set_disable(kwargs.pop("disable"))
-        else:
-            self._set_disable(not kwargs.pop("enable", True))
-        super().__init__(*args, **kwargs)
 
     @property
     def _disable(self):

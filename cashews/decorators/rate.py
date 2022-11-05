@@ -2,8 +2,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
-from .._typing import Callable_T
-from .._typing import TTL
+from .._typing import TTL, Callable_T
 from ..backends.interface import Backend
 from ..exceptions import RateLimitError
 from ..formatter import register_template
