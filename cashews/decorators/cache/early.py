@@ -5,7 +5,7 @@ from functools import wraps
 from typing import Optional
 
 from ..._typing import TTL, CallableCacheCondition
-from ...backends.interface import Backend
+from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
 from ...ttl import ttl_to_seconds
@@ -19,7 +19,7 @@ _LOCK_SUFFIX = ":lock"
 
 
 def early(
-    backend: Backend,
+    backend: _BackendInterface,
     ttl: TTL,
     key: Optional[str] = None,
     early_ttl: Optional[TTL] = None,
@@ -101,7 +101,7 @@ def early(
 
 
 async def _get_result_for_early(
-    backend: Backend, func, args, kwargs, key, ttl: int, early_ttl: int, condition, unlock=False
+    backend: _BackendInterface, func, args, kwargs, key, ttl: int, early_ttl: int, condition, unlock=False
 ):
     try:
         result = await func(*args, **kwargs)

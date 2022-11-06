@@ -3,7 +3,7 @@ from functools import wraps
 from typing import Optional
 
 from ..._typing import TTL, CallableCacheCondition
-from ...backends.interface import Backend
+from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
 from ...ttl import ttl_to_seconds
@@ -13,7 +13,7 @@ __all__ = ("hit",)
 
 
 def hit(
-    backend: Backend,
+    backend: _BackendInterface,
     ttl: TTL,
     cache_hits: int,
     update_after: Optional[int] = None,

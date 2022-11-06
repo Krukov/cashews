@@ -3,7 +3,7 @@ from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
 from .._typing import TTL, Callable_T
-from ..backends.interface import Backend
+from ..backends.interface import _BackendInterface
 from ..exceptions import RateLimitError
 from ..formatter import register_template
 from ..key import get_cache_key, get_cache_key_template
@@ -17,7 +17,7 @@ def _default_action(*args: Any, **kwargs: Any) -> NoReturn:
 
 
 def rate_limit(
-    backend: Backend,
+    backend: _BackendInterface,
     limit: int,
     period: TTL,
     ttl: Optional[TTL] = None,

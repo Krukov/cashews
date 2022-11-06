@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from cashews.backends.memory import Memory
+from cashews.commands import Command
 from cashews.wrapper import Cache
 
 pytestmark = pytest.mark.asyncio
@@ -23,12 +24,12 @@ def _cache(target):
 
 async def test_disable_cmd(cache):
     await cache.init("mem://localhost")
-    cache.disable("incr")
+    cache.disable(Command.INCR)
     await cache.set("test", 10)
     await cache.incr("test")
     assert await cache.get("test") == 10
 
-    cache.enable("incr")
+    cache.enable(Command.INCR)
     await cache.incr("test")
     assert await cache.get("test") == 11
 
@@ -63,7 +64,7 @@ async def test_disable_ctz(cache):
     async def test():
         await cache.set("test", "1")
         assert await cache.get("test") == "1"
-        cache.disable("set")
+        cache.disable(Command.SET)
         await cache.set("test", "2")
 
     await asyncio.create_task(test())
@@ -126,27 +127,27 @@ async def test_disable_decorators_get(cache: Cache):
         return next(data)
 
     assert cache.is_enable()
-    assert cache.is_enable("set", prefix="cache")
-    assert cache.is_enable("get", prefix="cache")
-    assert cache.is_enable("set", prefix="")
+    assert cache.is_enable(Command.SET, prefix="cache")
+    assert cache.is_enable(Command.GET, prefix="cache")
+    assert cache.is_enable(Command.SET, prefix="")
     assert await func() == 0
     assert await func() == 0
 
-    cache.disable("get")
+    cache.disable(Command.GET)
 
-    assert not cache.is_enable("get")
-    assert cache.is_enable("set")
+    assert not cache.is_enable(Command.GET)
+    assert cache.is_enable(Command.SET)
 
     assert await func() == 1
     assert await func() == 2
 
-    cache.enable("get")
+    cache.enable(Command.GET)
     assert await func() == 2
 
 
 async def test_disable_decorators_set(cache: Cache):
     data = (i for i in range(10))
-    cache.disable("set")
+    cache.disable(Command.SET)
 
     @cache(ttl=1)
     async def func():
@@ -155,6 +156,6 @@ async def test_disable_decorators_set(cache: Cache):
     assert await func() == 0
     assert await func() == 1
 
-    cache.enable("set")
+    cache.enable(Command.SET)
     assert await func() == 2
     assert await func() == 2

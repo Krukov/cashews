@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Optional, Union
 
 from .._typing import TTL, Callable_T
-from ..backends.interface import Backend
+from ..backends.interface import _BackendInterface
 from ..exceptions import LockedError
 from ..key import get_cache_key, get_cache_key_template
 from ..ttl import ttl_to_seconds
@@ -11,7 +11,7 @@ __all__ = ("locked",)
 
 
 def locked(
-    backend: Backend,
+    backend: _BackendInterface,
     key: Optional[str] = None,
     ttl: Optional[TTL] = None,
     max_lock_ttl: int = 10,

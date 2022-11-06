@@ -1,5 +1,6 @@
 from .backend_settings import register_backend  # noqa
 from .cache_condition import NOT_NONE  # noqa
+from .commands import Command  # noqa
 from .decorators import CircuitBreakerOpen, RateLimitError, context_cache_detect, fast_condition  # noqa
 from .exceptions import CacheBackendInteractionError, LockedError  # noqa
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key  # noqa

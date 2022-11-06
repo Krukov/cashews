@@ -7,7 +7,7 @@ from typing import Any, Iterable, Optional, Tuple, Union
 from cashews.utils import get_hashes
 
 from .._typing import Callable_T
-from ..backends.interface import Backend
+from ..backends.interface import _BackendInterface
 from ..key import get_cache_key, get_cache_key_template
 
 __all__ = ("bloom",)
@@ -24,7 +24,7 @@ def at_least_one_zero(values: Iterable[bool]) -> bool:
 
 
 def bloom(
-    backend: Backend,
+    backend: _BackendInterface,
     name: Optional[str] = None,
     index_size: Optional[int] = None,
     number_of_hashes: Optional[int] = None,
@@ -100,7 +100,7 @@ def bloom(
 
 
 def dual_bloom(
-    backend: Backend,
+    backend: _BackendInterface,
     name: Optional[str] = None,
     index_size: Union[int, Tuple[int, int], None] = None,
     number_of_hashes: Union[int, Tuple[int, int], None] = None,
@@ -212,7 +212,7 @@ def _get_hashes(key, filters_params):
 
 
 def _counting_bloom(
-    backend: Backend,
+    backend: _BackendInterface,
     name: Optional[str] = None,
     index_size: Optional[int] = None,
     number_of_hashes: Optional[int] = None,

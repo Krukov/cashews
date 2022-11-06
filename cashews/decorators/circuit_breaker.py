@@ -4,7 +4,7 @@ from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
 from .._typing import Callable_T
-from ..backends.interface import Backend
+from ..backends.interface import _BackendInterface
 from ..key import get_cache_key, get_cache_key_template
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
@@ -17,7 +17,7 @@ class CircuitBreakerOpen(Exception):
 
 
 def circuit_breaker(
-    backend: Backend,
+    backend: _BackendInterface,
     errors_rate: int,
     period: int,
     ttl: int,
@@ -83,6 +83,6 @@ def _get_bucket_number(period: int, segments: int) -> int:
     return int((datetime.utcnow().timestamp() % period) / segments)
 
 
-async def _get_buckets_values(backend: Backend, key, segments: int, except_number: int) -> int:
+async def _get_buckets_values(backend: _BackendInterface, key, segments: int, except_number: int) -> int:
     keys = [f"{key}:total:{bucket}" for bucket in range(segments) if bucket != except_number]
     return sum(v for v in await backend.get_many(*keys) if v)

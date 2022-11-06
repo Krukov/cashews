@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
 from ..._typing import TTL, CallableCacheCondition
-from ...backends.interface import Backend
+from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
 from ...ttl import ttl_to_seconds
@@ -23,7 +23,7 @@ def fast_condition(getter, setter=None):
 
 
 def failover(
-    backend: Backend,
+    backend: _BackendInterface,
     ttl: TTL,
     exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
     key: Optional[str] = None,

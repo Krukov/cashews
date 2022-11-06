@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Optional
 
 from ..._typing import TTL, CallableCacheCondition
-from ...backends.interface import Backend
+from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
 from ...ttl import ttl_to_seconds
@@ -12,7 +12,7 @@ __all__ = ("cache",)
 
 
 def cache(
-    backend: Backend,
+    backend: _BackendInterface,
     ttl: TTL,
     key: Optional[str] = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,

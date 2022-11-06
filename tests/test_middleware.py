@@ -25,7 +25,7 @@ def __cache(target):
 
 
 async def test_all_keys_lower(cache: Cache, target):
-    cache._backends[""] = cache._backends[""][0], (all_keys_lower(),)
+    cache._add_backend(target, (all_keys_lower(),))
     await cache.get(key="KEY")
     target.get.assert_called_once_with(key="key", default=None)
 
@@ -41,7 +41,7 @@ async def test_all_keys_lower(cache: Cache, target):
 
 
 async def test_memory_limit(cache: Cache, target):
-    cache._backends[""] = cache._backends[""][0], (memory_limit(min_bytes=52, max_bytes=75),)
+    cache._add_backend(target, (memory_limit(min_bytes=52, max_bytes=75),))
 
     await cache.set(key="key", value="v")
     target.set.assert_not_called()
@@ -62,7 +62,7 @@ async def test_memory_limit(cache: Cache, target):
 
 
 async def test_add_prefix(cache: Cache, target):
-    cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
+    cache._add_backend(target, (add_prefix("prefix!"),))
 
     await cache.get(key="key")
     target.get.assert_called_once_with(key="prefix!key", default=None)
@@ -79,12 +79,12 @@ async def test_add_prefix(cache: Cache, target):
 
 
 async def test_add_prefix_get_many(cache: Cache, target):
-    cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
+    cache._add_backend(target, (add_prefix("prefix!"),))
     await cache.get_many("key")
     target.get_many.assert_called_once_with("prefix!key")
 
 
 async def test_add_prefix_delete_match(cache: Cache, target):
-    cache._backends[""] = cache._backends[""][0], (add_prefix("prefix!"),)
+    cache._add_backend(target, (add_prefix("prefix!"),))
     await cache.delete_match("key")
     target.delete_match.assert_called_once_with(pattern="prefix!key")

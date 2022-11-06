@@ -1,15 +1,18 @@
+from .commands import PATTERN_CMDS, Command
 from .key import get_call_values
 from .utils import get_obj_size
 
 
 def add_prefix(prefix: str):
     async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
-        if cmd.lower() == "get_many":
+        if cmd == Command.GET_MANY:
             return await call(*[prefix + key for key in args])
         call_values = get_call_values(call, args, kwargs)
-        as_key = "key"
-        if cmd in ["delete_match", "get_match", "keys_match"]:
-            as_key = "pattern"
+        if cmd == Command.SET_MANY:
+            call_values["pairs"] = {prefix + key: value for key, value in call_values["pairs"]}
+            return await call(**call_values)
+
+        as_key = "pattern" if cmd in PATTERN_CMDS else "key"
         key = call_values.get(as_key)
         if key:
             call_values[as_key] = prefix + key
@@ -21,12 +24,16 @@ def add_prefix(prefix: str):
 
 def all_keys_lower():
     async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
-        if cmd.lower() == "get_many":
+        if cmd == Command.GET_MANY:
             return await call(*[key.lower() for key in args])
         call_values = get_call_values(call, args, kwargs)
-        as_key = "key"
-        if cmd == "delete_match":
-            as_key = "pattern"
+
+        if cmd == Command.SET_MANY:
+            call_values["pairs"] = {key.lower(): value for key, value in call_values["pairs"]}
+            return await call(**call_values)
+
+        as_key = "pattern" if cmd in PATTERN_CMDS else "key"
+
         key = call_values.get(as_key)
         if key:
             call_values[as_key] = key.lower()
@@ -38,7 +45,7 @@ def all_keys_lower():
 
 def memory_limit(min_bytes=0, max_bytes=None):
     async def _memory_middleware(call, *args, backend=None, cmd=None, **kwargs):
-        if cmd != "set":
+        if cmd != Command.SET:
             return await call(*args, **kwargs)
         call_values = get_call_values(call, args, kwargs)
         value_size = get_obj_size(call_values["value"])
