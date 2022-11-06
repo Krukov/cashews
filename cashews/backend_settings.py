@@ -23,7 +23,7 @@ _NO_REDIS_ERROR = "Redis backend requires `redis` to be installed."
 _CUSTOM_ERRORS = {
     "redis": _NO_REDIS_ERROR,
     "rediss": _NO_REDIS_ERROR,
-    "diskcache": "Disk backend requires `diskcache` to be installed.",
+    "disk": "Disk backend requires `diskcache` to be installed.",
 }
 _BACKENDS = {}
 BackendOrFabric = Union[Type[Backend], Callable[[Dict[str, Any]], Backend]]
