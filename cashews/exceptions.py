@@ -2,8 +2,12 @@ class CacheError(Exception):
     pass
 
 
-class BackendNotAvailable(CacheError):
+class BackendNotAvailableError(CacheError):
     """For wrong or not available cache alias"""
+
+
+class NotConfiguredError(CacheError):
+    """If cache was not configured"""
 
 
 class UnsupportedPicklerError(CacheError):

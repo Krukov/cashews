@@ -38,6 +38,8 @@ async def test_init_disable(cache):
     cache.setup("mem://localhost?disable=1")
     assert cache.is_disable()
 
+
+async def test_init_enable(cache):
     cache.setup("mem://localhost?enable=1")
     assert cache.is_enable()
     assert not cache.is_disable()

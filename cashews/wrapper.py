@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import contextmanager
-from functools import partial, wraps
+from functools import lru_cache, partial, wraps
 from typing import Any, AsyncIterator, Callable, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
 
 from . import decorators, validation
@@ -10,6 +10,7 @@ from .backends.interface import Backend, _BackendInterface
 from .cache_condition import create_time_condition, get_cache_condition
 from .commands import Command
 from .disable_control import _is_disable_middleware
+from .exceptions import NotConfiguredError
 from .ttl import ttl_to_seconds
 
 try:
@@ -85,10 +86,13 @@ class Cache(_BackendInterface):
     def is_enable(self, *cmds: Command, prefix: str = ""):
         return not self.is_disable(*cmds, prefix=prefix)
 
+    @lru_cache(maxsize=1000)
     def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Callable]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):
                 return self._backends[prefix]
+        if self.default_prefix not in self._backends:
+            raise NotConfiguredError("run `cache.setup(...)` before using cache")
         return self._backends[self.default_prefix]
 
     def _get_backend(self, key: str) -> Backend:

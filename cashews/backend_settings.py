@@ -3,7 +3,7 @@ from urllib.parse import parse_qsl, urlparse
 
 from .backends.interface import Backend
 from .backends.memory import Memory
-from .exceptions import BackendNotAvailable
+from .exceptions import BackendNotAvailableError
 
 try:
     from .backends.client_side import BcastClientSide
@@ -50,7 +50,7 @@ if DiskCache:
 def settings_url_parse(url):
     parse_result = urlparse(url)
     params = dict(parse_qsl(parse_result.query))
-    params = _fix_params_types(params)
+    params = serialize_params(params)
 
     alias = parse_result.scheme
     if alias == "":
@@ -58,14 +58,14 @@ def settings_url_parse(url):
 
     if alias not in _BACKENDS:
         error = _CUSTOM_ERRORS.get(alias, f"wrong backend alias {alias}")
-        raise BackendNotAvailable(error)
+        raise BackendNotAvailableError(error)
     backend_class, pass_uri = _BACKENDS[alias]
     if pass_uri:
         params["address"] = url.split("?")[0]
     return backend_class, params
 
 
-def _fix_params_types(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:
+def serialize_params(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:
     new_params = {}
     bool_keys = ("safe", "enable", "disable", "client_side")
     true_values = (

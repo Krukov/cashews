@@ -1,6 +1,6 @@
 import pytest
 
-from cashews.backend_settings import BackendNotAvailable, settings_url_parse
+from cashews.backend_settings import BackendNotAvailableError, settings_url_parse
 from cashews.backends.memory import Memory
 
 
@@ -32,7 +32,7 @@ def test_url(url, params):
     ),
 )
 def test_url_but_backend_dependency_is_not_installed(url, error):
-    with pytest.raises(BackendNotAvailable) as excinfo:
+    with pytest.raises(BackendNotAvailableError) as excinfo:
         settings_url_parse(url)
 
     assert str(excinfo.value) == error

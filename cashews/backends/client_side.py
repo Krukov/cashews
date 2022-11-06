@@ -57,7 +57,7 @@ class BcastClientSide(Redis):
         self._local_cache = Memory() if local_cache is None else local_cache
         self._prefix = client_side_prefix
         self._recently_update = Memory(size=500, check_interval=5)
-        self.__listen_task = None
+        self._listen_task = None
         self._listen_started = None
         super().__init__(*args, **kwargs)
 
@@ -66,8 +66,12 @@ class BcastClientSide(Redis):
         await self._local_cache.init()
         await self._recently_update.init()
         await super().init()
-        self.__listen_task = asyncio.create_task(self._listen_invalidate_forever())
-        await self._listen_started.wait()
+        self.__is_init = False
+        self._listen_task = asyncio.create_task(self._listen_invalidate_forever())
+        await asyncio.wait([self._listen_started.wait()], timeout=2)
+        if self._listen_task.done():
+            raise self._listen_task.exception()
+        self.__is_init = True
 
     async def _mark_as_recently_updated(self, key: str):
         await self._recently_update.set(key, True, expire=5)
@@ -84,9 +88,13 @@ class BcastClientSide(Redis):
                 await self._listen_invalidate()
             except (RedisConnectionError, ConnectionRefusedError):
                 logger.error("broken connection with redis. Clearing client side storage")
-                self._listen_started = asyncio.Event()
+                self._listen_started.clear()
                 await self._local_cache.clear()
                 await asyncio.sleep(_RECONNECT_WAIT)
+            except Exception:
+                self._listen_started.clear()
+                await self._local_cache.clear()
+                raise
 
     async def _get_channel(self):
         pubsub = self._client.pubsub()
@@ -238,9 +246,9 @@ class BcastClientSide(Redis):
         return await super().clear()
 
     def close(self):
-        if self.__listen_task is not None:
-            self.__listen_task.cancel()
-            self.__listen_task = None
+        if self._listen_task is not None:
+            self._listen_task.cancel()
+            self._listen_task = None
         self._local_cache.close()
         self._recently_update.close()
         super().close()
