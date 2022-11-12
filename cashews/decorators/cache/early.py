@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional
 
-from ..._typing import TTL, CallableCacheCondition
+from ..._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
 from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
@@ -25,7 +25,7 @@ def early(
     early_ttl: Optional[TTL] = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "early",
-):
+) -> Decorator:
     """
     Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
     With hot cache recalculate a result in background near expiration time
@@ -39,7 +39,7 @@ def early(
     :param prefix: custom prefix for key, default 'early'
     """
 
-    def _decor(func):
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
         register_template(func, _key_template)
 

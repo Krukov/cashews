@@ -162,7 +162,7 @@ async def test_simple_cmd_bcast_many(create_cache):
 
     assert await local.get("key:1") == "test"
 
-    assert await cache.delete_match("key:*")
+    await cache.delete_match("key:*")
     assert await cache.get("key:1") is None
     assert await local.get("key:1") is _empty_in_redis
 

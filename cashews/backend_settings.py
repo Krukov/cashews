@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Type, Union
+from typing import Any, Callable, Dict, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
 from .backends.interface import Backend
@@ -25,8 +25,8 @@ _CUSTOM_ERRORS = {
     "rediss": _NO_REDIS_ERROR,
     "disk": "Disk backend requires `diskcache` to be installed.",
 }
-_BACKENDS = {}
-BackendOrFabric = Union[Type[Backend], Callable[[Dict[str, Any]], Backend]]
+BackendOrFabric = Union[Type[Backend], Callable[..., Backend]]
+_BACKENDS: Dict[str, Tuple[BackendOrFabric, bool]] = {}
 
 
 def register_backend(alias: str, backend_class: BackendOrFabric, pass_uri: bool = False):
@@ -47,9 +47,9 @@ if DiskCache:
     register_backend("disk", DiskCache)
 
 
-def settings_url_parse(url):
+def settings_url_parse(url: str) -> Tuple[BackendOrFabric, Dict[str, Any]]:
     parse_result = urlparse(url)
-    params = dict(parse_qsl(parse_result.query))
+    params: Dict[str, Any] = dict(parse_qsl(parse_result.query))
     params = serialize_params(params)
 
     alias = parse_result.scheme
@@ -73,14 +73,15 @@ def serialize_params(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, 
         "true",
     )
     for key, value in params.items():
+        _value: Union[str, int, bool, float]
         if key.lower() in bool_keys:
-            value = value.lower() in true_values
+            _value = value.lower() in true_values
         elif value.isdigit():
-            value = int(value)
+            _value = int(value)
         else:
             try:
-                value = float(value)
+                _value = float(value)
             except ValueError:
-                pass
-        new_params[key.lower()] = value
+                _value = value
+        new_params[key.lower()] = _value
     return new_params

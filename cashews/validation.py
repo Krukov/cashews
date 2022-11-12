@@ -1,16 +1,17 @@
 import asyncio
+from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
 from ._typing import Callable_T
-from .backends.interface import Backend
-from .commands import RETRIEVE_CMDS
+from .backends.interface import _BackendInterface
+from .commands import RETRIEVE_CMDS, Command
 from .formatter import get_templates_for_func, template_to_pattern
 from .key import get_call_values, get_func_params
 
 
-async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None) -> None:
+async def invalidate_func(backend: _BackendInterface, func, kwargs: Optional[Dict] = None) -> None:
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
     for template in get_templates_for_func(func):
         del_template = template_to_pattern(template, **values)
@@ -18,7 +19,7 @@ async def invalidate_func(backend: Backend, func, kwargs: Optional[Dict] = None)
 
 
 def invalidate(
-    backend: Backend,
+    backend: _BackendInterface,
     target: Union[str, Callable],
     args_map: Optional[Dict[str, str]] = None,
     defaults: Optional[Dict[str, Any]] = None,
@@ -50,15 +51,29 @@ def invalidate(
 _INVALIDATE_FURTHER = ContextVar("invalidate", default=False)
 
 
-def set_invalidate_further():
+@contextmanager
+def invalidate_further():
     _INVALIDATE_FURTHER.set(True)
-
-
-async def _invalidate_middleware(call, *args, key=None, backend=None, cmd=None, **kwargs):
-    if _INVALIDATE_FURTHER.get() and key is not None and cmd != RETRIEVE_CMDS:
-        asyncio.create_task(backend.delete(key))
+    try:
+        yield
+    finally:
         _INVALIDATE_FURTHER.set(False)
-        return kwargs.get("default")
-    if key is None:
-        return await call(*args, **kwargs)
-    return await call(*args, key=key, **kwargs)
+
+
+async def _aiter(num=0):
+    for i in range(num):
+        yield i
+
+
+async def _invalidate_middleware(call, cmd: Command, backend: _BackendInterface, *args, **kwargs):
+    if _INVALIDATE_FURTHER.get() and cmd in RETRIEVE_CMDS:
+        if "key" in kwargs:
+            asyncio.create_task(backend.delete(kwargs["key"]))
+            return kwargs.get("default")
+        if cmd == Command.GET_MATCH:
+            asyncio.create_task(backend.delete_match(kwargs["pattern"]))
+            return _aiter()
+        if cmd == Command.GET_MANY:
+            asyncio.create_task(backend.delete_many(*args))
+            return ()
+    return await call(*args, **kwargs)

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from ..._typing import TTL, CallableCacheCondition
+from ..._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
 from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
@@ -21,10 +21,10 @@ def soft(
     ttl: TTL,
     key: Optional[str] = None,
     soft_ttl: Optional[TTL] = None,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+    exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "soft",
-):
+) -> Decorator:
     """
     Cache strategy that allow to use pre-expiration
 
@@ -34,17 +34,15 @@ def soft(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
-    if soft_ttl is None:
-        soft_ttl = ttl * 0.33  # type: ignore[assignment]
 
-    def _decor(func):
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _ttl = ttl_to_seconds(ttl, *args, **kwargs)
-            _soft_ttl = ttl_to_seconds(soft_ttl, *args, **kwargs)
+            _soft_ttl = ttl_to_seconds(soft_ttl, *args, **kwargs) or _ttl * 0.33
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:

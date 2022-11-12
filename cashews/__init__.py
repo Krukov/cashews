@@ -6,7 +6,7 @@ from .exceptions import CacheBackendInteractionError, LockedError  # noqa
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key  # noqa
 from .helpers import add_prefix, all_keys_lower, memory_limit  # noqa
 from .key import noself  # noqa
-from .validation import set_invalidate_further  # noqa
+from .validation import invalidate_further  # noqa
 from .wrapper import Cache  # noqa
 
 cache_detect = context_cache_detect

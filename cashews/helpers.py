@@ -4,7 +4,7 @@ from .utils import get_obj_size
 
 
 def add_prefix(prefix: str):
-    async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
+    async def _middleware(call, cmd, backend, *args, **kwargs):
         if cmd == Command.GET_MANY:
             return await call(*[prefix + key for key in args])
         call_values = get_call_values(call, args, kwargs)
@@ -23,7 +23,7 @@ def add_prefix(prefix: str):
 
 
 def all_keys_lower():
-    async def _middleware(call, *args, backend=None, cmd=None, **kwargs):
+    async def _middleware(call, cmd, backend, *args, **kwargs):
         if cmd == Command.GET_MANY:
             return await call(*[key.lower() for key in args])
         call_values = get_call_values(call, args, kwargs)
@@ -44,7 +44,7 @@ def all_keys_lower():
 
 
 def memory_limit(min_bytes=0, max_bytes=None):
-    async def _memory_middleware(call, *args, backend=None, cmd=None, **kwargs):
+    async def _memory_middleware(call, cmd, backend, *args, **kwargs):
         if cmd != Command.SET:
             return await call(*args, **kwargs)
         call_values = get_call_values(call, args, kwargs)

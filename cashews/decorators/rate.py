@@ -2,7 +2,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
-from .._typing import TTL, Callable_T
+from .._typing import TTL, AsyncCallable_T, Decorator
 from ..backends.interface import _BackendInterface
 from ..exceptions import RateLimitError
 from ..formatter import register_template
@@ -24,7 +24,7 @@ def rate_limit(
     key: Optional[str] = None,
     action: Optional[Callable] = None,
     prefix: str = "rate_limit",
-):  # pylint: disable=too-many-arguments
+) -> Decorator:  # pylint: disable=too-many-arguments
     """
     Rate limit for function call. Do not call function if rate limit is reached, and call given action
 
@@ -38,7 +38,7 @@ def rate_limit(
     """
     action = _default_action if action is None else action
 
-    def decorator(func: Callable_T) -> Callable_T:
+    def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 

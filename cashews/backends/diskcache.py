@@ -86,16 +86,12 @@ class DiskCache(Backend):
     def _exists(self, key: str) -> bool:
         return key in self._cache
 
-    async def keys_match(self, pattern: str) -> AsyncIterator[str]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         if not self._sharded:
-            for key in await self._run_in_executor(self._keys_match, pattern):
+            for key in await self._run_in_executor(self._scan, pattern):
                 yield key
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
-        async for key in self.keys_match(pattern):
-            yield key
-
-    def _keys_match(self, pattern: str):
+    def _scan(self, pattern: str):
         pattern = pattern.replace("*", ".*")
         regexp = re.compile(pattern)
         for key in self._cache.iterkeys():
@@ -126,16 +122,23 @@ class DiskCache(Backend):
     async def delete(self, key: str) -> bool:
         return await self._run_in_executor(self._cache.delete, key)
 
+    async def delete_many(self, *keys: str):
+        await self._run_in_executor(self._delete_many, keys)
+
+    def _delete_many(self, keys: List[str]):
+        for key in keys:
+            self._cache.delete(key)
+
     async def delete_match(self, pattern: str):
         return await self._run_in_executor(self._delete_match, pattern)
 
     def _delete_match(self, pattern: str):
-        for key in self._keys_match(pattern):
+        for key in self._scan(pattern):
             self._cache.delete(key)
 
     async def get_match(self, pattern: str, batch_size: int = None) -> AsyncIterator[Tuple[str, Any]]:
         if not self._sharded:
-            for key in await self._run_in_executor(self._keys_match, pattern):
+            for key in await self._run_in_executor(self._scan, pattern):
                 yield key, await self._run_in_executor(self._cache.get, key)
 
     async def expire(self, key: str, timeout: float) -> int:

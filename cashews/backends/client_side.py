@@ -58,7 +58,7 @@ class BcastClientSide(Redis):
         self._prefix = client_side_prefix
         self._recently_update = Memory(size=500, check_interval=5)
         self._listen_task = None
-        self._listen_started = None
+        self._listen_started = asyncio.Event()
         super().__init__(*args, **kwargs)
 
     async def init(self):
@@ -151,11 +151,11 @@ class BcastClientSide(Redis):
             await self._mark_as_recently_updated(key)
         return await super().set_many({self._add_prefix(key): value for key, value in pairs.items()}, expire=expire)
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         async for key in super().scan(self._add_prefix(pattern), batch_size=batch_size):
             yield self._remove_prefix(key)
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         missed_keys = {self._add_prefix(key) for key in keys}
         values = {key: default for key in keys}
         if self._listen_started.is_set():
@@ -176,17 +176,21 @@ class BcastClientSide(Redis):
                 await self._local_cache.set(key, _empty_in_redis)
         return tuple(missed.get(key, value) for key, value in values.items())
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[str, bytes]]:
-        cursor = b"0"
-        while cursor:
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[str, bytes]]:  # type: ignore
+        cursor = 0
+        while True:
             cursor, keys = await self._client.scan(cursor, match=self._add_prefix(pattern), count=batch_size)
             if not keys:
+                if not cursor:
+                    return
                 continue
             keys = [self._remove_prefix(key.decode()) for key in keys]
             values = await self.get_many(*keys, default=_empty)
             for key, value in zip(keys, values):
                 if value is not _empty:
                     yield key, value
+            if not cursor:
+                return
 
     async def incr(self, key: str) -> int:
         value = await super().incr(self._add_prefix(key))
@@ -198,11 +202,18 @@ class BcastClientSide(Redis):
         await self._local_cache.set(key, _empty_in_redis)
         return await super().delete(self._add_prefix(key))
 
+    async def delete_many(self, *keys: str):
+        _keys = []
+        for key in keys:
+            _keys.append(self._add_prefix(key))
+            await self._local_cache.set(key, _empty_in_redis)
+        return await super().delete_many(*_keys)
+
     async def delete_match(self, pattern: str):
         await self._local_cache.delete_match(pattern)
         return await super().delete_match(self._add_prefix(pattern))
 
-    async def expire(self, key: str, timeout: Optional[float]):
+    async def expire(self, key: str, timeout: float):
         local_value = await self._local_cache.get(key, default=_empty)
         if local_value not in (_empty, _empty_in_redis):
             await self._local_cache.expire(key, timeout)

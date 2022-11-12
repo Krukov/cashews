@@ -57,6 +57,7 @@ async def cache_using_function(request):
 - [Configuration](#configuration)
 - [Available Backends](#available-backends)
 - [Basic API](#basic-api)
+- [Disable Cache](#disable-cache)
 - [Strategies](#strategies)
   - [Cache condition](#cache-condition)
   - [Keys templating](#template-keys)
@@ -88,10 +89,11 @@ cache = Cache()
 cache.setup(...)
 ```
 
-Optionally, you can disable cache with `enable` parameter:
+Optionally, you can disable cache with `disable`/`enable` parameter:
 
 ```python
 cache.setup("redis://redis/0?enable=1")
+cache.setup("mem://?size=500", disable=True)
 cache.setup("mem://?size=500", enable=False)
 ```
 
@@ -103,6 +105,8 @@ cache.setup("mem://?size=500", prefix="user")
 
 await cache.get("accounts")  # will use redis backend
 await cache.get("user:1")  # will use memory backend
+
+
 
 ```
 
@@ -186,26 +190,51 @@ cache.setup("mem://")  # configure as in-memory cache
 
 await cache.set(key="key", value=90, expire=60, exist=None)  # -> bool
 await cache.set_raw(key="key", value="str")  # -> bool
+
 await cache.get("key", default=None)  # -> Any
 await cache.get_raw("key")
 await cache.get_many("key1", "key2", default=None)
-await cache.incr("key") # -> int
-await cache.delete("key")
-await cache.delete_match("pattern:*")
-async for key in cache.scan("pattern:*"):
+async for key, value in cache.get_match("pattern:*", batch_size=100):
     ...
-async for key, value in cache.get_match("pattern:*", batch_size=100, default=None):
+
+await cache.incr("key") # -> int
+
+await cache.delete("key")
+await cache.delete_many("key1", "key2")
+await cache.delete_match("pattern:*")
+
+async for key in cache.scan("pattern:*"):
     ...
 
 await cache.expire("key", timeout=10)
 await cache.get_expire("key")  # -> int seconds to expire
+
 await cache.ping(message=None)  # -> bytes
 await cache.clear()
+
 await cache.is_locked("key", wait=60)  # -> bool
 async with cache.lock("key", expire=10):
     ...
 await cache.set_lock("key", value="value", expire=60)  # -> bool
 await cache.unlock("key", "value")  # -> bool
+```
+
+### Disable Cache
+
+Cache can be disabled not only on setup, but also in runtime. Cashews allow you to disable/enable any call of cache or specific commands:
+
+```python
+from cashews import cache, Command
+
+cache.setup("mem://")  # configure as in-memory cache
+
+cache.disable(Command.DELETE)
+cache.disable()
+cache.enable(Command.GET, Command.SET)
+cache.enable()
+
+with cache.disabling():
+  ...
 ```
 
 ### Strategies
@@ -582,6 +611,20 @@ async def create_item(user):
 ```
 
 Here, cache for `user_items` and `items` will be invalidated every time `create_item` is called.
+
+Also you can invalidate future call of cache request by context manager:
+
+```python
+from cashews import invalidate_further
+
+await cache.set("key", "value")
+
+with invalidate_further():
+  await cache.get("key") # will delete cache
+
+
+
+```
 
 #### Cache invalidation on code change
 

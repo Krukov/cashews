@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Optional, Union
 
-from .._typing import TTL, Callable_T
+from .._typing import TTL, AsyncCallable_T, Decorator
 from ..backends.interface import _BackendInterface
 from ..exceptions import LockedError
 from ..key import get_cache_key, get_cache_key_template
@@ -17,7 +17,7 @@ def locked(
     max_lock_ttl: int = 10,
     step: Union[float, int] = 0.1,
     prefix: str = "lock",
-):
+) -> Decorator:
     """
     Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
     Lock following function calls till first one will be finished
@@ -31,7 +31,7 @@ def locked(
     :param prefix: custom prefix for key, default 'lock'
     """
 
-    def _decor(func: Callable_T) -> Callable_T:
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
 
         @wraps(func)

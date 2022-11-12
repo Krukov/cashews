@@ -1,12 +1,11 @@
 import asyncio
 import math
-import warnings
 from functools import wraps
 from typing import Any, Iterable, Optional, Tuple, Union
 
 from cashews.utils import get_hashes
 
-from .._typing import Callable_T
+from .._typing import AsyncCallable_T, Callable_T, Decorator
 from ..backends.interface import _BackendInterface
 from ..key import get_cache_key, get_cache_key_template
 
@@ -32,7 +31,7 @@ def bloom(
     capacity: Optional[int] = None,
     check_false_positive: bool = True,
     prefix: str = "bloom",
-):
+) -> Decorator:
     """
     Decorator that can help you to use bloom filter algorithm
 
@@ -49,16 +48,12 @@ def bloom(
     :param check_false_positive: do we need to check if we have positive result
     :param prefix: custom prefix for key, default 'bloom'
     """
-
-    if backend.name == "mem":
-        warnings.warn("Remember that you should fill a bloom filter before using it.")
-
-    if index_size is None:
+    if index_size is None or number_of_hashes is None:
         assert false_positives and capacity
         assert 0 < false_positives < 100
         index_size, number_of_hashes = params_for(capacity, false_positives / 100)
 
-    def _decor(func: Callable_T) -> Callable_T:
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _name = get_cache_key_template(func, key=name)
         _cache_key = f"{_name}:{index_size}"
         if prefix:
@@ -108,7 +103,7 @@ def dual_bloom(
     capacity: Union[int, Tuple[int, int], None] = None,
     no_collisions: bool = False,
     prefix: str = "dual_bloom",
-):
+) -> Decorator:
     """
     Decorator that can help you to use bloom filter algorithm
      but this implementation with 2 bloom filters - one for true and 1 for false
@@ -128,7 +123,7 @@ def dual_bloom(
     """
     filters_params = _get_params_for_filters(index_size, number_of_hashes, false, capacity)
 
-    def _decor(func: Callable_T) -> Callable_T:
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _cache_key = get_cache_key_template(func, key=name)
         if prefix:
             _cache_key = f"{prefix}:{_cache_key}"

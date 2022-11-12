@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from .._typing import Callable_T
+from .._typing import TTL, AsyncCallable_T, Decorator
 from ..backends.interface import _BackendInterface
 from ..key import get_cache_key, get_cache_key_template
 
@@ -19,14 +19,14 @@ class CircuitBreakerOpen(Exception):
 def circuit_breaker(
     backend: _BackendInterface,
     errors_rate: int,
-    period: int,
-    ttl: int,
-    half_open_ttl: Optional[int] = None,
+    period: TTL,
+    ttl: TTL,
+    half_open_ttl: Optional[TTL] = None,
     min_calls: int = 1,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+    exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
     key: Optional[str] = None,
     prefix: str = "circuit_breaker",
-):
+) -> Decorator:
     """
     Circuit breaker
     :param backend: cache backend
@@ -40,7 +40,7 @@ def circuit_breaker(
     """
     assert 0 < errors_rate < 100
 
-    def _decor(func: Callable_T) -> Callable_T:
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key = ":".join([func.__module__, func.__name__])
         _key_template = get_cache_key_template(func, key=key or _key, prefix=prefix)
 

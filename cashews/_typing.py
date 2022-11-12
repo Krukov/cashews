@@ -1,10 +1,34 @@
 from datetime import timedelta
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Protocol, Tuple, TypeVar, Union
 
 _TTLTypes = Union[int, float, str, timedelta, None]
 TTL = Union[_TTLTypes, Callable[[Any], _TTLTypes]]
-CallableCacheCondition = Callable[[Any, Tuple, Dict, Optional[str]], bool]
+
+
+class CallableCacheCondition(Protocol):
+    def __call__(self, result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> bool:
+        ...
+
+
 CacheCondition = Union[CallableCacheCondition, str, None]
 
+AsyncCallableResult_T = TypeVar("AsyncCallableResult_T")
 Callable_T = TypeVar("Callable_T", bound=Callable)
-AsyncCallable_T = TypeVar("AsyncCallable_T", bound=Callable[..., Awaitable])
+AsyncCallable_T = Callable[..., Awaitable[AsyncCallableResult_T]]
+Decorator = Callable[..., AsyncCallable_T]
+
+if TYPE_CHECKING:
+    from . import Command
+    from .backends.interface import Backend
+
+
+class Middleware(Protocol):
+    def __call__(
+        self,
+        call: AsyncCallable_T,
+        cmd: "Command",
+        backend: "Backend",
+        *args,
+        **kwargs,
+    ) -> Awaitable[AsyncCallableResult_T]:
+        ...

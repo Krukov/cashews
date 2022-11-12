@@ -147,7 +147,7 @@ async def test_disable_decorators_get(cache: Cache):
     assert await func() == 2
 
 
-async def test_disable_decorators_set(cache: Cache):
+async def test_disable_decorator_set(cache: Cache):
     data = (i for i in range(10))
     cache.disable(Command.SET)
 
@@ -161,3 +161,20 @@ async def test_disable_decorators_set(cache: Cache):
     cache.enable(Command.SET)
     assert await func() == 2
     assert await func() == 2
+
+
+async def test_disable_and_get_enable(cache: Cache):
+    data = (i for i in range(10))
+    cache.enable()
+
+    @cache(ttl=1)
+    async def func():
+        return next(data)
+
+    assert await func() == 0
+    assert await func() == 0
+    cache.disable()
+    assert await func() == 1
+    assert await func() == 2
+    cache.enable(Command.GET)
+    assert await func() == 0

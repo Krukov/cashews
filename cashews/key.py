@@ -13,7 +13,7 @@ _ARGS_KWARGS = (_ARGS, _KWARGS)
 def get_cache_key(
     func: Callable,
     template: Optional[str] = None,
-    args: Tuple[Any] = (),
+    args: Tuple[Any, ...] = (),
     kwargs: Optional[Dict] = None,
 ) -> str:
     """

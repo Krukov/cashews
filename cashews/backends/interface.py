@@ -8,8 +8,6 @@ from ..exceptions import LockedError
 
 
 class _BackendInterface(metaclass=ABCMeta):
-    name = None
-
     @property
     @abstractmethod
     def is_init(self) -> bool:
@@ -58,10 +56,6 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def keys_match(self, pattern: str) -> AsyncIterator[str]:
-        ...
-
-    @abstractmethod
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
         ...
 
@@ -71,6 +65,10 @@ class _BackendInterface(metaclass=ABCMeta):
 
     @abstractmethod
     async def delete(self, key: str) -> bool:
+        ...
+
+    @abstractmethod
+    async def delete_many(self, *keys: str):
         ...
 
     @abstractmethod
@@ -90,11 +88,11 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         ...
 
     @abstractmethod
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         ...
 
     @abstractmethod

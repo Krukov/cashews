@@ -1,11 +1,15 @@
 from contextvars import ContextVar
-from typing import List, Union
+from typing import TYPE_CHECKING, Set
 
-from .commands import Command
+from ._typing import AsyncCallable_T
+from .commands import ALL, Command
+
+if TYPE_CHECKING:
+    from .backends.interface import Backend
 
 
-async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
-    if backend.is_disable(cmd, Command.ALL):
+async def _is_disable_middleware(call: AsyncCallable_T, cmd: Command, backend: "Backend", *args, **kwargs):
+    if backend.is_disable(cmd):
         if cmd in (Command.GET, Command.GET_MANY):
             return kwargs.get("default", None)
         return None
@@ -14,20 +18,14 @@ async def _is_disable_middleware(call, *args, backend=None, cmd=None, **kwargs):
 
 class ControlMixin:
     def __init__(self) -> None:
-        self.__disable = ContextVar(str(id(self)), default=())
+        self.__disable = ContextVar(str(id(self)), default=set())
 
     @property
-    def _disable(self) -> List[Command]:
-        return list(self.__disable.get(()))
+    def _disable(self) -> Set[Command]:
+        return self.__disable.get()
 
-    def _set_disable(self, value: Union[bool, List[Command]]) -> None:
-        if value is True:
-            value = [
-                Command.ALL,
-            ]
-        elif value is False:
-            value = []
-        self.__disable.set(tuple(value))
+    def _set_disable(self, value: Set[Command]) -> None:
+        self.__disable.set(value)
 
     def is_disable(self, *cmds: Command) -> bool:
         _disable = self._disable
@@ -42,21 +40,17 @@ class ControlMixin:
         return not self.is_disable(*cmds)
 
     def disable(self, *cmds: Command) -> None:
-        _disable = self._disable
         if not cmds:
-            _disable = [
-                Command.ALL,
-            ]
-        if self._disable is False:
-            _disable = []
-        _disable.extend(cmds)
+            _disable = ALL.copy()
+        else:
+            _disable = self._disable.copy()
+            _disable.update(cmds)
         self._set_disable(_disable)
 
     def enable(self, *cmds: Command) -> None:
-        _disable = self._disable
         if not cmds:
-            _disable = []
-        for cmd in cmds:
-            if cmd in _disable:
-                _disable.remove(cmd)
+            _disable = set()
+        else:
+            _disable = self._disable.copy()
+            _disable -= set(cmds)
         self._set_disable(_disable)

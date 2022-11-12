@@ -99,6 +99,18 @@ async def test_get_set_expire(cache):
     assert await cache.get_expire("key") == 1
 
 
+async def test_delete_many(cache: Backend):
+    await cache.set("key1", b"value")
+    await cache.set("key2", b"value")
+    await cache.set("key3", b"value")
+
+    await cache.delete_many("key1", "key2", "key4")
+
+    assert await cache.get("key1") is None
+    assert await cache.get("key2") is None
+    assert await cache.get("key3") == b"value"
+
+
 async def test_delete_match(cache: Backend):
     await cache.set("pref:test:test", b"value")
     await cache.set("pref:value:test", b"value2")

@@ -42,8 +42,6 @@ async def test_safe_redis(redis_backend):
 
     async for _ in redis.get_match("*"):
         assert False
-    async for _ in redis.keys_match("*"):
-        assert False
 
     assert await redis.delete("test") == 0
     await redis.delete_match("*")

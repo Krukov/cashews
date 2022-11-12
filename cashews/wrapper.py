@@ -1,10 +1,10 @@
 import asyncio
 from contextlib import contextmanager
 from functools import lru_cache, partial, wraps
-from typing import Any, AsyncIterator, Callable, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
+from typing import Any, AsyncIterator, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Type, Union
 
 from . import decorators, validation
-from ._typing import TTL, AsyncCallable_T, CacheCondition
+from ._typing import TTL, AsyncCallable_T, AsyncCallableResult_T, CacheCondition, Middleware
 from .backend_settings import settings_url_parse
 from .backends.interface import Backend, _BackendInterface
 from .cache_condition import create_time_condition, get_cache_condition
@@ -16,21 +16,23 @@ from .ttl import ttl_to_seconds
 try:
     from .backends.client_side import BcastClientSide
 except ImportError:
-    BcastClientSide = None
+    BcastClientSide = None  # type: ignore
 
 try:
     from .backends.diskcache import DiskCache
 except ImportError:
-    DiskCache = None
+    DiskCache = None  # type: ignore
 
 
 #  pylint: disable=too-many-public-methods
 
 
-def _create_auto_init():
+def _create_auto_init() -> Middleware:
     lock = asyncio.Lock()
 
-    async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
+    async def _auto_init(
+        call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs
+    ) -> AsyncCallableResult_T:
         if backend.is_init:
             return await call(*args, **kwargs)
         async with lock:
@@ -45,15 +47,15 @@ def _create_auto_init():
 class Cache(_BackendInterface):
     default_prefix = ""
 
-    def __init__(self, name: Optional[str] = None):
-        self._backends: Dict[str, Tuple[Backend, Tuple[Callable]]] = {}  # {key: (backend, middleware)}
-        self._default_middlewares = (
+    def __init__(self, name: str = ""):
+        self._backends: Dict[str, Tuple[Backend, Tuple[Middleware, ...]]] = {}  # {key: (backend, middleware)}
+        self._default_middlewares: Tuple[Middleware, ...] = (
             _is_disable_middleware,
             _create_auto_init(),
             validation._invalidate_middleware,
         )
         self.name = name
-        self._default_fail_exceptions = Exception
+        self._default_fail_exceptions: Tuple[Type[Exception], ...] = (Exception,)
 
     detect = decorators.context_cache_detect
 
@@ -75,10 +77,12 @@ class Cache(_BackendInterface):
             backend.enable(*cmds)
 
     @contextmanager
-    def disabling(self, *cmds: str, prefix: str = ""):
+    def disabling(self, *cmds: Command, prefix: str = ""):
         self.disable(*cmds, prefix=prefix)
-        yield
-        self.enable(*cmds, prefix=prefix)
+        try:
+            yield
+        finally:
+            self.enable(*cmds, prefix=prefix)
 
     def is_disable(self, *cmds: Command, prefix: str = ""):
         return self._get_backend(prefix).is_disable(*cmds)
@@ -87,7 +91,7 @@ class Cache(_BackendInterface):
         return not self.is_disable(*cmds, prefix=prefix)
 
     @lru_cache(maxsize=1000)
-    def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Callable]]:
+    def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Middleware, ...]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):
                 return self._backends[prefix]
@@ -109,7 +113,8 @@ class Cache(_BackendInterface):
             disable = not params.pop("enable", True)
 
         backend = backend_class(**params)
-        backend._set_disable(disable)
+        if disable:
+            backend.disable()
         self._add_backend(backend, middlewares, prefix)
         return backend
 
@@ -132,14 +137,14 @@ class Cache(_BackendInterface):
                 return False
         return True
 
-    def _with_middlewares(self, cmd: Command, key):
+    def _with_middlewares(self, cmd: Command, key: str):
         backend, middlewares = self._get_backend_and_config(key)
         return self._with_middlewares_for_backend(cmd, backend, middlewares)
 
     def _with_middlewares_for_backend(self, cmd: Command, backend, middlewares):
         call = getattr(backend, cmd.value)
         for middleware in middlewares:
-            call = partial(middleware, call, cmd=cmd, backend=backend)
+            call = partial(middleware, call, cmd, backend)
         return call
 
     async def set(
@@ -162,29 +167,18 @@ class Cache(_BackendInterface):
     async def get_raw(self, key: str) -> Any:
         return await self._with_middlewares(Command.GET_RAW, key)(key=key)
 
-    async def keys_match(self, pattern: str) -> AsyncIterator[str]:
-        backend, middlewares = self._get_backend_and_config(pattern)
-
-        async def call(pattern):
-            return backend.keys_match(pattern)
-
-        for middleware in middlewares:
-            call = partial(middleware, call, cmd=Command.KEY_MATCH, backend=backend)
-        async for key in (await call(pattern=pattern)):
-            yield key
-
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(pattern, batch_size):
-            return backend.scan(pattern, batch_size)
+            return backend.scan(pattern, batch_size=batch_size)
 
         for middleware in middlewares:
-            call = partial(middleware, call, cmd=Command.SCAN, backend=backend)
+            call = partial(middleware, call, Command.SCAN, backend)
         async for key in (await call(pattern=pattern, batch_size=batch_size)):
             yield key
 
-    async def get_match(
+    async def get_match(  # type: ignore
         self,
         pattern: str,
         batch_size: int = 100,
@@ -195,23 +189,23 @@ class Cache(_BackendInterface):
             return backend.get_match(pattern, batch_size=batch_size)
 
         for middleware in middlewares:
-            call = partial(middleware, call, cmd=Command.GET_MATCH, backend=backend)
+            call = partial(middleware, call, Command.GET_MATCH, backend)
         async for key, value in (await call(pattern=pattern, batch_size=batch_size)):
             yield key, value
 
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
-        backends = {}
+        backends: Dict[Backend, List[str]] = {}
         for key in keys:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
-        result = {}
+        result: Dict[str, Any] = {}
         for _keys in backends.values():
             _values = await self._with_middlewares(Command.GET_MANY, _keys[0])(*_keys, default=default)
             result.update(dict(zip(_keys, _values)))
         return tuple(result.get(key) for key in keys)
 
     async def set_many(self, pairs: Mapping[str, Any], expire: Union[float, TTL, None] = None):
-        backends = {}
+        backends: Dict[Backend, List[str]] = {}
         for key in pairs:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
@@ -219,7 +213,7 @@ class Cache(_BackendInterface):
             data = {key: pairs[key] for key in keys}
             await self._with_middlewares(Command.SET_MANY, keys[0])(data, expire=ttl_to_seconds(expire))
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         return await self._with_middlewares(Command.GET_BITS, key)(key, *indexes, size=size)
 
     async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
@@ -230,6 +224,14 @@ class Cache(_BackendInterface):
 
     async def delete(self, key: str):
         return await self._with_middlewares(Command.DELETE, key)(key=key)
+
+    async def delete_many(self, *keys: str) -> None:
+        backends: Dict[Backend, List[str]] = {}
+        for key in keys:
+            backend = self._get_backend(key)
+            backends.setdefault(backend, []).append(key)
+        for _keys in backends.values():
+            await self._with_middlewares(Command.DELETE_MANY, _keys[0])(*_keys)
 
     async def delete_match(self, pattern: str):
         return await self._with_middlewares(Command.DELETE_MATCH, pattern)(pattern=pattern)
@@ -252,7 +254,7 @@ class Cache(_BackendInterface):
     async def get_size(self, key: str):
         return await self._with_middlewares(Command.GET_SIZE, key)(key)
 
-    async def ping(self, message: Optional[bytes] = None) -> str:
+    async def ping(self, message: Optional[bytes] = None) -> bytes:
         message = b"PING" if message is None else message
         return await self._with_middlewares(Command.PING, message.decode())(message=message)
 
@@ -398,7 +400,7 @@ class Cache(_BackendInterface):
         ttl: TTL,
         key: Optional[str] = None,
         soft_ttl: Optional[TTL] = None,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+        exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "soft",
@@ -480,17 +482,19 @@ class Cache(_BackendInterface):
         errors_rate: int,
         period: TTL,
         ttl: TTL,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception]], None] = None,
+        half_open_ttl: TTL = None,
+        exceptions: Union[Type[Exception], Tuple[Type[Exception], ...], None] = None,
         key: Optional[str] = None,
         prefix: str = "circuit_breaker",
     ):
-        exceptions = exceptions or self._default_fail_exceptions
+        _exceptions = exceptions or self._default_fail_exceptions
         return decorators.circuit_breaker(
             backend=self,
             errors_rate=errors_rate,
             period=ttl_to_seconds(period),
             ttl=ttl_to_seconds(ttl),
-            exceptions=exceptions,
+            half_open_ttl=ttl_to_seconds(half_open_ttl),
+            exceptions=_exceptions,
             key=key,
             prefix=prefix,
         )
