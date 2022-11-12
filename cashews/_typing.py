@@ -1,5 +1,10 @@
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Protocol, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Tuple, TypeVar, Union
+
+try:
+    from typing import Protocol
+except ImportError:  # 3.7 python
+    from typing_extensions import Protocol
 
 _TTLTypes = Union[int, float, str, timedelta, None]
 TTL = Union[_TTLTypes, Callable[[Any], _TTLTypes]]
