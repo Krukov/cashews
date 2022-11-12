@@ -60,7 +60,8 @@ def invalidate_further():
         _INVALIDATE_FURTHER.set(False)
 
 
-async def _aiter(num=0):
+async def _aiter(num=0):  # pragma: no cover
+    """A trick for typing"""
     for i in range(num):
         yield i
 

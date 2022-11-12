@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Set
 from ._typing import AsyncCallable_T
 from .commands import ALL, Command
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .backends.interface import Backend
 
 
@@ -18,7 +18,7 @@ async def _is_disable_middleware(call: AsyncCallable_T, cmd: Command, backend: "
 
 class ControlMixin:
     def __init__(self) -> None:
-        self.__disable = ContextVar(str(id(self)), default=set())
+        self.__disable: ContextVar[Set[Command]] = ContextVar(str(id(self)), default=set())
 
     @property
     def _disable(self) -> Set[Command]:

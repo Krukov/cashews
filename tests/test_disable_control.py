@@ -34,6 +34,14 @@ async def test_disable_cmd(cache):
     assert await cache.get("test") == 11
 
 
+async def test_disable_context_manager(cache):
+    await cache.init("mem://localhost")
+    with cache.disabling(Command.INCR):
+        await cache.set("test", 10)
+        await cache.incr("test")
+    assert await cache.get("test") == 10
+
+
 async def test_init_disable(cache):
     cache.setup("mem://localhost?disable=1")
     assert cache.is_disable()

@@ -130,35 +130,38 @@ async def test_simple_cmd_bcast_many(create_cache):
     local = Memory()
     cache = await create_cache(local)
     await cache.set("key:1", "test")
-    assert await cache.get("key:1") == "test"
+    await cache.set("key:2", "test2")
+
+    await cache.get("key:1")
     assert await local.get("key:1") == "test"
 
-    assert await cache.get_many("key:1", "key:2") == ("test", None)
-    assert await local.get("key:2") is _empty_in_redis
+    assert await cache.get_many("key:1", "key:2", "key:3") == ("test", "test2", None)
+    assert await local.get("key:2") == "test2"
+    assert await local.get("key:3") is _empty_in_redis
 
     async for key in cache.scan("key:*"):
-        assert key == "key:1"
+        assert key in ("key:1", "key:2")
         break
     else:
         assert False
 
     async for key, value in cache.get_match("key:*"):
-        assert key == "key:1"
-        assert value == "test"
+        assert key in ("key:1", "key:2")
+        assert value in ("test", "test2")
         break
     else:
         assert False
 
     await local.clear()
 
-    assert await cache.get_many("key:1", "key:2") == ("test", None)
+    assert await cache.get_many("key:1", "key:3") == ("test", None)
 
     async for key in cache.scan("key:*"):
-        assert key == "key:1"
+        assert key in ("key:1", "key:2")
 
     async for key, value in cache.get_match("key:*"):
-        assert key == "key:1"
-        assert value == "test"
+        assert key in ("key:1", "key:2")
+        assert value in ("test", "test2")
 
     assert await local.get("key:1") == "test"
 

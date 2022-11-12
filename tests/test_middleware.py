@@ -36,6 +36,11 @@ async def test_all_keys_lower(cache: Cache, target):
         exist=None,
         expire=None,
     )
+    await cache.set_many({"KEY": "value"})
+    target.set_many.assert_called_once_with(
+        pairs={"key": "value"},
+        expire=None,
+    )
     await cache.ping()
     target.ping.assert_called_once_with(message=b"PING")
 
@@ -82,6 +87,12 @@ async def test_add_prefix_get_many(cache: Cache, target):
     cache._add_backend(target, (add_prefix("prefix!"),))
     await cache.get_many("key")
     target.get_many.assert_called_once_with("prefix!key")
+
+
+async def test_add_prefix_set_many(cache: Cache, target):
+    cache._add_backend(target, (add_prefix("prefix!"),))
+    await cache.set_many({"key": "value"})
+    target.set_many.assert_called_once_with(pairs={"prefix!key": "value"}, expire=None)
 
 
 async def test_add_prefix_delete_match(cache: Cache, target):

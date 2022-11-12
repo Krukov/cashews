@@ -65,16 +65,8 @@ class Cache(_BackendInterface):
     def disable(self, *cmds: Command, prefix: str = "") -> None:
         return self._get_backend(prefix).disable(*cmds)
 
-    def disable_all(self, *cmds: Command) -> None:
-        for backend, _ in self._backends.values():
-            backend.disable(*cmds)
-
     def enable(self, *cmds: Command, prefix: str = "") -> None:
         return self._get_backend(prefix).enable(*cmds)
-
-    def enable_all(self, *cmds: Command):
-        for backend, _ in self._backends.values():
-            backend.enable(*cmds)
 
     @contextmanager
     def disabling(self, *cmds: Command, prefix: str = ""):
@@ -211,7 +203,7 @@ class Cache(_BackendInterface):
             backends.setdefault(backend, []).append(key)
         for backend, keys in backends.items():
             data = {key: pairs[key] for key in keys}
-            await self._with_middlewares(Command.SET_MANY, keys[0])(data, expire=ttl_to_seconds(expire))
+            await self._with_middlewares(Command.SET_MANY, keys[0])(pairs=data, expire=ttl_to_seconds(expire))
 
     async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         return await self._with_middlewares(Command.GET_BITS, key)(key, *indexes, size=size)
@@ -252,7 +244,7 @@ class Cache(_BackendInterface):
         return await self._with_middlewares(Command.UNLOCK, key)(key=key, value=value)
 
     async def get_size(self, key: str):
-        return await self._with_middlewares(Command.GET_SIZE, key)(key)
+        return await self._with_middlewares(Command.GET_SIZE, key)(key=key)
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:
         message = b"PING" if message is None else message

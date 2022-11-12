@@ -28,7 +28,7 @@ def _ttl_from_str(ttl: str) -> int:
         if char.isdigit():
             mul += char
         elif char in _STR_TO_DELTA:
-            result += int(mul) * _STR_TO_DELTA[char].total_seconds()
+            result += int(mul) * int(_STR_TO_DELTA[char].total_seconds())
             mul = ""
         else:
             raise ValueError(f"ttl '{ttl}' has wrong string representation")

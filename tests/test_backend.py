@@ -52,7 +52,7 @@ async def test_set_exist(cache):
 
 
 async def test_set_many(cache):
-    await cache.set_many({"key1": "value1", "key2": "value2"})
+    await cache.set_many({"key1": "value1", "key2": "value2"}, expire=1)
     assert await cache.get("key1", "value1")
     assert await cache.get("key2", "value2")
 

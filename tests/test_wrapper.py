@@ -5,6 +5,7 @@ import pytest
 
 from cashews.backends.memory import Memory
 from cashews.cache_condition import NOT_NONE
+from cashews.exceptions import NotConfiguredError
 from cashews.formatter import get_templates_for_func
 from cashews.wrapper import Cache, _create_auto_init
 
@@ -64,11 +65,17 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
     target.set.assert_called_once_with(key="key", value={"any": True}, expire=60, exist=None)
 
+    await cache.set_raw(key="key2", value={"any": True}, expire=60, exist=None)
+    target.set_raw.assert_called_once_with(key="key2", value={"any": True}, expire=60, exist=None)
+
     await cache.get("key")  # -> Any
     target.get.assert_called_once_with(key="key", default=None)
 
+    await cache.get_raw("key")  # -> Any
+    target.get_raw.assert_called_once_with(key="key")
+
     await cache.set_many({"key1": "value1", "key2": "value2"}, expire=60)
-    target.set_many.assert_called_once_with({"key1": "value1", "key2": "value2"}, expire=60)
+    target.set_many.assert_called_once_with(pairs={"key1": "value1", "key2": "value2"}, expire=60)
 
     await cache.get_many("key1", "key2")
     target.get_many.assert_called_once_with("key1", "key2", default=None)
@@ -78,6 +85,12 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
 
     await cache.delete("key")
     target.delete.assert_called_once_with(key="key")
+
+    await cache.delete_match("key*")
+    target.delete_match.assert_called_once_with(pattern="key*")
+
+    await cache.delete_many("key", "key2")
+    target.delete_many.assert_called_once_with("key", "key2")
 
     await cache.expire(key="key", timeout=10)
     target.expire.assert_called_once_with(key="key", timeout=10)
@@ -109,11 +122,15 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.incr_bits("key", 1, 2, 3, size=2)
     target.incr_bits.assert_called_once_with("key", 1, 2, 3, size=2, by=1)
 
-    [key async for key in cache.scan("key:*")]
-    target.scan.assert_called_once_with("key:*", batch_size=100)
+    await cache.set("key", "value")
+    assert [key async for key in cache.scan("key*")] == ["key"]
+    target.scan.assert_called_once_with("key*", batch_size=100)
 
-    [key_value async for key_value in cache.get_match("key:*")]
-    target.get_match.assert_called_once_with("key:*", batch_size=100)
+    assert [key_value async for key_value in cache.get_match("key*")] == [("key", "value")]
+    target.get_match.assert_called_once_with("key*", batch_size=100)
+
+    await cache.get_size("key")
+    target.get_size.assert_called_once_with(key="key")
 
 
 async def test_disable_cache_on_fail_return(cache: Cache):
@@ -244,3 +261,10 @@ async def test_cache_simple_not_none(cache: Cache):
 
     assert await func() is None
     assert mock.call_count == 2
+
+
+async def test_no_setup():
+    cache = Cache()
+
+    with pytest.raises(NotConfiguredError):
+        await cache.get("test")
