@@ -18,7 +18,6 @@ class CallableCacheCondition(Protocol):
 CacheCondition = Union[CallableCacheCondition, str, None]
 
 AsyncCallableResult_T = TypeVar("AsyncCallableResult_T")
-Callable_T = TypeVar("Callable_T", bound=Callable)
 AsyncCallable_T = Callable[..., Awaitable[AsyncCallableResult_T]]
 Decorator = Callable[..., AsyncCallable_T]
 

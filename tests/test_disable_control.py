@@ -112,7 +112,7 @@ async def test_disable_decorators(cache: Cache, target):
 async def test_disable_bloom(cache: Cache, target: Mock):
     cache.disable()
 
-    @cache.bloom(index_size=10, number_of_hashes=1)
+    @cache.bloom(capacity=10)
     async def func():
         return True
 

@@ -1,5 +1,5 @@
-import hashlib
 import zlib
+from typing import Set
 
 algorithms = [
     zlib.crc32,
@@ -20,37 +20,20 @@ else:
     )
 
 
-def get_hashes(key: str, k: int, max_i: int):
+def get_indexes(key: str, number_of_buckets: int, max_index: int) -> Set[int]:
     """
     return array with bit indexes for given value (key) [23, 45, 15]
     """
 
-    assert max_i >= k
+    assert max_index >= number_of_buckets
 
     indexes = set()
-    for i in range(k):
+    for i in range(number_of_buckets):
         ii = i % len(algorithms)
 
-        value = algorithms[ii](f"{key}_{i}".encode()) % max_i
+        value = algorithms[ii](f"{key}_{i}".encode()) % max_index
         while value in indexes:
             i += 1
-            value = algorithms[ii](f"{key}_{i}".encode()) % max_i
+            value = algorithms[ii](f"{key}_{i}".encode()) % max_index
         indexes.add(value)
     return indexes
-    # str_hash = str(_get_string_int_hash(key))
-    # indexes = set()
-    # for _hash in _split_string_for_chunks(str_hash, k):
-    #     value = int(_hash) % max_i
-    #     while value in indexes:
-    #         value += 1
-    #     indexes.add(value)
-    # return indexes
-
-
-def _get_string_int_hash(key):
-    return int(hashlib.sha256(key.encode("utf-8")).hexdigest(), 16)
-
-
-def _split_string_for_chunks(value: str, chunks: int):
-    chunk_size = len(value) // chunks
-    return (value[i : i + chunk_size] for i in range(0, chunk_size * chunks, chunk_size))

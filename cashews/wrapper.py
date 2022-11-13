@@ -525,19 +525,16 @@ class Cache(_BackendInterface):
 
     def bloom(
         self,
+        *,
+        capacity: int,
         name: Optional[str] = None,
-        index_size: Optional[int] = None,
-        number_of_hashes: Optional[int] = None,
         false_positives: Optional[Union[float, int]] = 1,
-        capacity: Optional[int] = None,
         check_false_positive: bool = True,
         prefix: str = "bloom",
     ):
         return decorators.bloom(
             backend=self,
             name=name,
-            index_size=index_size,
-            number_of_hashes=number_of_hashes,
             false_positives=false_positives,
             capacity=capacity,
             check_false_positive=check_false_positive,
@@ -546,19 +543,16 @@ class Cache(_BackendInterface):
 
     def dual_bloom(
         self,
+        *,
+        capacity: int,
         name: Optional[str] = None,
-        index_size: Optional[int] = None,
-        number_of_hashes: Optional[int] = None,
         false: Optional[Union[float, int]] = 1,
         no_collisions: bool = False,
-        capacity: Optional[int] = None,
         prefix: str = "dual_bloom",
     ):
         return decorators.dual_bloom(
             backend=self,
             name=name,
-            index_size=index_size,
-            number_of_hashes=number_of_hashes,
             false=false,
             no_collisions=no_collisions,
             capacity=capacity,
