@@ -68,9 +68,13 @@ class BcastClientSide(Redis):
         await super().init()
         self.__is_init = False
         self._listen_task = asyncio.create_task(self._listen_invalidate_forever())
-        await asyncio.wait([self._listen_started.wait()], timeout=2)
-        if self._listen_task.done():
-            raise self._listen_task.exception()
+        try:
+            await asyncio.wait_for(self._listen_started.wait(), timeout=2)
+        except TimeoutError:
+            if self._listen_task.done():
+                raise self._listen_task.exception()
+            self._listen_task.cancel()
+            raise
         self.__is_init = True
 
     async def _mark_as_recently_updated(self, key: str):
