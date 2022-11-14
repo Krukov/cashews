@@ -2,7 +2,8 @@ import asyncio
 import re
 import time
 from collections import OrderedDict
-from typing import Any, AsyncIterator, Dict, Optional, Tuple
+from contextlib import suppress
+from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 from cashews.utils import Bitarray, get_obj_size
 
@@ -17,8 +18,6 @@ class Memory(Backend):
     """
     Inmemory backend lru with ttl
     """
-
-    name = "mem"
 
     def __init__(self, size: int = 1000, check_interval: float = 1):
         self.store: OrderedDict = OrderedDict()
@@ -42,7 +41,8 @@ class Memory(Backend):
         while not self.__remove_expired_stop.is_set():
             for key in dict(self.store):
                 await self.get(key)
-            await asyncio.sleep(self._check_interval)
+            with suppress(TimeoutError):
+                await asyncio.wait_for(self.__remove_expired_stop.wait(), self._check_interval)
 
     async def clear(self):
         self.store = OrderedDict()
@@ -72,23 +72,19 @@ class Memory(Backend):
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
         return tuple(self._get(key, default=default) for key in keys)
 
-    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         for key, value in pairs.items():
             self._set(key, value, expire)
 
-    async def keys_match(self, pattern: str) -> AsyncIterator[str]:
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         pattern = pattern.replace("*", ".*")
         regexp = re.compile(pattern)
         for key in dict(self.store):
             if regexp.fullmatch(key):
                 yield key
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
-        async for key in self.keys_match(pattern):
-            yield key
-
     async def incr(self, key: str):
-        value = int(self._get(key, 0)) + 1
+        value = int(self._get(key, 0)) + 1  # type: ignore
         self._set(key=key, value=value)
         return value
 
@@ -104,15 +100,17 @@ class Memory(Backend):
             return True
         return False
 
-    async def delete_match(self, pattern: str):
-        async for key in self.keys_match(pattern):
+    async def delete_many(self, *keys: str):
+        for key in keys:
             self._delete(key)
 
-    async def get_match(
-        self, pattern: str, batch_size: int = None, default: Optional[Any] = None
-    ) -> AsyncIterator[Tuple[str, Any]]:
-        async for key in self.keys_match(pattern):
-            yield key, self._get(key, default=default)
+    async def delete_match(self, pattern: str):
+        async for key in self.scan(pattern):
+            self._delete(key)
+
+    async def get_match(self, pattern: str, batch_size: int = None) -> AsyncIterator[Tuple[str, Any]]:  # type: ignore
+        async for key in self.scan(pattern):
+            yield key, self._get(key)
 
     async def expire(self, key: str, timeout: float):
         if not self._key_exist(key):
@@ -131,11 +129,11 @@ class Memory(Backend):
     async def ping(self, message: Optional[bytes] = None) -> bytes:
         return b"PONG" if message in (None, b"PING") else message  # type: ignore[return-value]
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
-        array: Bitarray = self._get(key, default=Bitarray("0"))
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+        array: Bitarray = self._get(key, default=Bitarray("0"))  # type: ignore
         return tuple(array.get(index, size) for index in indexes)
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         array: Optional[Bitarray] = self._get(key)
         if array is None:
             array = Bitarray("0")
@@ -159,7 +157,7 @@ class Memory(Backend):
         if key not in self.store:
             return default
         self.store.move_to_end(key)
-        expire_at, value = self.store.get(key)
+        expire_at, value = self.store[key]
         if expire_at and expire_at < time.time():
             self._delete(key)
             return default
@@ -189,9 +187,9 @@ class Memory(Backend):
             return get_obj_size(self.store[key])
         return 0
 
-    def close(self):
+    async def close(self):
         self.__remove_expired_stop.set()
         if self.__remove_expired_task:
-            self.__remove_expired_task.cancel()
+            await self.__remove_expired_task
             self.__remove_expired_task = None
-        super().close()
+        self.__is_init = False

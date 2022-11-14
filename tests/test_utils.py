@@ -1,4 +1,4 @@
-from cashews.utils import Bitarray, get_hashes
+from cashews.utils import Bitarray, get_indexes
 
 
 def test_bitarray_get_size_1():
@@ -63,24 +63,24 @@ def test_bitarray_incr_over():
 
 
 def test_get_hashes_params():
-    assert len(get_hashes("test", 3, 3)) == 3
-    assert len(get_hashes("test", 1, 100)) == 1
-    assert len(get_hashes("test", 77, 100)) == 77
-    assert len(get_hashes("long string hash", 77, 100)) == 77
-    assert get_hashes("test", 1, 100).pop() < 100
+    assert len(get_indexes("test", 3, 3)) == 3
+    assert len(get_indexes("test", 1, 100)) == 1
+    assert len(get_indexes("test", 77, 100)) == 77
+    assert len(get_indexes("long string hash", 77, 100)) == 77
+    assert get_indexes("test", 1, 100).pop() < 100
 
 
 def test_get_hashes():
-    assert get_hashes("test", 10, 1000) == get_hashes("test", 10, 1000)
-    assert get_hashes("test", 2, 2) == get_hashes("test", 2, 2)
+    assert get_indexes("test", 10, 1000) == get_indexes("test", 10, 1000)
+    assert get_indexes("test", 2, 2) == get_indexes("test", 2, 2)
 
-    assert get_hashes("test", 2, 5) != get_hashes("test", 2, 2)
-    assert get_hashes("test", 3, 100) != get_hashes("tset", 3, 100)
-    assert get_hashes("test", 3, 100) != get_hashes("t", 3, 100)
-    assert get_hashes("test", 3, 100) != get_hashes("tes", 3, 100)
-    assert get_hashes("test", 3, 100) != get_hashes("test2", 3, 100)
-    assert not get_hashes("test", 5, 100).intersection(get_hashes("a", 5, 100))
-    assert not get_hashes("test", 5, 100).intersection(get_hashes("test2", 5, 100))
+    assert get_indexes("test", 2, 5) != get_indexes("test", 2, 2)
+    assert get_indexes("test", 3, 100) != get_indexes("tset", 3, 100)
+    assert get_indexes("test", 3, 100) != get_indexes("t", 3, 100)
+    assert get_indexes("test", 3, 100) != get_indexes("tes", 3, 100)
+    assert get_indexes("test", 3, 100) != get_indexes("test2", 3, 100)
+    assert not get_indexes("test", 5, 100).intersection(get_indexes("a", 5, 100))
+    assert not get_indexes("test", 5, 100).intersection(get_indexes("test2", 5, 100))
 
-    assert get_hashes("test", 3, 3) == get_hashes("a", 3, 3)  # it is ok to have collisions in this case
-    assert len(get_hashes("test", 20, 100)) == len(set(get_hashes("test", 20, 100)))
+    assert get_indexes("test", 3, 3) == get_indexes("a", 3, 3)  # it is ok to have collisions in this case
+    assert len(get_indexes("test", 20, 100)) == len(set(get_indexes("test", 20, 100)))

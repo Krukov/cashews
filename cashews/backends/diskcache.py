@@ -1,7 +1,7 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Tuple
 
 from diskcache import Cache, FanoutCache
 
@@ -11,8 +11,6 @@ from .interface import Backend
 
 
 class DiskCache(Backend):
-    name = "diskcache"
-
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         self.__is_init = False
         self._set_locks: Dict[str, asyncio.Lock] = {}
@@ -33,8 +31,9 @@ class DiskCache(Backend):
     def is_init(self) -> bool:
         return self.__is_init
 
-    def close(self):
+    async def close(self):
         self._cache.close()
+        self.__is_init = False
 
     async def set(
         self,
@@ -75,10 +74,10 @@ class DiskCache(Backend):
     def _get_many(self, keys: List[str], default: Optional[Any] = None):
         return tuple(self._cache.get(key, default=default) for key in keys)
 
-    async def set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         return await self._run_in_executor(self._set_many, pairs, expire)
 
-    def _set_many(self, pairs: Dict[str, Any], expire: Optional[float] = None):
+    def _set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         for key, value in pairs.items():
             self._set(key, value, expire=expire)
 
@@ -88,23 +87,19 @@ class DiskCache(Backend):
     def _exists(self, key: str) -> bool:
         return key in self._cache
 
-    async def keys_match(self, pattern: str):
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         if not self._sharded:
-            for key in await self._run_in_executor(self._keys_match, pattern):
+            for key in await self._run_in_executor(self._scan, pattern):
                 yield key
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
-        async for key in self.keys_match(pattern):
-            yield key
-
-    def _keys_match(self, pattern: str):
+    def _scan(self, pattern: str):
         pattern = pattern.replace("*", ".*")
         regexp = re.compile(pattern)
         for key in self._cache.iterkeys():
             if regexp.fullmatch(key):
                 yield key
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         value = await self.get(key, default=0)
         array = Bitarray(str(value))
         result = []
@@ -112,7 +107,7 @@ class DiskCache(Backend):
             result.append(array.get(index, size))
         return tuple(result)
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int]:
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         value = await self.get(key, default=0)
         array = Bitarray(str(value))
         result = []
@@ -128,19 +123,24 @@ class DiskCache(Backend):
     async def delete(self, key: str) -> bool:
         return await self._run_in_executor(self._cache.delete, key)
 
+    async def delete_many(self, *keys: str):
+        await self._run_in_executor(self._delete_many, keys)
+
+    def _delete_many(self, keys: List[str]):
+        for key in keys:
+            self._cache.delete(key)
+
     async def delete_match(self, pattern: str):
         return await self._run_in_executor(self._delete_match, pattern)
 
     def _delete_match(self, pattern: str):
-        for key in self._keys_match(pattern):
+        for key in self._scan(pattern):
             self._cache.delete(key)
 
-    async def get_match(
-        self, pattern: str, batch_size: int = None, default: Optional[Any] = None
-    ) -> AsyncIterator[Tuple[str, Any]]:
+    async def get_match(self, pattern: str, batch_size: int = None) -> AsyncIterator[Tuple[str, Any]]:
         if not self._sharded:
-            for key in await self._run_in_executor(self._keys_match, pattern):
-                yield key, await self._run_in_executor(self._cache.get, key, default)
+            for key in await self._run_in_executor(self._scan, pattern):
+                yield key, await self._run_in_executor(self._cache.get, key)
 
     async def expire(self, key: str, timeout: float) -> int:
         return await self._run_in_executor(self._cache.touch, key, timeout)

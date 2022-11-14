@@ -39,7 +39,7 @@ class DummyCache:
     async def get_many(self, *keys, default=None):
         return [self.store.get(key, default) for key in keys]
 
-    async def set_many(self, pairs, **kwargs):
+    async def set_many(self, pairs, expire=None):
         self.store.update(pairs)
 
 
@@ -50,21 +50,24 @@ class Cache(PickleSerializerMixin, DummyCache):
 @pytest_asyncio.fixture(
     name="cache",
     params=[
-        "default",
-        pytest.param("redis", marks=pytest.mark.redis),
-        pytest.param("dill", marks=pytest.mark.integration),
-        pytest.param("sqlalchemy", marks=pytest.mark.integration),
+        "default_md5",
+        "default_sum",
+        "default_sha256",
+        pytest.param("redis_md5", marks=pytest.mark.redis),
+        pytest.param("dill_sum", marks=pytest.mark.integration),
+        pytest.param("sqlalchemy_sha1", marks=pytest.mark.integration),
     ],
 )
 async def _cache(request, redis_dsn):
-    if request.param == "redis":
+    pickle_type, digestmod = request.param.split("_")
+    if pickle_type == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis(redis_dsn, hash_key=b"test", safe=True)
+        redis = Redis(redis_dsn, hash_key=b"test", safe=False, digestmod=digestmod)
         await redis.init()
         await redis.clear()
         return redis
-    return Cache(hash_key="test", digestmod="md5", pickle_type=request.param)
+    return Cache(hash_key="test", digestmod=digestmod, pickle_type=pickle_type)
 
 
 @pytest.mark.parametrize(
@@ -162,7 +165,7 @@ async def test_serialize_array_diff_value(value, cache):
 async def test_unsecure_value(value, cache):
     await cache.set_raw("key", value)
     with pytest.raises(UnSecureDataError):
-        await cache.get("key")
+        assert not await cache.get("key")
 
 
 async def test_unsecure_value_many(cache):
@@ -186,7 +189,7 @@ async def test_replace_values(cache):
 async def test_pickle_error_value(cache):
     await cache.set_raw(
         "key",
-        cache._get_sign("key", b"no_pickle_data", b"md5") + b"_" + b"no_pickle_data",
+        cache._gen_sign("key", b"no_pickle_data", cache._digestmod) + b"_" + b"no_pickle_data",
     )
     assert await cache.get("key") is None
 
@@ -234,3 +237,26 @@ async def test_no_hash(key, value):
     cache = Cache()
     await cache.set(key, value)
     assert await cache.get(key) == value
+
+
+async def test_cache_from_hash_to_no_hash():
+    val = Decimal("10.2")
+    cache = Cache(hash_key="test")
+    await cache.set("key", val)
+
+    assert await cache.get("key") == val
+    cache_no_hash = Cache()
+    cache_no_hash.store = cache.store
+    assert await cache_no_hash.get("key") == val
+
+
+async def test_cache_from_no_hash_to_hash():
+    val = Decimal("10.2")
+    cache = Cache()
+    await cache.set("key", val)
+
+    assert await cache.get("key") == val
+    cache_hash = Cache(hash_key="test")
+    cache_hash.store = cache.store
+
+    assert await cache_hash.get("key") is None

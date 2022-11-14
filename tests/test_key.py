@@ -4,7 +4,8 @@ import pytest
 
 from cashews.exceptions import WrongKeyError
 from cashews.formatter import default_formatter, get_template_and_func_for, get_template_for_key, register_template
-from cashews.key import get_cache_key, get_cache_key_template, ttl_to_seconds
+from cashews.key import get_cache_key, get_cache_key_template
+from cashews.ttl import ttl_to_seconds
 
 
 async def func1(a):
@@ -158,7 +159,7 @@ def test_cache_func_key_dict():
             "{arg2}:{kwarg1}:{kwarg3}",
             "2:K1:",
         ),
-        (("a1", "a2"), {"kwarg1": "test"}, "{kwarg1:len}", "4"),
+        (("a1", "a2"), {"kwarg1": 1234}, "{kwarg1:len}", "4"),
         (
             ("a1", "a2"),
             {"user": type("user", (), {"name": "test"})()},
@@ -218,7 +219,6 @@ def test_get_key_template_error():
     ("ttl", "expect"),
     (
         (timedelta(seconds=10), 10),
-        (lambda: timedelta(hours=1), 60 * 60),
         (10, 10),
         (100.1, 100.1),
         ("10s", 10),
@@ -226,7 +226,6 @@ def test_get_key_template_error():
         ("10m1s", 60 * 10 + 1),
         ("1", 1),
         ("80", 80),
-        (lambda: "1h", 60 * 60),
     ),
 )
 def test_ttl_to_seconds(ttl, expect):

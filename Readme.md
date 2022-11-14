@@ -26,7 +26,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Decorator-based API, just decorate and play
 - Different cache strategies out-of-the-box
 - Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
-- Set ttl with string (2h5m) or with `timedelta`
+- Set TTL as a string ("2h5m"), as `timedelta` or use a function in case TTL depends on key parameters
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
@@ -39,7 +39,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 ```python
 from cashews import cache
 
-cache.setup("mem://")  # configure as in-memory cache, but redis is also supported
+cache.setup("mem://")  # configure as in-memory cache, but redis/diskcache is also supported
 
 # use a decorator-based API
 @cache(ttl="3h", key="user:{request.user.uid}")
@@ -48,7 +48,7 @@ async def long_running_function(request):
 
 # or for fine-grained control, use it directly in a function
 async def cache_using_function(request):
-    await cache.set(key=request.user.uid, value=request.user, expire=60)
+    await cache.set(key=request.user.uid, value=request.user, expire="20h")
     ...
 ```
 
@@ -57,9 +57,11 @@ async def cache_using_function(request):
 - [Configuration](#configuration)
 - [Available Backends](#available-backends)
 - [Basic API](#basic-api)
+- [Disable Cache](#disable-cache)
 - [Strategies](#strategies)
   - [Cache condition](#cache-condition)
   - [Keys templating](#template-keys)
+  - [TTL](#ttl)
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
@@ -87,10 +89,11 @@ cache = Cache()
 cache.setup(...)
 ```
 
-Optionally, you can disable cache with `enable` parameter:
+Optionally, you can disable cache with `disable`/`enable` parameter:
 
 ```python
 cache.setup("redis://redis/0?enable=1")
+cache.setup("mem://?size=500", disable=True)
 cache.setup("mem://?size=500", enable=False)
 ```
 
@@ -100,9 +103,8 @@ You can setup different Backends based on a prefix:
 cache.setup("redis://redis/0")
 cache.setup("mem://?size=500", prefix="user")
 
-await cache.get("accounts")  # will use redis backend
-await cache.get("user:1")  # will use memory backend
-
+await cache.get("accounts")  # will use the redis backend
+await cache.get("user:1")  # will use the memory backend
 ```
 
 ### Available Backends
@@ -127,14 +129,17 @@ This will use Redis as a storage.
 This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to serialize
 values, but the cashes can store values with sha1-keyed hash.
 
-Use `hash_key` parameter to protect your application from security vulnerabilities.
+Use `hash_key` and `digestmod` parameter to protect your application from security vulnerabilities.
+The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`
+The `hash_key` is a salt for a hash - it can be a secret string.
+
 Pickle can't serialize any type of objects. In case you need to store more complex types
 
 you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`.
 Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 
-Any connections errors are suppressed, to disable it use `safe=False` - a `CacheBackendInteractionException` will be raised
+Any connections errors are suppressed, to disable it use `safe=False` - a `CacheBackendInteractionError` will be raised
 
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
 Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
@@ -162,7 +167,7 @@ Also, it is good choice for client side local storage.
 
 You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache)
 
-** Warning ** `cache.keys_match` and `cache.get_match` does not work with this storage (works only if shards are disabled)
+** Warning ** `cache.scan` and `cache.get_match` does not work with this storage (works only if shards are disabled)
 
 ```python
 cache.setup("disk://")
@@ -182,26 +187,53 @@ cache.setup("mem://")  # configure as in-memory cache
 
 await cache.set(key="key", value=90, expire=60, exist=None)  # -> bool
 await cache.set_raw(key="key", value="str")  # -> bool
+
 await cache.get("key", default=None)  # -> Any
 await cache.get_raw("key")
 await cache.get_many("key1", "key2", default=None)
-await cache.incr("key") # -> int
-await cache.delete("key")
-await cache.delete_match("pattern:*")
-async for key in cache.scan("pattern:*"):
+async for key, value in cache.get_match("pattern:*", batch_size=100):
     ...
-async for key, value in cache.get_match("pattern:*", batch_size=100, default=None):
+
+await cache.incr("key") # -> int
+
+await cache.delete("key")
+await cache.delete_many("key1", "key2")
+await cache.delete_match("pattern:*")
+
+async for key in cache.scan("pattern:*"):
     ...
 
 await cache.expire("key", timeout=10)
 await cache.get_expire("key")  # -> int seconds to expire
+
 await cache.ping(message=None)  # -> bytes
 await cache.clear()
+
 await cache.is_locked("key", wait=60)  # -> bool
 async with cache.lock("key", expire=10):
     ...
 await cache.set_lock("key", value="value", expire=60)  # -> bool
 await cache.unlock("key", "value")  # -> bool
+
+await cache.close()
+```
+
+### Disable Cache
+
+Cache can be disabled not only at setup, but also in runtime. Cashews allow you to disable/enable any call of cache or specific commands:
+
+```python
+from cashews import cache, Command
+
+cache.setup("mem://")  # configure as in-memory cache
+
+cache.disable(Command.DELETE)
+cache.disable()
+cache.enable(Command.GET, Command.SET)
+cache.enable()
+
+with cache.disabling():
+  ...
 ```
 
 ### Strategies
@@ -259,7 +291,8 @@ from cashews import cache  # or: from cashews import hit
 
 @cache.hit(ttl="2h", cache_hits=100, update_after=2)
 async def get(name):
-    ...
+    value = await api_call()
+    return {"status": value}
 ```
 
 #### Early
@@ -342,8 +375,8 @@ Bloom filter
 ```python
 from cashews import cache
 
-@cache.bloom(name="emails:{email}", capacity=10_000, false_positives=1)
-async def email_exists(email):
+@cache.bloom(capacity=10_000, false_positives=1)
+async def email_exists(email: str) -> bool:
     ...
 
 for email in all_users_emails:
@@ -377,13 +410,13 @@ async def get():
 
 ```
 
-Also caching decorators have parameter `time_condition` - min latency in seconds (can be set like `ttl` - by string or timedelata object)
-for getting result of function call to be cached.
+Also caching decorators have parameter `time_condition` - min latency in seconds (can be set like `ttl`)
+of getting a result of function call to be cached.
 
 ```python
 from cashews import cache
 
-@cache(ttl="1h", time_condition="3s")
+@cache(ttl="1h", time_condition="3s")  # to cache for 1 hour if execution takes more than 3 seconds
 async def get():
     ...
 ```
@@ -515,12 +548,46 @@ await get_name(item)
 # a key will be "price-10.00:USD"
 ```
 
+### TTL
+
+Cache time to live (`ttl`) is a required parameter for all cache decorators. TTL can be:
+
+- an integer as numbers of seconds
+- a `timedelta`
+- a string like in golang e.g `1d2h3m50s`
+- a callable object like a function that receive `args` and `kwargs` of the decorated function and return one of previous format for TTL
+
+Examples:
+
+```python
+from cashews import cache
+from datetime import timedelta
+
+@cache(ttl=60 * 10)
+async def get(item_id: int) -> Item:
+    pass
+
+@cache(ttl=timedelta(minutes=10))
+async def get(item_id: int) -> Item:
+    pass
+
+@cache(ttl="10m")
+async def get(item_id: int) -> Item:
+    pass
+
+def _ttl(item_id: int) -> str:
+    return "2h" if item_id > 10 else "1h"
+
+@cache(ttl=_ttl)
+async def get(item_id: int) -> Item:
+    pass
+```
+
 ### Cache invalidation
 
 Cache invalidation - one of the main Computer Science well known problem.
-That's why `ttl` is a required parameter for all cache decorators.
 
-Sometimes, you want to invalidate cache after some action is triggered.
+Sometimes, you want to invalidate the cache after some action is triggered.
 Consider this example:
 
 ```python
@@ -542,7 +609,21 @@ async def create_item(user):
    ...
 ```
 
-Here, cache for `user_items` and `items` will be invalidated every time `create_item` is called.
+Here, the cache for `user_items` and `items` will be invalidated every time `create_item` is called.
+
+Also you can invalidate future call of cache request by context manager:
+
+```python
+from cashews import invalidate_further
+
+await cache.set("key", "value")
+
+with invalidate_further():
+  await cache.get("key") # will delete cache
+
+
+
+```
 
 #### Cache invalidation on code change
 
@@ -611,45 +692,30 @@ async def get_user(user_id):
 Decorators give us a very simple API but also make it difficult to understand where
 result is coming from - cache or direct call.
 
-To solve this problem `cashews` has `context_cache_detect` context manager:
+To solve this problem `cashews` has `cache_detect` context manager:
 
 ```python
-from cashews import context_cache_detect
+from cashews import cache_detect
 
-with context_cache_detect as detector:
-    response = await decorated_function()
+with cache_detect as detector:
+    response = await something_that_use_cache()
     keys = detector.get()
 print(keys)
-# >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": timedelta(hours=10), "exc": RateLimit}, "name": "fail", "backend": "mem"],}
+# >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": 10, "exc": RateLimit}, "name": "fail", "backend": "mem"],}
 ```
 
-or you can use `CacheDetect` class:
-
-```python
-from cashews import CacheDetect
-
-cache_detect = CacheDetect()
-await func(_from_cache=cache_detect)
-assert cache_detect.keys == {}
-
-await func(_from_cache=cache_detect)
-assert len(cache_detect.keys) == 1
-```
-
-A simple middleware to use it in a web app:
+E.g. A simple middleware to use it in a web app:
 
 ```python
 @app.middleware("http")
 async def add_from_cache_headers(request: Request, call_next):
-    with context_cache_detect as detector:
+    with cache_detect as detector:
         response = await call_next(request)
         if detector.keys:
             key = list(detector.keys.keys())[0]
             response.headers["X-From-Cache"] = key
             expire = await cache.get_expire(key)
             response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
-            if "exc" in detector.keys[key]:
-                response.headers["X-From-Cache-Exc"] = str(detector.keys[key]["exc"])
     return response
 ```
 
@@ -664,9 +730,9 @@ from cashews import cache
 logger = logging.getLogger(__name__)
 
 
-async def logging_middleware(call, *args, backend=None, cmd=None, **kwargs):
+async def logging_middleware(call, cmd: Command, backend: Backend, *args, **kwargs):
     key = args[0] if args else kwargs.get("key", kwargs.get("pattern", ""))
-    logger.info("=> Cache request: %s ", cmd, extra={"command": cmd, "cache_key": key})
+    logger.info("=> Cache request: %s ", cmd.value, extra={"args": args, "cache_key": key})
     return await call(*args, **kwargs)
 
 

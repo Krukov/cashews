@@ -4,25 +4,28 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional
 
-from ..._typing import CallableCacheCondition
-from ...backends.interface import Backend
+from ..._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
+from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from .defaults import CacheDetect, _empty, context_cache_detect
+from ...ttl import ttl_to_seconds
+from .defaults import _empty, context_cache_detect
 
 __all__ = ("early",)
+
+
 logger = logging.getLogger(__name__)
 _LOCK_SUFFIX = ":lock"
 
 
 def early(
-    backend: Backend,
-    ttl: int,
+    backend: _BackendInterface,
+    ttl: TTL,
     key: Optional[str] = None,
-    early_ttl: Optional[int] = None,
+    early_ttl: Optional[TTL] = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "early",
-):
+) -> Decorator:
     """
     Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
     With hot cache recalculate a result in background near expiration time
@@ -31,31 +34,36 @@ def early(
     :param backend: cache backend
     :param ttl: duration in seconds to store a result
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
+    :param early_ttl: duration in seconds to expire results
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
-    if early_ttl is None:
-        early_ttl = ttl * 0.33
 
-    def _decor(func):
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
         register_template(func, _key_template)
 
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
+        async def _wrap(*args, **kwargs):
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs)
+            if early_ttl is None:
+                _early_ttl = _ttl * 0.33
+            else:
+                _early_ttl = ttl_to_seconds(early_ttl, *args, **kwargs)
+
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                _from_cache._set(
+                context_cache_detect._set(
                     _cache_key,
-                    ttl=ttl,
-                    early_ttl=early_ttl,
+                    ttl=_ttl,
+                    early_ttl=_early_ttl,
                     name="early",
                     template=_key_template,
                 )
                 early_expire_at, result = cached
                 if early_expire_at <= datetime.utcnow() and await backend.set(
-                    _cache_key + _LOCK_SUFFIX, "1", expire=early_ttl, exist=False
+                    _cache_key + _LOCK_SUFFIX, "1", expire=_early_ttl, exist=False
                 ):
                     logger.info(
                         "Recalculate cache for %s (exp_at %s)",
@@ -69,8 +77,8 @@ def early(
                             args,
                             kwargs,
                             _cache_key,
-                            ttl,
-                            early_ttl,
+                            _ttl,
+                            _early_ttl,
                             condition,
                             unlock=True,
                         )
@@ -82,8 +90,8 @@ def early(
                 args,
                 kwargs,
                 _cache_key,
-                ttl,
-                early_ttl,
+                _ttl,
+                _early_ttl,
                 condition,
             )
 
@@ -93,7 +101,7 @@ def early(
 
 
 async def _get_result_for_early(
-    backend: Backend, func, args, kwargs, key, ttl: int, early_ttl: int, condition, unlock=False
+    backend: _BackendInterface, func, args, kwargs, key, ttl: int, early_ttl: int, condition, unlock=False
 ):
     try:
         result = await func(*args, **kwargs)

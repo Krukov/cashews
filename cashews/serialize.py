@@ -1,19 +1,29 @@
 import hashlib
 import hmac
-from contextlib import suppress
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Mapping, Optional, Tuple, Union
 
-from ._picklers import DEFAULT_PICKLE, get_pickler
 from .exceptions import SignIsMissingError, UnSecureDataError
+from .picklers import DEFAULT_PICKLE, get_pickler
 
-BLANK_DIGEST = b""
+
+def get_signer(digestmod):
+    def sign(key: bytes, value: bytes):
+        return hmac.new(key, value, digestmod).hexdigest().encode()
+
+    return sign
+
+
+def simple_sign(key: bytes, value: bytes):
+    s = sum(key) + sum(value)
+    return f"{s:x}".encode()
 
 
 class PickleSerializerMixin:
     _digestmods = {
-        b"sha1": hashlib.sha1,
-        b"md5": hashlib.md5,
-        b"sha256": hashlib.sha256,
+        b"sha1": get_signer(hashlib.sha1),
+        b"md5": get_signer(hashlib.md5),
+        b"sha256": get_signer(hashlib.sha256),
+        b"sum": simple_sign,
     }
 
     def __init__(
@@ -26,19 +36,15 @@ class PickleSerializerMixin:
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
-        if hash_key is None:
-            digestmod = BLANK_DIGEST
-            self._digestmods = self._digestmods.copy()
-            self._digestmods[BLANK_DIGEST] = lambda value: BLANK_DIGEST  # type: ignore[misc, assignment]
         self._hash_key = _to_bytes(hash_key)
         self._digestmod = _to_bytes(digestmod)
         self._check_repr = check_repr
         self._pickler = get_pickler(pickle_type)
 
     async def get(self, key: str, default: Any = None):
-        return await self._get_value(await super().get(key), key, default=default)
+        return await self._serialize_value(await super().get(key), key, default=default)
 
-    async def _get_value(self, value, key, default=None) -> Any:
+    async def _serialize_value(self, value, key, default=None) -> Any:
         try:
             return self._process_value(value, key, default=default)
         except (self._pickler.PickleError, AttributeError):
@@ -51,39 +57,39 @@ class PickleSerializerMixin:
             return value
         if value.isdigit():
             return int(value)
+
+        if not self._hash_key:
+            try:
+                value = self._pickler.loads(value)
+            except self._pickler.PickleError:
+                pass
+            else:
+                if self._check_repr:
+                    repr(value)
+                return value
         try:
-            value = self._split_value_from_signature(value, key)
+            value = self._get_value_without_signature(value, key)
         except SignIsMissingError:
-            return value
+            return default
         value = self._pickler.loads(value)
         if self._check_repr:
             repr(value)
         return value
 
-    def _split_value_from_signature(self, value: bytes, key: str) -> bytes:
-        if self._hash_key:
-            try:
-                sign, value = value.split(b"_", 1)
-            except ValueError as exc:
-                raise SignIsMissingError(f"key: {key}") from exc
-            sign, digestmod = self._get_digestmod(sign)
-            expected_sign = self._get_sign(key, value, digestmod)
-            if expected_sign != sign:
-                raise UnSecureDataError(f"{expected_sign!r} != {sign!r}")
-            return value
-        # Backward compatibility.
-        DeprecationWarning(
-            "If a sign is not used to secure your data, then a value will be pickled and "
-            + "saved without an empty sign prepended. Values saved via 4.x package "
-            + "version without using a sign will not be compatible after the 5.x release."
-        )
-        with suppress(ValueError):
+    def _get_value_without_signature(self, value: bytes, key: str) -> bytes:
+        try:
             sign, value = value.split(b"_", 1)
-            if sign:
-                value = sign + b"_" + value
+        except ValueError as exc:
+            raise SignIsMissingError(f"key: {key}") from exc
+        if not self._hash_key:
+            return value
+        sign, digestmod = self._get_sign_and_digestmod(sign)
+        expected_sign = self._gen_sign(key, value, digestmod)
+        if expected_sign != sign:
+            raise UnSecureDataError(f"{expected_sign!r} != {sign!r}")
         return value
 
-    def _get_digestmod(self, sign: bytes) -> Tuple[bytes, bytes]:
+    def _get_sign_and_digestmod(self, sign: bytes) -> Tuple[bytes, bytes]:
         digestmod = self._digestmod
         if b":" in sign:
             digestmod, sign = sign.split(b":")
@@ -94,7 +100,7 @@ class PickleSerializerMixin:
     async def get_many(self, *keys: str, default: Optional[Any] = None) -> Any:
         values = []
         for key, value in zip(keys, await super().get_many(*keys, default=default) or [None] * len(keys)):
-            values.append(await self._get_value(value, key))
+            values.append(await self._serialize_value(value, key))
         return tuple(values)
 
     async def set(self, key: str, value: Any, *args: Any, **kwargs: Any):
@@ -103,24 +109,24 @@ class PickleSerializerMixin:
         value = self._pickler.dumps(value)
         return await super().set(key, self._prepend_sign_to_value(key, value), *args, **kwargs)
 
-    async def set_many(self, pairs: Dict[str, Any], *args: Any, **kwargs: Any):
+    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         transformed_pairs = {}
         for key, value in pairs.items():
             value = self._pickler.dumps(value)
             transformed_pairs[key] = self._prepend_sign_to_value(key, value)
-        return await super().set_many(transformed_pairs, *args, **kwargs)
+        return await super().set_many(transformed_pairs, expire=expire)
 
     def _prepend_sign_to_value(self, key: str, value: bytes) -> bytes:
-        sign = self._get_sign(key, value, self._digestmod)
+        sign = self._gen_sign(key, value, self._digestmod)
         if not sign:
             return value
         return self._digestmod + b":" + sign + b"_" + value
 
-    def _get_sign(self, key: str, value: bytes, digestmod: bytes) -> bytes:
-        if digestmod == BLANK_DIGEST:
-            return BLANK_DIGEST
+    def _gen_sign(self, key: str, value: bytes, digestmod: bytes) -> bytes:
+        if self._hash_key is None:
+            return b""
         value = key.encode() + value
-        return hmac.new(self._hash_key, value, self._digestmods[digestmod]).hexdigest().encode()
+        return self._digestmods[digestmod](self._hash_key, value)
 
     def set_raw(self, *args: Any, **kwargs: Any):
         return super().set(*args, **kwargs)

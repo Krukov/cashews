@@ -1,4 +1,4 @@
-from .._cache_condition import NOT_NONE
+from ..cache_condition import NOT_NONE
 from .bloom import bloom, dual_bloom  # noqa
 from .cache.defaults import CacheDetect, context_cache_detect  # noqa
 from .cache.early import early  # noqa

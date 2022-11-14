@@ -1,5 +1,5 @@
 import asyncio
-import sys
+from uuid import uuid4
 
 import pytest
 import pytest_asyncio
@@ -15,6 +15,8 @@ pytestmark = pytest.mark.asyncio
     params=[
         "memory",
         pytest.param("redis", marks=pytest.mark.redis),
+        pytest.param("redis_hash", marks=pytest.mark.redis),
+        pytest.param("redis_cs", marks=pytest.mark.redis),
         pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
 )
@@ -23,13 +25,24 @@ async def _cache(request, redis_dsn, backend_factory):
         from cashews.backends.diskcache import DiskCache
 
         backend = await backend_factory(DiskCache, shards=0)
-        yield backend
     elif request.param == "redis":
         from cashews.backends.redis import Redis
 
-        yield await backend_factory(Redis, redis_dsn, hash_key=None)
+        backend = await backend_factory(Redis, redis_dsn, hash_key=None)
+    elif request.param == "redis_hash":
+        from cashews.backends.redis import Redis
+
+        backend = await backend_factory(Redis, redis_dsn, hash_key=uuid4().hex)
+    elif request.param == "redis_cs":
+        from cashews.backends.client_side import BcastClientSide
+
+        backend = await backend_factory(BcastClientSide, redis_dsn, hash_key=None)
     else:
-        yield await backend_factory(Memory)
+        backend = await backend_factory(Memory)
+    try:
+        yield backend
+    finally:
+        await backend.close()
 
 
 async def test_set_get(cache):
@@ -52,7 +65,7 @@ async def test_set_exist(cache):
 
 
 async def test_set_many(cache):
-    await cache.set_many({"key1": "value1", "key2": "value2"})
+    await cache.set_many({"key1": "value1", "key2": "value2"}, expire=1)
     assert await cache.get("key1", "value1")
     assert await cache.get("key2", "value2")
 
@@ -67,7 +80,7 @@ async def test_incr(cache):
     assert await cache.get("incr") == 2
 
 
-async def test_incr_setted(cache):
+async def test_incr_set(cache):
     await cache.set("incr", "test")
     with pytest.raises(Exception):
         assert await cache.incr("incr") == 1
@@ -87,7 +100,7 @@ async def test_exists(cache):
 async def test_expire(cache):
     await cache.set("key", b"value", expire=0.01)
     assert await cache.get("key") == b"value"
-    await asyncio.sleep(0.011)
+    await asyncio.sleep(0.1)
     assert await cache.get("key") is None
 
 
@@ -97,6 +110,18 @@ async def test_get_set_expire(cache):
     assert await cache.get_expire("key") == -1
     await cache.expire("key", 1)
     assert await cache.get_expire("key") == 1
+
+
+async def test_delete_many(cache: Backend):
+    await cache.set("key1", b"value")
+    await cache.set("key2", b"value")
+    await cache.set("key3", b"value")
+
+    await cache.delete_many("key1", "key2", "key4")
+
+    assert await cache.get("key1") is None
+    assert await cache.get("key2") is None
+    assert await cache.get("key3") == b"value"
 
 
 async def test_delete_match(cache: Backend):
@@ -158,12 +183,7 @@ async def test_get_match(cache: Backend):
 
 async def test_get_size(cache: Backend):
     await cache.set("test", b"1")
-    assert await cache.get_size("test") in (
-        sys.getsizeof((None, b"1")) + sys.getsizeof(b"1") + sys.getsizeof(None),  # ordered dict
-        66,  # redis 6
-        72,  # redis 7
-        -1,  # diskcache
-    )
+    assert isinstance(await cache.get_size("test"), int)
 
 
 async def test_get_bits(cache: Backend):

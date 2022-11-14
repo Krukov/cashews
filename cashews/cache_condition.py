@@ -3,7 +3,7 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Tuple
 
-from cashews._typing import CacheCondition
+from ._typing import AsyncCallable_T, CacheCondition, CallableCacheCondition, Decorator
 
 
 def _not_none_store_condition(result, args, kwargs, key=None) -> bool:
@@ -27,11 +27,11 @@ def get_cache_condition(condition: CacheCondition) -> Callable[[Any, Tuple, Dict
     return condition
 
 
-_spent = ContextVar("spent", default=0)
+_spent = ContextVar("spent", default=0.0)
 
 
-def create_time_condition(limit):
-    def decorator(func):
+def create_time_condition(limit: float) -> Tuple[CallableCacheCondition, Decorator]:
+    def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
         @wraps(func)
         async def _wrapper(*args, **kwargs):
             start = time.perf_counter()
@@ -42,7 +42,7 @@ def create_time_condition(limit):
 
         return _wrapper
 
-    def condition(result, _args, _kwargs, key):
+    def condition(result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> bool:
         return _spent.get() > limit
 
     return condition, decorator

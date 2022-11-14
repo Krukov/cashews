@@ -42,8 +42,6 @@ async def test_safe_redis(redis_backend):
 
     async for _ in redis.get_match("*"):
         assert False
-    async for _ in redis.keys_match("*"):
-        assert False
 
     assert await redis.delete("test") == 0
     await redis.delete_match("*")
@@ -64,7 +62,7 @@ async def test_unsafe_redis_down(redis_backend):
 async def test_cache_decorators_on_redis_down(redis_backend):
     mock = Mock(return_value="val")
     cache = Cache()
-    cache._add_backend(redis_backend, safe=True, address="redis://localhost:9223", hash_key=None)
+    cache._add_backend(redis_backend(safe=True, address="redis://localhost:9223", hash_key=None))
 
     @cache(ttl=1)
     @cache.failover(1)

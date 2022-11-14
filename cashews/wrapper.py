@@ -1,35 +1,38 @@
 import asyncio
 from contextlib import contextmanager
-from functools import partial, wraps
-from typing import Any, AsyncIterator, Callable, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
+from functools import lru_cache, partial, wraps
+from typing import Any, AsyncIterator, Callable, Dict, Iterable, List, Mapping, Optional, Tuple, Type, Union
 
 from . import decorators, validation
-from ._cache_condition import create_time_condition, get_cache_condition
-from ._settings import settings_url_parse
-from ._typing import TTL, CacheCondition
-from .backends.interface import Backend
-from .backends.memory import Memory
-from .disable_control import ControlMixin, _is_disable_middleware
-from .key import ttl_to_seconds
+from ._typing import TTL, AsyncCallable_T, AsyncCallableResult_T, CacheCondition, Middleware
+from .backend_settings import settings_url_parse
+from .backends.interface import Backend, _BackendInterface
+from .cache_condition import create_time_condition, get_cache_condition
+from .commands import Command
+from .disable_control import _is_disable_middleware
+from .exceptions import NotConfiguredError
+from .ttl import ttl_to_seconds
 
 try:
     from .backends.client_side import BcastClientSide
 except ImportError:
-    BcastClientSide = None
+    BcastClientSide = None  # type: ignore
 
 try:
     from .backends.diskcache import DiskCache
 except ImportError:
-    DiskCache = None
+    DiskCache = None  # type: ignore
 
 
 #  pylint: disable=too-many-public-methods
 
 
-def _create_auto_init():
+def _create_auto_init() -> Middleware:
     lock = asyncio.Lock()
 
-    async def _auto_init(call, *args, backend=None, cmd=None, **kwargs):
+    async def _auto_init(
+        call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs
+    ) -> AsyncCallableResult_T:
         if backend.is_init:
             return await call(*args, **kwargs)
         async with lock:
@@ -41,78 +44,75 @@ def _create_auto_init():
     return _auto_init
 
 
-class Cache(Backend):
+class Cache(_BackendInterface):
     default_prefix = ""
 
-    def __init__(self, name: Optional[str] = None):
-        self._backends: Dict[str, Tuple[Backend, Tuple[Callable]]] = {}  # {key: (backend, middleware)}
-        self._default_middlewares = (
+    def __init__(self, name: str = ""):
+        self._backends: Dict[str, Tuple[Backend, Tuple[Middleware, ...]]] = {}  # {key: (backend, middleware)}
+        self._default_middlewares: Tuple[Middleware, ...] = (
             _is_disable_middleware,
             _create_auto_init(),
             validation._invalidate_middleware,
         )
-        self._name = name
-        self._default_fail_exceptions = Exception
-        self._add_backend(Memory)
+        self.name = name
+        self._default_fail_exceptions: Tuple[Type[Exception], ...] = (Exception,)
 
     detect = decorators.context_cache_detect
 
-    def set_default_fail_exceptions(self, *exc: Type[Exception]):
+    def set_default_fail_exceptions(self, *exc: Type[Exception]) -> None:
         self._default_fail_exceptions = exc
 
-    def disable(self, *cmds: str, prefix: str = ""):
+    def disable(self, *cmds: Command, prefix: str = "") -> None:
         return self._get_backend(prefix).disable(*cmds)
 
-    def disable_all(self, *cmds: str):
-        for backend, _ in self._backends.values():
-            backend.disable(*cmds)
-
-    def enable(self, *cmds: str, prefix: str = ""):
+    def enable(self, *cmds: Command, prefix: str = "") -> None:
         return self._get_backend(prefix).enable(*cmds)
 
-    def enable_all(self, *cmds: str):
-        for backend, _ in self._backends.values():
-            backend.enable(*cmds)
-
     @contextmanager
-    def disabling(self, *cmds: str, prefix: str = ""):
+    def disabling(self, *cmds: Command, prefix: str = ""):
         self.disable(*cmds, prefix=prefix)
-        yield
-        self.enable(*cmds, prefix=prefix)
+        try:
+            yield
+        finally:
+            self.enable(*cmds, prefix=prefix)
 
-    def is_disable(self, *cmds: str, prefix: str = ""):
+    def is_disable(self, *cmds: Command, prefix: str = ""):
         return self._get_backend(prefix).is_disable(*cmds)
 
-    def is_enable(self, *cmds: str, prefix: str = ""):
+    def is_enable(self, *cmds: Command, prefix: str = ""):
         return not self.is_disable(*cmds, prefix=prefix)
 
-    def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Callable]]:
+    @lru_cache(maxsize=1000)
+    def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Middleware, ...]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):
                 return self._backends[prefix]
+        if self.default_prefix not in self._backends:
+            raise NotConfiguredError("run `cache.setup(...)` before using cache")
         return self._backends[self.default_prefix]
 
     def _get_backend(self, key: str) -> Backend:
         backend, _ = self._get_backend_and_config(key)
         return backend
 
-    def setup(self, settings_url: str, middlewares: Tuple = (), prefix: str = default_prefix, **kwargs):
-        params = settings_url_parse(settings_url)
+    def setup(self, settings_url: str, middlewares: Tuple = (), prefix: str = default_prefix, **kwargs) -> Backend:
+        backend_class, params = settings_url_parse(settings_url)
         params.update(kwargs)
 
-        if params.pop("client_side", None):
-            params["backend"] = BcastClientSide
-        backend = params.pop("backend")
+        if "disable" in params:
+            disable = params.pop("disable")
+        else:
+            disable = not params.pop("enable", True)
 
-        self._add_backend(backend, middlewares, prefix, **params)
-        return self._backends[prefix][0]
+        backend = backend_class(**params)
+        if disable:
+            backend.disable()
+        self._add_backend(backend, middlewares, prefix)
+        return backend
 
-    def _add_backend(self, backend_class: Type[Backend], middlewares=(), prefix: str = default_prefix, **params):
-        class _backend_class(ControlMixin, backend_class):
-            pass
-
+    def _add_backend(self, backend: Backend, middlewares=(), prefix: str = default_prefix):
         self._backends[prefix] = (
-            _backend_class(**params),
+            backend,
             self._default_middlewares + middlewares,
         )
 
@@ -129,14 +129,14 @@ class Cache(Backend):
                 return False
         return True
 
-    def _with_middlewares(self, cmd: str, key):
+    def _with_middlewares(self, cmd: Command, key: str):
         backend, middlewares = self._get_backend_and_config(key)
         return self._with_middlewares_for_backend(cmd, backend, middlewares)
 
-    def _with_middlewares_for_backend(self, cmd: str, backend, middlewares):
-        call = getattr(backend, cmd)
+    def _with_middlewares_for_backend(self, cmd: Command, backend, middlewares):
+        call = getattr(backend, cmd.value)
         for middleware in middlewares:
-            call = partial(middleware, call, cmd=cmd, backend=backend)
+            call = partial(middleware, call, cmd, backend)
         return call
 
     async def set(
@@ -146,118 +146,117 @@ class Cache(Backend):
         expire: Union[float, TTL, None] = None,
         exist: Optional[bool] = None,
     ) -> bool:
-        return await self._with_middlewares("set", key)(
+        return await self._with_middlewares(Command.SET, key)(
             key=key, value=value, expire=ttl_to_seconds(expire), exist=exist
         )
 
     async def set_raw(self, key: str, value: Any, **kwargs):
-        return await self._with_middlewares("set_raw", key)(key=key, value=value, **kwargs)
+        return await self._with_middlewares(Command.SET_RAW, key)(key=key, value=value, **kwargs)
 
     async def get(self, key: str, default: Optional[Any] = None) -> Any:
-        return await self._with_middlewares("get", key)(key=key, default=default)
+        return await self._with_middlewares(Command.GET, key)(key=key, default=default)
 
     async def get_raw(self, key: str) -> Any:
-        return await self._with_middlewares("get_raw", key)(key=key)
+        return await self._with_middlewares(Command.GET_RAW, key)(key=key)
 
-    async def keys_match(self, pattern: str) -> AsyncIterator[str]:
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
         backend, middlewares = self._get_backend_and_config(pattern)
 
-        async def call(_pattern):
-            return backend.keys_match(_pattern)
+        async def call(pattern, batch_size):
+            return backend.scan(pattern, batch_size=batch_size)
 
         for middleware in middlewares:
-            call = partial(middleware, call, cmd="keys_match", backend=backend)
-        async for key in (await call(pattern)):
+            call = partial(middleware, call, Command.SCAN, backend)
+        async for key in (await call(pattern=pattern, batch_size=batch_size)):
             yield key
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
-        backend, middlewares = self._get_backend_and_config(pattern)
-
-        async def call(_pattern):
-            return backend.scan(_pattern)
-
-        for middleware in middlewares:
-            call = partial(middleware, call, cmd="scan", backend=backend)
-        async for key in (await call(pattern)):
-            yield key
-
-    async def get_match(
-        self, pattern: str, batch_size: int = 100, default: Optional[Any] = None
+    async def get_match(  # type: ignore
+        self,
+        pattern: str,
+        batch_size: int = 100,
     ) -> AsyncIterator[Tuple[str, Any]]:
         backend, middlewares = self._get_backend_and_config(pattern)
 
-        async def call(_pattern, _batch_size, _default):
-            return backend.get_match(_pattern, batch_size=_batch_size, default=_default)
+        async def call(pattern, batch_size):
+            return backend.get_match(pattern, batch_size=batch_size)
 
         for middleware in middlewares:
-            call = partial(middleware, call, cmd="get_match", backend=backend)
-        async for key, value in (await call(pattern, batch_size, default)):
+            call = partial(middleware, call, Command.GET_MATCH, backend)
+        async for key, value in (await call(pattern=pattern, batch_size=batch_size)):
             yield key, value
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any]:
-        backends = {}
+    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
+        backends: Dict[Backend, List[str]] = {}
         for key in keys:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
-        result = {}
+        result: Dict[str, Any] = {}
         for _keys in backends.values():
-            _values = await self._with_middlewares("get_many", _keys[0])(*_keys, default=default)
+            _values = await self._with_middlewares(Command.GET_MANY, _keys[0])(*_keys, default=default)
             result.update(dict(zip(_keys, _values)))
         return tuple(result.get(key) for key in keys)
 
     async def set_many(self, pairs: Mapping[str, Any], expire: Union[float, TTL, None] = None):
-        backends = {}
+        backends: Dict[Backend, List[str]] = {}
         for key in pairs:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
         for backend, keys in backends.items():
             data = {key: pairs[key] for key in keys}
-            await self._with_middlewares("set_many", keys[0])(data, expire=ttl_to_seconds(expire))
+            await self._with_middlewares(Command.SET_MANY, keys[0])(pairs=data, expire=ttl_to_seconds(expire))
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int]:
-        return await self._with_middlewares("get_bits", key)(key, *indexes, size=size)
+    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+        return await self._with_middlewares(Command.GET_BITS, key)(key, *indexes, size=size)
 
     async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
-        return await self._with_middlewares("incr_bits", key)(key, *indexes, size=size, by=by)
+        return await self._with_middlewares(Command.INCR_BITS, key)(key, *indexes, size=size, by=by)
 
     async def incr(self, key: str) -> int:
-        return await self._with_middlewares("incr", key)(key=key)
+        return await self._with_middlewares(Command.INCR, key)(key=key)
 
     async def delete(self, key: str):
-        return await self._with_middlewares("delete", key)(key=key)
+        return await self._with_middlewares(Command.DELETE, key)(key=key)
+
+    async def delete_many(self, *keys: str) -> None:
+        backends: Dict[Backend, List[str]] = {}
+        for key in keys:
+            backend = self._get_backend(key)
+            backends.setdefault(backend, []).append(key)
+        for _keys in backends.values():
+            await self._with_middlewares(Command.DELETE_MANY, _keys[0])(*_keys)
 
     async def delete_match(self, pattern: str):
-        return await self._with_middlewares("delete_match", pattern)(pattern=pattern)
+        return await self._with_middlewares(Command.DELETE_MATCH, pattern)(pattern=pattern)
 
     async def expire(self, key: str, timeout: TTL):
-        return await self._with_middlewares("expire", key)(key=key, timeout=ttl_to_seconds(timeout))
+        return await self._with_middlewares(Command.EXPIRE, key)(key=key, timeout=ttl_to_seconds(timeout))
 
     async def get_expire(self, key: str):
-        return await self._with_middlewares("get_expire", key)(key=key)
+        return await self._with_middlewares(Command.GET_EXPIRE, key)(key=key)
 
     async def exists(self, key: str):
-        return await self._with_middlewares("exists", key)(key=key)
+        return await self._with_middlewares(Command.EXIST, key)(key=key)
 
     async def set_lock(self, key: str, value: Any, expire: TTL):
-        return await self._with_middlewares("set_lock", key)(key=key, value=value, expire=ttl_to_seconds(expire))
+        return await self._with_middlewares(Command.SET_LOCK, key)(key=key, value=value, expire=ttl_to_seconds(expire))
 
     async def unlock(self, key: str, value: str):
-        return await self._with_middlewares("unlock", key)(key=key, value=value)
+        return await self._with_middlewares(Command.UNLOCK, key)(key=key, value=value)
 
     async def get_size(self, key: str):
-        return await self._with_middlewares("get_size", key)(key)
+        return await self._with_middlewares(Command.GET_SIZE, key)(key=key)
 
-    async def ping(self, message: Optional[bytes] = None) -> str:
+    async def ping(self, message: Optional[bytes] = None) -> bytes:
         message = b"PING" if message is None else message
-        return await self._with_middlewares("ping", message.decode())(message=message)
+        return await self._with_middlewares(Command.PING, message.decode())(message=message)
 
     async def clear(self):
         for backend, _ in self._backends.values():
-            await self._with_middlewares_for_backend("clear", backend, self._default_middlewares)()
+            await self._with_middlewares_for_backend(Command.CLEAR, backend, self._default_middlewares)()
 
-    def close(self):
+    async def close(self):
         for backend, _ in self._backends.values():
-            backend.close()
+            await backend.close()
 
     async def is_locked(
         self,
@@ -265,7 +264,7 @@ class Cache(Backend):
         wait: Union[float, None, TTL] = None,
         step: Union[int, float] = 0.1,
     ) -> bool:
-        return await self._with_middlewares("is_locked", key)(key=key, wait=ttl_to_seconds(wait), step=step)
+        return await self._with_middlewares(Command.IS_LOCKED, key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
     def _wrap_on(self, decorator_fabric, upper, **decor_kwargs):
         if upper:
@@ -273,7 +272,7 @@ class Cache(Backend):
         return self._wrap(decorator_fabric, **decor_kwargs)
 
     def _wrap(self, decorator_fabric, lock=False, time_condition=None, **decor_kwargs):
-        def _decorator(func):
+        def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
             if time_condition is not None:
                 condition, _decor = create_time_condition(time_condition)
                 func = _decor(func)
@@ -289,13 +288,12 @@ class Cache(Backend):
                 else:
                     return await decorator(*args, **kwargs)
 
-            _call.direct = func
             return _call
 
         return _decorator
 
     def _wrap_with_condition(self, decorator_fabric, condition, lock=False, time_condition=None, **decor_kwargs):
-        def _decorator(func):
+        def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
             _condition = condition
             if time_condition is not None:
                 _condition, _decor = create_time_condition(time_condition)
@@ -320,7 +318,6 @@ class Cache(Backend):
 
                 return result
 
-            _call.direct = func
             return _call
 
         return _decorator
@@ -340,7 +337,7 @@ class Cache(Backend):
             decorators.cache,
             upper,
             lock=lock,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
@@ -361,7 +358,7 @@ class Cache(Backend):
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_with_condition(
             decorators.failover,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             exceptions=exceptions,
             key=key,
             condition=get_cache_condition(condition),
@@ -382,9 +379,9 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.early,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
-            early_ttl=ttl_to_seconds(early_ttl),
+            early_ttl=early_ttl,
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
@@ -395,7 +392,7 @@ class Cache(Backend):
         ttl: TTL,
         key: Optional[str] = None,
         soft_ttl: Optional[TTL] = None,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+        exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "soft",
@@ -404,7 +401,7 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.soft,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
             soft_ttl=ttl_to_seconds(soft_ttl),
             exceptions=exceptions,
@@ -427,7 +424,7 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.hit,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             cache_hits=cache_hits,
             update_after=update_after,
             key=key,
@@ -448,7 +445,7 @@ class Cache(Backend):
         return self._wrap_on(
             decorators.hit,
             upper,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             cache_hits=3,
             update_after=1,
             key=key,
@@ -477,17 +474,19 @@ class Cache(Backend):
         errors_rate: int,
         period: TTL,
         ttl: TTL,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception]], None] = None,
+        half_open_ttl: TTL = None,
+        exceptions: Union[Type[Exception], Tuple[Type[Exception], ...], None] = None,
         key: Optional[str] = None,
         prefix: str = "circuit_breaker",
     ):
-        exceptions = exceptions or self._default_fail_exceptions
+        _exceptions = exceptions or self._default_fail_exceptions
         return decorators.circuit_breaker(
             backend=self,
             errors_rate=errors_rate,
             period=ttl_to_seconds(period),
             ttl=ttl_to_seconds(ttl),
-            exceptions=exceptions,
+            half_open_ttl=ttl_to_seconds(half_open_ttl),
+            exceptions=_exceptions,
             key=key,
             prefix=prefix,
         )
@@ -503,8 +502,8 @@ class Cache(Backend):
         return decorators.rate_limit(
             backend=self,
             limit=limit,
-            period=ttl_to_seconds(period),
-            ttl=ttl_to_seconds(ttl),
+            period=period,
+            ttl=ttl,
             action=action,
             prefix=prefix,
         )
@@ -518,7 +517,7 @@ class Cache(Backend):
     ):
         return decorators.locked(
             backend=self,
-            ttl=ttl_to_seconds(ttl),
+            ttl=ttl,
             key=key,
             step=step,
             prefix=prefix,
@@ -526,19 +525,16 @@ class Cache(Backend):
 
     def bloom(
         self,
+        *,
+        capacity: int,
         name: Optional[str] = None,
-        index_size: Optional[int] = None,
-        number_of_hashes: Optional[int] = None,
         false_positives: Optional[Union[float, int]] = 1,
-        capacity: Optional[int] = None,
         check_false_positive: bool = True,
         prefix: str = "bloom",
     ):
         return decorators.bloom(
             backend=self,
             name=name,
-            index_size=index_size,
-            number_of_hashes=number_of_hashes,
             false_positives=false_positives,
             capacity=capacity,
             check_false_positive=check_false_positive,
@@ -547,19 +543,16 @@ class Cache(Backend):
 
     def dual_bloom(
         self,
+        *,
+        capacity: int,
         name: Optional[str] = None,
-        index_size: Optional[int] = None,
-        number_of_hashes: Optional[int] = None,
         false: Optional[Union[float, int]] = 1,
         no_collisions: bool = False,
-        capacity: Optional[int] = None,
         prefix: str = "dual_bloom",
     ):
         return decorators.dual_bloom(
             backend=self,
             name=name,
-            index_size=index_size,
-            number_of_hashes=number_of_hashes,
             false=false,
             no_collisions=no_collisions,
             capacity=capacity,

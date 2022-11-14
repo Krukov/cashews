@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from cashews.backends.interface import Backend
 
 
@@ -30,19 +30,10 @@ def redis_dsn():
 
 @pytest.fixture
 def backend_factory():
-    backend = None
-
     async def factory(backend_cls: type[Backend], *args, **kwargs):
-        nonlocal backend
-
         backend = backend_cls(*args, **kwargs)
         await backend.init()
         await backend.clear()
-
         return backend
 
-    try:
-        yield factory
-    finally:
-        assert backend is not None, "Fixture `backend_factory` wasn't called."
-        backend.close()
+    return factory

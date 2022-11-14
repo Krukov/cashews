@@ -3,9 +3,9 @@ from unittest.mock import Mock, PropertyMock
 
 import pytest
 
-from cashews._cache_condition import NOT_NONE
 from cashews.backends.memory import Memory
-from cashews.disable_control import ControlMixin
+from cashews.cache_condition import NOT_NONE
+from cashews.exceptions import NotConfiguredError
 from cashews.formatter import get_templates_for_func
 from cashews.wrapper import Cache, _create_auto_init
 
@@ -14,37 +14,14 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(name="target")
 def _target():
-    class New(ControlMixin, Memory):
-        pass
-
-    return Mock(wraps=New())
+    return Mock(wraps=Memory())
 
 
 @pytest.fixture(name="cache")
 def __cache(target):
     _cache = Cache()
-    _cache._add_backend(Memory)
-    _cache._backends[""] = (target, _cache._backends[""][1])
+    _cache._add_backend(target)
     return _cache
-
-
-async def test_init_disable(cache):
-    await cache.init("mem://localhost?disable=1")
-    assert cache.is_disable()
-
-
-async def test_prefix(cache):
-    await cache.init("mem://localhost")
-    await cache.init("://", prefix="-")
-    assert not cache.is_disable()
-    assert cache.is_disable(prefix="-")
-
-    await cache.set("key", "value")
-    await cache.set("-:key", "-value")
-
-    assert await cache.get("key") == "value"
-    assert await cache.get("-:key") is None
-    assert await cache.get("-:key", default="def") == "def"
 
 
 async def test_prefix_many(cache):
@@ -58,122 +35,6 @@ async def test_prefix_many(cache):
     assert await cache.get("-:key") == "-value"
 
     assert await cache.get_many("key", "-:key") == ("value", "-value")
-
-
-async def test_disable_cmd(cache):
-    await cache.init("mem://localhost")
-    cache.disable("incr")
-    await cache.set("test", 10)
-    await cache.incr("test")
-    assert await cache.get("test") == 10
-
-    cache.enable("incr")
-    await cache.incr("test")
-    assert await cache.get("test") == 11
-
-
-async def test_disable_ctz(cache):
-    await cache.init("mem://localhost")
-    cache.enable()
-
-    async def test():
-        await cache.set("test", "1")
-        assert await cache.get("test") == "1"
-        cache.disable("set")
-        await cache.set("test", "2")
-
-    await asyncio.create_task(test())
-    assert await cache.get("test") == "1"
-    await cache.set("test", "3")
-    assert await cache.get("test") == "3"
-
-
-async def test_disable_decorators(cache: Cache, target):
-    cache.disable()
-    data = (i for i in range(10))
-
-    @cache(ttl=1)
-    @cache.soft(ttl=1)
-    @cache.failover(ttl=1)
-    @cache.hit(ttl=1, cache_hits=1)
-    @cache.circuit_breaker(ttl=1, errors_rate=1, period=1)
-    @cache.rate_limit(ttl=1, limit=1, period=1)
-    @cache.early(ttl=1)
-    @cache.dynamic()
-    @cache.locked(ttl=1)
-    async def func():
-        return next(data)
-
-    assert await func() == 0
-    assert await func() == 1
-    target.get.assert_not_called()
-    target.set.assert_not_called()
-
-    cache.enable()
-    assert await func() == 2
-    assert await func() == 2
-
-
-async def test_disable_bloom(cache: Cache, target):
-    cache.disable()
-
-    @cache.bloom(index_size=10, number_of_hashes=1)
-    async def func():
-        return True
-
-    await func.set()
-    assert await func()
-    target.incr_bits.assert_not_called()
-    target.get_bits.assert_not_called()
-
-    cache.enable()
-    await func.set()
-    assert await func()
-    target.incr_bits.assert_called()
-    target.get_bits.assert_called()
-
-
-async def test_disable_decorators_get(cache: Cache):
-    data = (i for i in range(10))
-    await cache.init("mem://localhost")
-
-    @cache(ttl=1)
-    async def func():
-        return next(data)
-
-    assert cache.is_enable()
-    assert cache.is_enable("set", prefix="cache")
-    assert cache.is_enable("get", prefix="cache")
-    assert cache.is_enable("set", prefix="")
-    assert await func() == 0
-    assert await func() == 0
-
-    cache.disable("get")
-
-    assert not cache.is_enable("get")
-    assert cache.is_enable("set")
-
-    assert await func() == 1
-    assert await func() == 2
-
-    cache.enable("get")
-    assert await func() == 2
-
-
-async def test_disable_decorators_set(cache: Cache):
-    data = (i for i in range(10))
-    cache.disable("set")
-
-    @cache(ttl=1)
-    async def func():
-        return next(data)
-
-    assert await func() == 0
-    assert await func() == 1
-
-    cache.enable("set")
-    assert await func() == 2
-    assert await func() == 2
 
 
 async def test_init(cache):
@@ -200,15 +61,21 @@ async def test_auto_init(cache):
     target.init.assert_called_once()
 
 
-async def test_smoke_cmds(cache: Cache, target):
+async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
     target.set.assert_called_once_with(key="key", value={"any": True}, expire=60, exist=None)
+
+    await cache.set_raw(key="key2", value={"any": True}, expire=60, exist=None)
+    target.set_raw.assert_called_once_with(key="key2", value={"any": True}, expire=60, exist=None)
 
     await cache.get("key")  # -> Any
     target.get.assert_called_once_with(key="key", default=None)
 
+    await cache.get_raw("key")  # -> Any
+    target.get_raw.assert_called_once_with(key="key")
+
     await cache.set_many({"key1": "value1", "key2": "value2"}, expire=60)
-    target.set_many.assert_called_once_with({"key1": "value1", "key2": "value2"}, expire=60)
+    target.set_many.assert_called_once_with(pairs={"key1": "value1", "key2": "value2"}, expire=60)
 
     await cache.get_many("key1", "key2")
     target.get_many.assert_called_once_with("key1", "key2", default=None)
@@ -218,6 +85,12 @@ async def test_smoke_cmds(cache: Cache, target):
 
     await cache.delete("key")
     target.delete.assert_called_once_with(key="key")
+
+    await cache.delete_match("key*")
+    target.delete_match.assert_called_once_with(pattern="key*")
+
+    await cache.delete_many("key", "key2")
+    target.delete_many.assert_called_once_with("key", "key2")
 
     await cache.expire(key="key", timeout=10)
     target.expire.assert_called_once_with(key="key", timeout=10)
@@ -249,11 +122,15 @@ async def test_smoke_cmds(cache: Cache, target):
     await cache.incr_bits("key", 1, 2, 3, size=2)
     target.incr_bits.assert_called_once_with("key", 1, 2, 3, size=2, by=1)
 
-    [key async for key in cache.keys_match("key:*")]
-    target.keys_match.assert_called_once_with("key:*")
+    await cache.set("key", "value")
+    assert [key async for key in cache.scan("key*")] == ["key"]
+    target.scan.assert_called_once_with("key*", batch_size=100)
 
-    [key_value async for key_value in cache.get_match("key:*")]
-    target.get_match.assert_called_once_with("key:*", batch_size=100, default=None)
+    assert [key_value async for key_value in cache.get_match("key*")] == [("key", "value")]
+    target.get_match.assert_called_once_with("key*", batch_size=100)
+
+    await cache.get_size("key")
+    target.get_size.assert_called_once_with(key="key")
 
 
 async def test_disable_cache_on_fail_return(cache: Cache):
@@ -384,3 +261,10 @@ async def test_cache_simple_not_none(cache: Cache):
 
     assert await func() is None
     assert mock.call_count == 2
+
+
+async def test_no_setup():
+    cache = Cache()
+
+    with pytest.raises(NotConfiguredError):
+        await cache.get("test")

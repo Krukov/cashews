@@ -1,21 +1,23 @@
 from functools import wraps
 from typing import Optional, Union
 
-from ..backends.interface import Backend
+from .._typing import TTL, AsyncCallable_T, Decorator
+from ..backends.interface import _BackendInterface
 from ..exceptions import LockedError
 from ..key import get_cache_key, get_cache_key_template
+from ..ttl import ttl_to_seconds
 
 __all__ = ("locked",)
 
 
 def locked(
-    backend: Backend,
+    backend: _BackendInterface,
     key: Optional[str] = None,
-    ttl: Optional[int] = None,
+    ttl: Optional[TTL] = None,
     max_lock_ttl: int = 10,
     step: Union[float, int] = 0.1,
     prefix: str = "lock",
-):
+) -> Decorator:
     """
     Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
     Lock following function calls till first one will be finished
@@ -24,21 +26,23 @@ def locked(
     :param backend: cache backend
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param ttl: duration to lock wrapped function call
-    :param max_lock_ttl: custom prefix for key, default 'lock'
+    :param max_lock_ttl: default ttl if it not set
+    :param step: duration between lock check
     :param prefix: custom prefix for key, default 'lock'
     """
 
-    def _decor(func):
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             try:
-                async with backend.lock(_cache_key, ttl or max_lock_ttl):
+                async with backend.lock(_cache_key, _ttl or max_lock_ttl):
                     return await func(*args, **kwargs)
             except LockedError:
-                if not await backend.is_locked(_cache_key, wait=ttl, step=step):
+                if not await backend.is_locked(_cache_key, wait=_ttl, step=step):
                     return await func(*args, **kwargs)
                 raise
 

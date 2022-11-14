@@ -2,24 +2,25 @@ import asyncio
 from functools import wraps
 from typing import Optional
 
-from ..._typing import CallableCacheCondition
-from ...backends.interface import Backend
+from ..._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
+from ...backends.interface import _BackendInterface
 from ...formatter import register_template
 from ...key import get_cache_key, get_cache_key_template
-from .defaults import CacheDetect, _empty, context_cache_detect
+from ...ttl import ttl_to_seconds
+from .defaults import _empty, context_cache_detect
 
 __all__ = ("hit",)
 
 
 def hit(
-    backend: Backend,
-    ttl: int,
+    backend: _BackendInterface,
+    ttl: TTL,
     cache_hits: int,
     update_after: Optional[int] = None,
     key: Optional[str] = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "hit",
-):
+) -> Decorator:
     """
     Cache call results and drop cache after given numbers of call 'cache_hits'
     :param backend: cache backend
@@ -31,32 +32,33 @@ def hit(
     :param prefix: custom prefix for key, default 'hit'
     """
 
-    def _decor(func):
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 
         @wraps(func)
-        async def _wrap(*args, _from_cache: CacheDetect = context_cache_detect, **kwargs):
+        async def _wrap(*args, **kwargs):
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
+
             result, hits = await asyncio.gather(
                 backend.get(_cache_key, default=_empty),
                 backend.incr(_cache_key + ":counter"),
             )
             if hits == 1:
-                asyncio.create_task(backend.expire(_cache_key + ":counter", ttl))
+                asyncio.create_task(backend.expire(_cache_key + ":counter", _ttl))
             if result is not _empty and hits and hits <= cache_hits:
-                _from_cache._set(
+                context_cache_detect._set(
                     _cache_key,
-                    ttl=ttl,
+                    ttl=_ttl,
                     cache_hits=cache_hits,
                     name="hit",
-                    backend=backend.name,
                     template=_key_template,
                 )
                 if update_after and hits == update_after:
-                    asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, ttl, condition))
+                    asyncio.create_task(_get_and_save(func, args, kwargs, backend, _cache_key, _ttl, condition))
                 return result
-            return await _get_and_save(func, args, kwargs, backend, _cache_key, ttl, condition)
+            return await _get_and_save(func, args, kwargs, backend, _cache_key, _ttl, condition)
 
         return _wrap
 
