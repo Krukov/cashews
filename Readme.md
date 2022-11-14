@@ -1,12 +1,12 @@
 <h1 align="center">🥔 CASHEWS 🥔</h1>
 
 <p align="center">
-    <em>Async cache utils with simple API to build fast and reliable applications</em>
+    <em>Async cache framework with simple API to build fast and reliable applications</em>
 </p>
 
 ```bash
 pip install cashews
-pip install cashews[redis]  # Aioredis is now in redis-py 4.2.0rc1+
+pip install cashews[redis]
 pip install cashews[diskcache]
 pip install cashews[dill] # can cache in redis more types of objects
 pip install cashews[speedup] # for bloom filters
@@ -89,7 +89,7 @@ cache = Cache()
 cache.setup(...)
 ```
 
-Optionally, you can disable cache with `disable`/`enable` parameter:
+Optionally, you can disable cache with `disable`/`enable` parameter (see [Disable Cache](#disable-cache)):
 
 ```python
 cache.setup("redis://redis/0?enable=1")
@@ -122,7 +122,6 @@ cache.setup("mem://?check_interval=10&size=10000")
 #### Redis
 
 _Requires [redis](https://github.com/redis/redis-py) package._\
-_Note: If you must support a legacy code that uses `aioredis`, then install [aioredis](https://github.com/aio-libs/aioredis-py) instead._
 
 This will use Redis as a storage.
 
@@ -130,7 +129,9 @@ This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module
 values, but the cashes can store values with sha1-keyed hash.
 
 Use `hash_key` and `digestmod` parameter to protect your application from security vulnerabilities.
+
 The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`
+
 The `hash_key` is a salt for a hash - it can be a secret string.
 
 Pickle can't serialize any type of objects. In case you need to store more complex types
@@ -142,6 +143,7 @@ If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/1
 Any connections errors are suppressed, to disable it use `safe=False` - a `CacheBackendInteractionError` will be raised
 
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
+
 Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
 
 ```python
