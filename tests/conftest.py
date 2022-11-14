@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import os
 from typing import TYPE_CHECKING
 
@@ -31,20 +30,10 @@ def redis_dsn():
 
 @pytest.fixture
 def backend_factory():
-    backend = None
-
     async def factory(backend_cls: type[Backend], *args, **kwargs):
-        nonlocal backend
-
         backend = backend_cls(*args, **kwargs)
         await backend.init()
         await backend.clear()
-        await asyncio.sleep(0.001)
-
         return backend
 
-    try:
-        yield factory
-    finally:
-        if backend is not None:
-            backend.close()
+    return factory

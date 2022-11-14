@@ -31,8 +31,9 @@ class DiskCache(Backend):
     def is_init(self) -> bool:
         return self.__is_init
 
-    def close(self):
+    async def close(self):
         self._cache.close()
+        self.__is_init = False
 
     async def set(
         self,

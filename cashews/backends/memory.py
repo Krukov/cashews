@@ -2,6 +2,7 @@ import asyncio
 import re
 import time
 from collections import OrderedDict
+from contextlib import suppress
 from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 from cashews.utils import Bitarray, get_obj_size
@@ -40,7 +41,8 @@ class Memory(Backend):
         while not self.__remove_expired_stop.is_set():
             for key in dict(self.store):
                 await self.get(key)
-            await asyncio.sleep(self._check_interval)
+            with suppress(TimeoutError):
+                await asyncio.wait_for(self.__remove_expired_stop.wait(), self._check_interval)
 
     async def clear(self):
         self.store = OrderedDict()
@@ -185,9 +187,9 @@ class Memory(Backend):
             return get_obj_size(self.store[key])
         return 0
 
-    def close(self):
+    async def close(self):
         self.__remove_expired_stop.set()
         if self.__remove_expired_task:
-            self.__remove_expired_task.cancel()
+            await self.__remove_expired_task
             self.__remove_expired_task = None
-        super().close()
+        self.__is_init = False

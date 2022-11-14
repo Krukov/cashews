@@ -204,6 +204,6 @@ class _Redis(Backend):
     async def get_raw(self, key: str) -> Any:
         return await self._client.get(key)
 
-    def close(self):
-        self._client = None
+    async def close(self):
+        await self._client.close()
         self.__is_init = False

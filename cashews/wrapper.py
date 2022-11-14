@@ -254,9 +254,9 @@ class Cache(_BackendInterface):
         for backend, _ in self._backends.values():
             await self._with_middlewares_for_backend(Command.CLEAR, backend, self._default_middlewares)()
 
-    def close(self):
+    async def close(self):
         for backend, _ in self._backends.values():
-            backend.close()
+            await backend.close()
 
     async def is_locked(
         self,

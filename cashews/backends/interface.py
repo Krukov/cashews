@@ -18,7 +18,7 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def close(self):
+    async def close(self):
         ...
 
     @abstractmethod

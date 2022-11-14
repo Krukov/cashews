@@ -59,10 +59,12 @@ class BcastClientSide(Redis):
         self._recently_update = Memory(size=500, check_interval=5)
         self._listen_task = None
         self._listen_started = asyncio.Event()
+        self.__listen_stop = asyncio.Event()
         super().__init__(*args, **kwargs)
 
     async def init(self):
         self._listen_started = asyncio.Event()
+        self.__listen_stop = asyncio.Event()
         await self._local_cache.init()
         await self._recently_update.init()
         await super().init()
@@ -87,7 +89,7 @@ class BcastClientSide(Redis):
         return self._prefix + key
 
     async def _listen_invalidate_forever(self):
-        while True:
+        while not self.__listen_stop.is_set():
             try:
                 await self._listen_invalidate()
             except (RedisConnectionError, ConnectionRefusedError):
@@ -113,7 +115,7 @@ class BcastClientSide(Redis):
         channel = await self._get_channel()
         self._listen_started.set()
         await self._local_cache.clear()
-        while True:
+        while not self.__listen_stop.is_set():
             message = await channel.get_message(ignore_subscribe_messages=True, timeout=0.1)
             if message is None or "data" not in message:
                 continue
@@ -198,8 +200,9 @@ class BcastClientSide(Redis):
 
     async def incr(self, key: str) -> int:
         value = await super().incr(self._add_prefix(key))
-        await self._local_cache.set(key, value)
-        await self._mark_as_recently_updated(key)
+        if value:
+            await self._local_cache.set(key, value)
+            await self._mark_as_recently_updated(key)
         return value
 
     async def delete(self, key: str) -> bool:
@@ -260,10 +263,11 @@ class BcastClientSide(Redis):
         await self._local_cache.clear()
         return await super().clear()
 
-    def close(self):
+    async def close(self):
+        self.__listen_stop.set()
         if self._listen_task is not None:
-            self._listen_task.cancel()
+            await self._listen_task
             self._listen_task = None
-        self._local_cache.close()
-        self._recently_update.close()
-        super().close()
+        await self._local_cache.close()
+        await self._recently_update.close()
+        await super().close()

@@ -214,6 +214,8 @@ async with cache.lock("key", expire=10):
     ...
 await cache.set_lock("key", value="value", expire=60)  # -> bool
 await cache.unlock("key", "value")  # -> bool
+
+await cache.close()
 ```
 
 ### Disable Cache
@@ -373,8 +375,8 @@ Bloom filter
 ```python
 from cashews import cache
 
-@cache.bloom(name="emails:{email}", capacity=10_000, false_positives=1)
-async def email_exists(email):
+@cache.bloom(capacity=10_000, false_positives=1)
+async def email_exists(email: str) -> bool:
     ...
 
 for email in all_users_emails:
