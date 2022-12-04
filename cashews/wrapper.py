@@ -208,7 +208,7 @@ class Cache(_BackendInterface):
     async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         return await self._with_middlewares(Command.GET_BITS, key)(key, *indexes, size=size)
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1):
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         return await self._with_middlewares(Command.INCR_BITS, key)(key, *indexes, size=size, by=by)
 
     async def incr(self, key: str) -> int:
@@ -231,19 +231,19 @@ class Cache(_BackendInterface):
     async def expire(self, key: str, timeout: TTL):
         return await self._with_middlewares(Command.EXPIRE, key)(key=key, timeout=ttl_to_seconds(timeout))
 
-    async def get_expire(self, key: str):
+    async def get_expire(self, key: str) -> int:
         return await self._with_middlewares(Command.GET_EXPIRE, key)(key=key)
 
-    async def exists(self, key: str):
+    async def exists(self, key: str) -> bool:
         return await self._with_middlewares(Command.EXIST, key)(key=key)
 
-    async def set_lock(self, key: str, value: Any, expire: TTL):
+    async def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
         return await self._with_middlewares(Command.SET_LOCK, key)(key=key, value=value, expire=ttl_to_seconds(expire))
 
-    async def unlock(self, key: str, value: str):
+    async def unlock(self, key: str, value: str) -> bool:
         return await self._with_middlewares(Command.UNLOCK, key)(key=key, value=value)
 
-    async def get_size(self, key: str):
+    async def get_size(self, key: str) -> int:
         return await self._with_middlewares(Command.GET_SIZE, key)(key=key)
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:

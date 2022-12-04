@@ -44,33 +44,31 @@ class PickleSerializerMixin:
     async def get(self, key: str, default: Any = None):
         return await self._serialize_value(await super().get(key), key, default=default)
 
-    async def _serialize_value(self, value, key, default=None) -> Any:
-        try:
-            return self._process_value(value, key, default=default)
-        except (self._pickler.PickleError, AttributeError):
-            return default
-
-    def _process_value(self, value: Union[None, int, bytes], key: str, default=None) -> Any:
+    async def _serialize_value(self, value: Union[None, int, bytes], key: str, default=None) -> Any:
         if value is None:
             return default
         if isinstance(value, int):
             return value
         if value.isdigit():
             return int(value)
+        try:
+            return self._process_value(value, key, default=default)
+        except (self._pickler.PickleError, AttributeError):
+            return default
 
+    def _process_value(self, value: bytes, key: str, default=None) -> Any:
         if not self._hash_key:
             try:
-                value = self._pickler.loads(value)
+                return self._process_only_value(value)
             except self._pickler.PickleError:
                 pass
-            else:
-                if self._check_repr:
-                    repr(value)
-                return value
         try:
             value = self._get_value_without_signature(value, key)
         except SignIsMissingError:
             return default
+        return self._process_only_value(value)
+
+    def _process_only_value(self, value: bytes) -> Any:
         value = self._pickler.loads(value)
         if self._check_repr:
             repr(value)

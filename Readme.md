@@ -255,8 +255,9 @@ This is typical cache strategy: execute, store and return from cache until it ex
 
 ```python
 from datetime import timedelta
-
 from cashews import cache
+
+cache.setup("mem://")
 
 @cache(ttl=timedelta(hours=3), key="user:{request.user.uid}")
 async def long_running_function(request):
@@ -269,7 +270,9 @@ Return cache result, if one of the given exceptions is raised (at least one func
 call should be succeed prior that).
 
 ```python
-from cashews import cache  # or: from cashews import failover
+from cashews import cache
+
+cache.setup("mem://")
 
 # note: the key will be "__module__.get_status:name:{name}"
 @cache.failover(ttl="2h", exceptions=(ValueError, MyException))
@@ -289,7 +292,9 @@ cache.set_default_fail_exceptions(ValueError, MyException)
 Expire cache after given numbers of call `cache_hits`.
 
 ```python
-from cashews import cache  # or: from cashews import hit
+from cashews import cache
+
+cache.setup("mem://")
 
 @cache.hit(ttl="2h", cache_hits=100, update_after=2)
 async def get(name):
@@ -319,6 +324,8 @@ Like a simple cache, but with a fail protection base on soft ttl.
 ```python
 from cashews import cache
 
+cache.setup("mem://")
+
 # if you call this function after 7 min, cache will be updated and return a new result.
 # If it fail on recalculation will return current cached value (if it not more then 10 min old)
 @cache.soft(ttl="10m", soft_ttl="7m")
@@ -337,7 +344,9 @@ This guarantees exactly one function call for given ttl.
 > To do so you can combine this decorator with any cache decorator or use parameter `lock=True` with `@cache()`
 
 ```python
-from cashews import cache  # or: from cashews import locked
+from cashews import cache
+
+cache.setup("mem://")
 
 @cache.locked(ttl="10m")
 async def get(name):
@@ -350,7 +359,9 @@ async def get(name):
 Rate limit for a function call - do not call a function if rate limit is reached
 
 ```python
-from cashews import cache  # or: from cashews import rate_limit
+from cashews import cache
+
+cache.setup("mem://")
 
 # no more than 10 calls per minute or ban for 10 minutes
 @cache.rate_limit(limit=10, period=timedelta(minutes=1), ttl=timedelta(minutes=10))
@@ -363,7 +374,9 @@ async def get(name):
 Circuit breaker
 
 ```python
-from cashews import cache  # or: from cashews import circuit_breaker
+from cashews import cache
+
+cache.setup("mem://")
 
 @cache.circuit_breaker(errors_rate=10, period="1m", ttl="5m")
 async def get(name):
@@ -376,6 +389,8 @@ Bloom filter
 
 ```python
 from cashews import cache
+
+cache.setup("mem://")
 
 @cache.bloom(capacity=10_000, false_positives=1)
 async def email_exists(email: str) -> bool:
@@ -398,6 +413,8 @@ Caching decorators have parameter `condition`, that can be:
 ```python
 from cashews import cache, NOT_NONE
 
+cache.setup("mem://")
+
 @cache(ttl="1h", condition=NOT_NONE)
 async def get():
     ...
@@ -418,6 +435,8 @@ of getting a result of function call to be cached.
 ```python
 from cashews import cache
 
+cache.setup("mem://")
+
 @cache(ttl="1h", time_condition="3s")  # to cache for 1 hour if execution takes more than 3 seconds
 async def get():
     ...
@@ -430,6 +449,8 @@ By default, Cashews will generate a key using the function name, module names an
 
 ```python
 from cashews import cache
+
+cache.setup("mem://")
 
 @cache(ttl=timedelta(hours=3))
 async def get_name(user, *args, version="v1", **kwargs):
@@ -449,6 +470,8 @@ The same with a class method
 
 ```python
 from cashews import cache
+
+cache.setup("mem://")
 
 class MyClass:
 
@@ -498,6 +521,8 @@ await MyClass(host="http://example.com").get_name("me", version="v2")
 ```python
 from cashews import cache, noself, noself_cache
 
+cache.setup("mem://")
+
 class MyClass:
 
     @noself(cache)(ttl="2h")
@@ -517,6 +542,10 @@ Sometimes you may need to format the parameters or define your
 own template for the key and Cashews allows you to do this:
 
 ```python
+from cashews import default_formatter, cache
+
+cache.setup("mem://")
+
 @cache.failover(key="name:{user.uid}")
 async def get_name(user, version="v1"):
     ...
@@ -528,10 +557,9 @@ await get_name(user, version="v2")
 async def get_name(token):
     ...
 
-await get_name(token)
+await get_name(".....")
 # a key will be "new:user:alex"
 
-from cashews import default_formatter, cache
 
 @default_formatter.register("upper")
 def _upper(value):
@@ -565,6 +593,8 @@ Examples:
 from cashews import cache
 from datetime import timedelta
 
+cache.setup("mem://")
+
 @cache(ttl=60 * 10)
 async def get(item_id: int) -> Item:
     pass
@@ -596,6 +626,8 @@ Consider this example:
 from datetime import timedelta
 
 from cashews import cache
+
+cache.setup("mem://")
 
 @cache(ttl=timedelta(days=1))
 async def user_items(user_id, fresh=False):
@@ -668,6 +700,8 @@ from dataclasses import dataclass
 
 from cashews import cache
 
+cache.setup("mem://")
+
 @dataclass
 class User:
     name: str
@@ -684,7 +718,7 @@ class User:
         return f"{self.name} {self.surname}"
 
 # Will detect changes of a structure
-@cache(ttl=timedelta(days=1), prefix="v2")
+@cache(ttl="1d", prefix="v2")
 async def get_user(user_id):
     return User("Dima", "Krykov")
 ```
@@ -694,14 +728,15 @@ async def get_user(user_id):
 Decorators give us a very simple API but also make it difficult to understand where
 result is coming from - cache or direct call.
 
-To solve this problem `cashews` has `cache_detect` context manager:
+To solve this problem `cashews` has `detect` context manager:
 
 ```python
-from cashews import cache_detect
+from cashews import cache
 
-with cache_detect as detector:
+with cache.detect as detector:
     response = await something_that_use_cache()
     keys = detector.get()
+
 print(keys)
 # >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": 10, "exc": RateLimit}, "name": "fail", "backend": "mem"],}
 ```
@@ -711,7 +746,7 @@ E.g. A simple middleware to use it in a web app:
 ```python
 @app.middleware("http")
 async def add_from_cache_headers(request: Request, call_next):
-    with cache_detect as detector:
+    with cache.detect as detector:
         response = await call_next(request)
         if detector.keys:
             key = list(detector.keys.keys())[0]

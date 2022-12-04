@@ -1,34 +1,22 @@
 import asyncio
+import os
 import random
 import string
 import time
-from datetime import timedelta
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 
-from cashews import Cache, Command, LockedError, RateLimitError, cache, context_cache_detect, mem, utils  # noqa: F401
+from cashews import Command, cache
 
 app = FastAPI()
-cache.setup("redis://", client_side=True)
+cache.setup(os.environ.get("CACHE_URI", "redis://?client_side=True"))
 
 
 @app.get("/")
-@cache(ttl=timedelta(minutes=1))
-async def simple():
-    await asyncio.sleep(1)
-    return "".join([random.choice(string.ascii_letters) for _ in range(10)])
-
-
-@app.get("/early")
-@cache.early(ttl=timedelta(minutes=5), early_ttl=timedelta(minutes=1))
-async def early():
-    await asyncio.sleep(1)
-    return "".join([random.choice(string.ascii_letters) for _ in range(10)])
-
-
-@app.get("/hit")
-@cache.hit(ttl=timedelta(minutes=1), cache_hits=100, update_after=80)
-async def hit():
+@cache.failover(ttl="1h")
+@cache.rate_limit(10, "1m")
+@cache(ttl="10m", key="simple:{user_agent}", time_condition="1s")
+async def simple(user_agent: str = Header("No")):
     await asyncio.sleep(1)
     return "".join([random.choice(string.ascii_letters) for _ in range(10)])
 

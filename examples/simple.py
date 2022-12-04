@@ -1,53 +1,41 @@
 import asyncio
-from datetime import timedelta  # noqa: F401
 from decimal import Decimal
 
-from cashews import CacheDetect, add_prefix, cache, context_cache_detect  # noqa: F401
+from cashews import Command, add_prefix, all_keys_lower, cache  # noqa: F401
+
+cache.setup("redis://0.0.0.0/2?hash_key=s3243fedg", middlewares=(add_prefix("test:"), all_keys_lower()))
 
 
-async def main():
+async def basic():
     await cache.clear()
 
-    @cache(ttl=1000)
-    async def test(key):
-        return await cache.incr(key), Decimal(10), b"d"
+    await cache.set("key1", value={"any": True}, expire="1m")
 
-    with context_cache_detect as detect:
-        assert not detect.keys
-        print(await cache.incr("key"), "== 1")
-        print(await test("key"), "== 2")
-        await asyncio.sleep(0)
-        print(detect.keys)
-        print(await test("key"), "== 2")
-        print(detect.keys)
-    detect.clear()
+    await cache.set_many({"key2": "test", "key3": Decimal("10.1")}, expire="1m")
+    print("Get: ", await cache.get("key1"))  # -> Any
 
-    print(await test("key"), "== 2")
-    print(detect.keys)
+    async for key in cache.scan("key*"):
+        print("Scan:", key)  # -> Any
 
-    with cache.disabling("get", "set"):
-        print(await test("key"), "disable")
-    print(await test("key"), "from cache 2")
+    async for key, value in cache.get_match("key*"):
+        print("Get match:", key, value)  # -> Any
 
-    # test.disable()
-    print(await test.direct("key"))
+    print("Get many:", await cache.get_many("key2", "key3"))  # -> Any
+    print("Incr:", await cache.incr("inr_key"))  # -> int
 
-    # # return
-    # async with cache.lock("lock", expire=10):
-    #     await cache.clear()
-    #     await cache.set("key", value={"any": True}, expire=timedelta(minutes=1))  # -> bool
-    #     await cache.get("key")  # -> Any
-    #     await cache.incr("inr_key")  # -> int
-    #     await cache.expire("key", timeout=timedelta(hours=10))
-    #     await cache.delete("key")
-    #     print(await cache.ping())  # -> bytes
-    #
-    # await cache.set_lock("key", value="value", expire=60)  # -> bool
-    # print(await cache.is_locked("key", wait=10, step=1))  # -> bool
-    # await cache.unlock("key", "value")  # -> bool
+    await cache.expire("key1", timeout="1h")
+    print("Expire: ", await cache.get_expire("key1"))
+
+    await cache.delete("key1")
+    await cache.delete_many("key2", "key3")
+
+    async with cache.lock("lock", expire="1m"):
+        print("Locked: ", await cache.is_locked("lock"))
+
+    print("Ping: ", await cache.ping())  # -> bytes
+
+    await cache.close()
 
 
 if __name__ == "__main__":
-    # cache.setup("mem://", hooks=[prefix])
-    cache.setup("redis://0.0.0.0/2?hash_key=s3243fedg", middlewares=(add_prefix("test:"),))
-    asyncio.run(main())
+    asyncio.run(basic())
