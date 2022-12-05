@@ -341,7 +341,7 @@ Lock following function calls until the first one will be finished.
 This guarantees exactly one function call for given ttl.
 
 > :warning: \*\*Warning: this decorator will not cache the result
-> To do so you can combine this decorator with any cache decorator or use parameter `lock=True` with `@cache()`
+> To do it you can combine this decorator with any cache decorator or use parameter `lock=True` with `@cache()`
 
 ```python
 from cashews import cache
@@ -356,36 +356,59 @@ async def get(name):
 
 #### Rate limit
 
-Rate limit for a function call - do not call a function if rate limit is reached
+Rate limit for a function call: if rate limit is reached raise an `RateLimitError` exception.
+
+> :warning: \*\*Warning: this decorator will not cache the result
+> To do it you can combine this decorator with any cache failover decorator`
 
 ```python
-from cashews import cache
+from cashews import cache, RateLimitError
 
 cache.setup("mem://")
 
-# no more than 10 calls per minute or ban for 10 minutes
-@cache.rate_limit(limit=10, period=timedelta(minutes=1), ttl=timedelta(minutes=10))
+# no more than 10 calls per minute or ban for 10 minutes - raise RateLimitError
+@cache.rate_limit(limit=10, period="1m", ttl="10m")
 async def get(name):
     return {"status": value}
+
+
+
+# no more than 100 calls per 10 minute or ban for 1 minutes. if rate limit will rich -> return from cache
+@cache.failover(ttl="10m", exceptions=(RateLimitError, ))
+@cache.rate_limit(limit=100, period="10m", ttl="1m")
+async def get_next(name):
+    return {"status": value}
+
+
 ```
 
 #### Circuit breaker
 
-Circuit breaker
+Circuit breaker pattern. Count number of failed calls and if error rate rich specified value will raise `CircuitBreakerOpen` exception
+
+> :warning: \*\*Warning: this decorator will not cache the result
+> To do it you can combine this decorator with any cache failover decorator`
 
 ```python
-from cashews import cache
+from cashews import cache, CircuitBreakerOpen
 
 cache.setup("mem://")
 
 @cache.circuit_breaker(errors_rate=10, period="1m", ttl="5m")
 async def get(name):
     ...
+
+
+@cache.failover(ttl="10m", exceptions=(CircuitBreakerOpen, ))
+@cache.circuit_breaker(errors_rate=10, period="10m", ttl="5m", half_open_ttl="1m")
+async def get_next(name):
+    ...
+
 ```
 
 #### Bloom filter (experimental)
 
-Bloom filter
+Simple Bloom filter:
 
 ```python
 from cashews import cache
