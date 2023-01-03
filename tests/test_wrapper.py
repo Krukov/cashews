@@ -14,7 +14,7 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(name="target")
 def _target():
-    return Mock(wraps=Memory())
+    return Mock(wraps=Memory(), is_full_disable=False)
 
 
 @pytest.fixture(name="cache")
