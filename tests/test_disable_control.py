@@ -34,6 +34,39 @@ async def test_disable_cmd(cache):
     assert await cache.get("test") == 11
 
 
+async def test_is_disable():
+    cache = Cache()
+    await cache.init("mem://localhost")
+
+    assert not cache.is_disable()
+    assert not cache.is_disable(Command.GET)
+    assert not cache.is_full_disable
+
+    assert cache.is_enable()
+    assert cache.is_enable(Command.GET)
+
+    cache.disable(Command.GET)
+
+    assert cache.is_disable()
+    assert cache.is_disable(Command.GET)
+    assert not cache.is_disable(Command.SET)
+    assert not cache.is_full_disable
+
+    assert not cache.is_enable()
+    assert not cache.is_enable(Command.GET)
+    assert cache.is_enable(Command.SET)
+
+    cache.disable()
+    assert cache.is_disable()
+    assert cache.is_disable(Command.GET)
+    assert cache.is_disable(Command.SET)
+    assert cache.is_full_disable
+
+    assert not cache.is_enable()
+    assert not cache.is_enable(Command.GET)
+    assert not cache.is_enable(Command.SET)
+
+
 async def test_disable_context_manager(cache):
     await cache.init("mem://localhost")
     with cache.disabling(Command.INCR):
@@ -86,6 +119,7 @@ async def test_disable_ctz(cache):
 async def test_disable_decorators(cache: Cache, target):
     cache.disable()
     data = (i for i in range(10))
+    target.is_full_disable = False
 
     @cache(ttl=1)
     @cache.soft(ttl=1)
@@ -155,7 +189,9 @@ async def test_disable_decorators_get(cache: Cache):
     assert await func() == 2
 
 
-async def test_disable_decorator_set(cache: Cache):
+async def test_disable_decorator_set():
+    cache = Cache()
+    await cache.init("mem://")
     data = (i for i in range(10))
     cache.disable(Command.SET)
 
@@ -171,9 +207,13 @@ async def test_disable_decorator_set(cache: Cache):
     assert await func() == 2
 
 
-async def test_disable_and_get_enable(cache: Cache):
+async def test_disable_and_get_enable():
+    cache = Cache()
+    await cache.init("mem://")
     data = (i for i in range(10))
     cache.enable()
+    assert cache.is_enable()
+    assert not cache.is_full_disable
 
     @cache(ttl=1)
     async def func():

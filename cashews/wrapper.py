@@ -82,6 +82,11 @@ class Cache(_BackendInterface):
     def is_enable(self, *cmds: Command, prefix: str = ""):
         return not self.is_disable(*cmds, prefix=prefix)
 
+    @property
+    def is_full_disable(self):
+        b = [backend.is_full_disable for backend, _ in self._backends.values()]
+        return all(b)
+
     @lru_cache(maxsize=1000)
     def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Middleware, ...]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
@@ -282,6 +287,8 @@ class Cache(_BackendInterface):
 
             @wraps(func)
             async def _call(*args, **kwargs):
+                if self.is_full_disable:
+                    return await func(*args, **kwargs)
                 if lock:
                     _locked = decorators.locked(self, key=decor_kwargs.get("key"), ttl=decor_kwargs["ttl"])
                     return await _locked(decorator)(*args, **kwargs)
@@ -303,6 +310,8 @@ class Cache(_BackendInterface):
 
             @wraps(func)
             async def _call(*args, **kwargs):
+                if self.is_full_disable:
+                    return await func(*args, **kwargs)
                 with decorators.context_cache_detect as detect:
 
                     def new_condition(result, _args, _kwargs, key):

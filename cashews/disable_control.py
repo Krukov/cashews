@@ -39,6 +39,10 @@ class ControlMixin:
     def is_enable(self, *cmds: Command) -> bool:
         return not self.is_disable(*cmds)
 
+    @property
+    def is_full_disable(self):
+        return self._disable == ALL
+
     def disable(self, *cmds: Command) -> None:
         if not cmds:
             _disable = ALL.copy()
