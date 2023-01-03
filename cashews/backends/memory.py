@@ -41,7 +41,7 @@ class Memory(Backend):
         while not self.__remove_expired_stop.is_set():
             for key in dict(self.store):
                 await self.get(key)
-            with suppress(TimeoutError):
+            with suppress(asyncio.TimeoutError, TimeoutError):
                 await asyncio.wait_for(self.__remove_expired_stop.wait(), self._check_interval)
 
     async def clear(self):

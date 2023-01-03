@@ -34,6 +34,7 @@ def soft(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """
+    ttl = ttl_to_seconds(ttl)
 
     def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
@@ -41,7 +42,7 @@ def soft(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs)
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _soft_ttl = ttl_to_seconds(soft_ttl, *args, **kwargs) or _ttl * 0.33
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)

@@ -9,6 +9,8 @@ from ..key import get_cache_key, get_cache_key_template
 
 __all__ = ("circuit_breaker", "CircuitBreakerOpen")
 
+from ..ttl import ttl_to_seconds
+
 _SEGMENTS = 30
 
 
@@ -38,6 +40,9 @@ def circuit_breaker(
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param prefix: custom prefix for key, default "circuit_breaker"
     """
+    ttl = ttl_to_seconds(ttl)
+    period = ttl_to_seconds(period)
+    half_open_ttl = ttl_to_seconds(half_open_ttl)
     assert 0 < errors_rate < 100
 
     def _decor(func: AsyncCallable_T) -> AsyncCallable_T:

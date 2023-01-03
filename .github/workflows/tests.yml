@@ -22,7 +22,7 @@ jobs:
           - 6379:6379
 
     strategy:
-      max-parallel: 4
+      max-parallel: 5
       matrix:
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
