@@ -28,13 +28,15 @@ def cache(
     :param prefix: custom prefix for key
     """
 
+    ttl = ttl_to_seconds(ttl)
+
     def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs)
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:

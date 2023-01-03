@@ -4,13 +4,17 @@ from typing import Union
 from cashews._typing import TTL
 
 
-def ttl_to_seconds(ttl: Union[float, None, TTL], *args, **kwargs) -> Union[int, None, float]:
-    timeout = ttl(*args, **kwargs) if callable(ttl) else ttl
-    if isinstance(timeout, timedelta):
-        return timeout.total_seconds()
-    if isinstance(timeout, str):
-        return _ttl_from_str(timeout)
-    return timeout
+def ttl_to_seconds(ttl: Union[float, None, TTL], *args, with_callable=False, **kwargs) -> Union[int, None, float]:
+    _type = type(ttl)
+    if _type == int:
+        return ttl
+    if _type == timedelta:
+        return ttl.total_seconds()
+    if _type == str:
+        return _ttl_from_str(ttl)
+    if callable(ttl) and with_callable:
+        return ttl_to_seconds(ttl(*args, **kwargs))
+    return ttl
 
 
 _STR_TO_DELTA = {

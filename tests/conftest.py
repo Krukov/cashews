@@ -24,7 +24,7 @@ else:
 @pytest.fixture
 def redis_dsn():
     host = os.getenv("REDIS_HOST", "")
-    port = os.getenv("REDIS_PORT", "")
+    port = os.getenv("REDIS_PORT", "6379")
     return f"redis://{host}:{port}/"
 
 

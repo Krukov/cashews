@@ -8,13 +8,15 @@ from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
 _KWARGS = "__kwargs__"
 _ARGS = "__args__"
 _ARGS_KWARGS = (_ARGS, _KWARGS)
+Args = Tuple[Any, ...]
+Kwargs = Dict[str, Any]
 
 
 def get_cache_key(
     func: Callable,
     template: Optional[str] = None,
-    args: Tuple[Any, ...] = (),
-    kwargs: Optional[Dict] = None,
+    args: Args = (),
+    kwargs: Optional[Kwargs] = None,
 ) -> str:
     """
     Get cache key name for function (:param func) called with args and kwargs
@@ -31,7 +33,7 @@ def get_cache_key(
     return template_to_pattern(_key_template, _formatter=default_formatter, **key_values)
 
 
-def get_func_params(func):
+def get_func_params(func: Callable):
     signature = _get_func_signature(func)
     for param_name, param in signature.parameters.items():
         if param.kind == inspect.Parameter.VAR_KEYWORD:
@@ -42,6 +44,7 @@ def get_func_params(func):
             yield param_name
 
 
+@lru_cache(maxsize=10000)
 def get_cache_key_template(
     func: Callable, key: Optional[str] = None, prefix: str = "", exclude_parameters: Container = ()
 ) -> str:
@@ -73,7 +76,7 @@ def generate_key_template(func: Callable, exclude_parameters: Container = ()):
         from a key template (if key parameter not passed)
     :return: cache key template
     """
-    func_params = list(get_func_params(func))
+    func_params = tuple(get_func_params(func))
     key_template = f"{func.__module__}:{func.__name__}"
     if func_params and func_params[0] == "self":
         key_template = f"{func.__module__}:{func.__qualname__}"
@@ -109,7 +112,7 @@ def _check_key_params(key, func_params):
         raise WrongKeyError(f"Wrong parameter placeholder '{errors}' in the key ")
 
 
-def get_call_values(func: Callable, args, kwargs) -> Dict:
+def get_call_values(func: Callable, args: Args, kwargs: Kwargs) -> Dict:
     """
     Return dict with arguments and their values for function call with given positional and keywords arguments
     :param func: Target function
@@ -123,12 +126,20 @@ def get_call_values(func: Callable, args, kwargs) -> Dict:
     return key_values
 
 
-@lru_cache(maxsize=100)
-def _get_func_signature(func):
+@lru_cache(maxsize=1000)
+def _get_func_signature(func: Callable):
     return inspect.signature(func)
 
 
-def _get_call_values(func, args, kwargs):
+def _get_call_values(func: Callable, args: Args, kwargs: Kwargs):
+    if len(args) == 0:
+        _kwargs = {**kwargs}
+        for name, parameter in _get_func_signature(func).parameters.items():
+            if parameter.kind != inspect.Parameter.VAR_KEYWORD:
+                if name in _kwargs:
+                    del _kwargs[name]
+        return {**kwargs, _KWARGS: _kwargs}
+
     signature = _get_func_signature(func).bind(*args, **kwargs)
     signature.apply_defaults()
     result = {}
@@ -148,7 +159,7 @@ def noself(decor_func):
     def _decor(*args, **kwargs):
         def outer(method):
             if "key" not in kwargs:
-                kwargs["key"] = get_cache_key_template(method, exclude_parameters={"self"})
+                kwargs["key"] = get_cache_key_template(method, exclude_parameters=("self",))
             return decor_func(*args, **kwargs)(method)
 
         return outer

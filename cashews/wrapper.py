@@ -294,6 +294,7 @@ class Cache(_BackendInterface):
 
     def _wrap_with_condition(self, decorator_fabric, condition, lock=False, time_condition=None, **decor_kwargs):
         def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
+
             _condition = condition
             if time_condition is not None:
                 _condition, _decor = create_time_condition(time_condition)
@@ -312,11 +313,11 @@ class Cache(_BackendInterface):
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
                     if lock:
                         _locked = decorators.locked(self, key=decor_kwargs.get("key"), ttl=decor_kwargs["ttl"])
-                        result = await _locked(decorator(func))(*args, **kwargs)
+                        _result = await _locked(decorator(func))(*args, **kwargs)
                     else:
-                        result = await decorator(func)(*args, **kwargs)
+                        _result = await decorator(func)(*args, **kwargs)
 
-                return result
+                return _result
 
             return _call
 

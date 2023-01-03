@@ -21,10 +21,19 @@ def _get_decode_array(format_value):
 
 
 def _get_decoded_dict(format_value):
-    def _decode_dict(value: dict):
-        return ":".join(f"{k}:{format_value(v)}" for k, v in sorted(value.items()))
+    def _decode_dict(value: dict) -> str:
+        _kv = (k + ":" + format_value(v) for k, v in sorted(value.items()))
+        return ":".join(_kv)
 
     return _decode_dict
+
+
+def _decoded_bool(value: bool) -> str:
+    return str(value).lower()
+
+
+def _decode_direct(value: str) -> str:
+    return value
 
 
 class _ReplaceFormatter(Formatter):
@@ -32,7 +41,7 @@ class _ReplaceFormatter(Formatter):
         self.__default = default
         _decode_array = _get_decode_array(self._format_field)
         self.__type_format = {
-            bool: lambda value: str(value).lower(),
+            bool: _decoded_bool,
             bytes: _decode_bytes,
             tuple: _decode_array,
             list: _decode_array,
@@ -61,10 +70,12 @@ class _ReplaceFormatter(Formatter):
         if value is None:
             return ""
         _type = type(value)
+        if _type == str:
+            return value
         if _type in self.__type_format:
             return self.__type_format[_type](value)
-        for _type, func_format in self.__type_format.items():
-            if isinstance(value, _type):
+        for _type_map, func_format in self.__type_format.items():
+            if isinstance(value, _type_map):
                 return func_format(value)
         return str(value)
 
@@ -142,19 +153,29 @@ _re_formatter = _ReplaceFormatter(default=_re_default)
 _REGISTER = {}
 
 
+def _get_func_reg_key(func: Callable[..., Any]) -> Tuple[str, str]:
+    return func.__module__ or "", func.__name__
+
+
 def register_template(func, template: str):
-    pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_re_formatter) + "$"
-    compile_pattern = re.compile(pattern, flags=re.MULTILINE)
-    _REGISTER.setdefault((func.__module__ or "", func.__name__), set()).add((template, compile_pattern))
+    func_key = _get_func_reg_key(func)
+    _REGISTER.setdefault(func_key, {})
+    if template not in _REGISTER[func_key]:
+        pattern = "(.*[:])?" + template_to_pattern(template, _formatter=_re_formatter) + "$"
+        compile_pattern = re.compile(pattern, flags=re.MULTILINE)
+        _REGISTER[func_key][template] = compile_pattern
 
 
 def get_templates_for_func(func):
-    return (template for template, _ in _REGISTER.get((func.__module__ or "", func.__name__), set()))
+    func_key = _get_func_reg_key(func)
+    if func_key not in _REGISTER:
+        return ()
+    return (template for template in _REGISTER[func_key].keys())
 
 
 def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callable]]:
     for func, templates in _REGISTER.items():
-        for template, compile_pattern in templates:
+        for template, compile_pattern in templates.items():
             if compile_pattern.fullmatch(key):
                 return template_to_pattern(template), func
     return None, None
@@ -162,7 +183,7 @@ def get_template_and_func_for(key: str) -> Tuple[Optional[str], Optional[Callabl
 
 def get_template_for_key(key: str) -> Tuple[Optional[str], Optional[dict]]:
     for _, templates in _REGISTER.items():
-        for template, compile_pattern in templates:
+        for template, compile_pattern in templates.items():
             match = compile_pattern.fullmatch(key)
             if match:
                 return template, match.groupdict()

@@ -72,7 +72,7 @@ class BcastClientSide(Redis):
         self._listen_task = asyncio.create_task(self._listen_invalidate_forever())
         try:
             await asyncio.wait_for(self._listen_started.wait(), timeout=2)
-        except TimeoutError:
+        except (TimeoutError, asyncio.TimeoutError):
             if self._listen_task.done():
                 raise self._listen_task.exception()
             self._listen_task.cancel()

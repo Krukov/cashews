@@ -20,7 +20,6 @@ def rate_limit(
     backend: _BackendInterface,
     limit: int,
     period: TTL,
-    ttl: Optional[TTL] = None,
     key: Optional[str] = None,
     action: Optional[Callable] = None,
     prefix: str = "rate_limit",
@@ -31,13 +30,10 @@ def rate_limit(
     :param backend: cache backend
     :param limit: number of calls
     :param period: Period
-    :param ttl: time ban, default == period
     :param key: a cache key template
     :param action: call when rate limit reached, default raise RateLimitError
     :param prefix: custom prefix for key, default 'rate_limit'
     """
-    ttl = ttl_to_seconds(ttl)
-    period = ttl_to_seconds(period)
     action = _default_action if action is None else action
 
     def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
@@ -46,14 +42,11 @@ def rate_limit(
 
         @wraps(func)
         async def wrapped_func(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
-            _period = ttl_to_seconds(period, *args, **kwargs, with_callable=True)
+            _period = ttl_to_seconds(period, *args, **kwargs)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
 
             requests_count = await backend.incr(key=_cache_key)  # set 1 if not exists
             if requests_count and requests_count > limit:
-                if ttl and requests_count == limit + 1:
-                    await backend.expire(key=_cache_key, timeout=_ttl)
                 logger.info("Rate limit reach for %s", _cache_key)
                 action(*args, **kwargs)
 

@@ -118,6 +118,12 @@ def test_cache_func_key_dict():
             "b:true:1:1.2:a:1:1.2:d:1:e:true",
         ),
         (
+            (),
+            {"kwarg1": "k1", "e": True, "d": 1},
+            "{kwarg1}:{__kwargs__}",
+            "k1:d:1:e:true",
+        ),
+        (
             (b"a1", "a2", "a3"),
             None,
             "{arg1}-{kwarg1}-{kwarg3}",
