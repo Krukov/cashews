@@ -36,3 +36,7 @@ class CacheBackendInteractionError(CacheError):
 
 class RateLimitError(CacheError):
     """Raised by @rate_limit if rate limit is reached"""
+
+
+class CircuitBreakerOpen(Exception):
+    """Raised by @circuit_breaker"""

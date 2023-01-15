@@ -187,6 +187,21 @@ class Memory(Backend):
             return get_obj_size(self.store[key])
         return 0
 
+    async def slice_incr(self, key: str, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+        val_list = self._get(key)
+        count = 0
+        new_val = []
+        if val_list:
+            for val in val_list:
+                if start <= val < end:
+                    count += 1
+                    new_val.append(val)
+        if count < maxvalue:
+            count += 1
+            new_val.append(end)
+        self._set(key, new_val, expire=expire)
+        return count
+
     async def close(self):
         self.__remove_expired_stop.set()
         if self.__remove_expired_task:

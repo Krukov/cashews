@@ -34,7 +34,7 @@ async def _cache(request, redis_dsn, backend_factory):
 
         backend = await backend_factory(Redis, redis_dsn, hash_key=uuid4().hex)
     elif request.param == "redis_cs":
-        from cashews.backends.client_side import BcastClientSide
+        from cashews.backends.redis.client_side import BcastClientSide
 
         backend = await backend_factory(BcastClientSide, redis_dsn, hash_key=None)
     else:
@@ -203,6 +203,17 @@ async def test_incr_bits(cache: Backend):
 async def test_bits_size(cache: Backend):
     await cache.incr_bits("test", 0, 1, 4, size=5, by=3)
     assert await cache.get_bits("test", 0, 1, 2, 3, 4, size=5) == (3, 3, 0, 0, 3)
+
+
+async def test_slice_incr(cache: Backend):
+    assert await cache.slice_incr("test", 0, 5, maxvalue=10) == 1
+    assert await cache.slice_incr("test", 1, 6, maxvalue=10) == 2
+    assert await cache.slice_incr("test", 2, 7, maxvalue=10) == 3
+    assert await cache.slice_incr("test", 3, 8, maxvalue=10) == 4
+    assert await cache.slice_incr("test", 5, 10, maxvalue=4) == 4
+    assert await cache.slice_incr("test", 9, 11, maxvalue=10) == 1
+    assert await cache.slice_incr("test", 15, 20, maxvalue=10) == 1
+    assert await cache.slice_incr("test", 9, 11, 10) == 1
 
 
 async def test_lru(backend_factory):

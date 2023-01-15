@@ -5,17 +5,9 @@ from typing import Optional, Tuple, Type, Union
 
 from .._typing import TTL, AsyncCallable_T, Decorator
 from ..backends.interface import _BackendInterface
+from ..exceptions import CircuitBreakerOpen
 from ..key import get_cache_key, get_cache_key_template
-
-__all__ = ("circuit_breaker", "CircuitBreakerOpen")
-
 from ..ttl import ttl_to_seconds
-
-_SEGMENTS = 30
-
-
-class CircuitBreakerOpen(Exception):
-    pass
 
 
 def circuit_breaker(
@@ -63,18 +55,11 @@ def circuit_breaker(
                 raise CircuitBreakerOpen()
             if await backend.exists(_cache_key + ":halfopen") and random.randint(0, 1):
                 raise CircuitBreakerOpen()
-            bucket = _get_bucket_number(period, segments=_SEGMENTS)
-            in_bucket = await backend.incr(_cache_key + f":total:{bucket}") or 0
-            if in_bucket == 1:
-                await backend.expire(key=_cache_key + f":total:{bucket}", timeout=period)
-                await backend.set(key=_cache_key + ":fails", value=0, expire=period)
+            total = await _get_requests_count(backend, _cache_key + ":total", period)
             try:
                 return await func(*args, **kwargs)
             except exceptions:
-                fails = await backend.incr(_cache_key + ":fails")
-                total = in_bucket + await _get_buckets_values(
-                    backend, _cache_key, segments=_SEGMENTS, except_number=bucket
-                )
+                fails = await _get_requests_count(backend, _cache_key + ":fails", period)
                 if not total < min_calls and fails * 100 / total >= errors_rate:
                     await backend.set_lock(_cache_key + ":open", value=1, expire=ttl)
                 raise
@@ -84,10 +69,6 @@ def circuit_breaker(
     return _decor
 
 
-def _get_bucket_number(period: int, segments: int) -> int:
-    return int((datetime.utcnow().timestamp() % period) / segments)
-
-
-async def _get_buckets_values(backend: _BackendInterface, key, segments: int, except_number: int) -> int:
-    keys = [f"{key}:total:{bucket}" for bucket in range(segments) if bucket != except_number]
-    return sum(v for v in await backend.get_many(*keys) if v)
+async def _get_requests_count(backend: _BackendInterface, key: str, period: int) -> int:
+    timestamp = datetime.utcnow().timestamp()
+    return await backend.slice_incr(key, timestamp - period, timestamp, 9999, expire=period)

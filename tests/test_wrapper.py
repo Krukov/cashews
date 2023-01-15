@@ -132,6 +132,9 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.get_size("key")
     target.get_size.assert_called_once_with(key="key")
 
+    await cache.slice_incr("key_slice", 0, 10, maxvalue=10)
+    target.slice_incr.assert_called_once_with(key="key_slice", start=0, end=10, maxvalue=10, expire=None)
+
 
 async def test_disable_cache_on_fail_return(cache: Cache):
     assert await cache.get("key") is None

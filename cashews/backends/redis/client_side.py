@@ -32,8 +32,9 @@ from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 
-from .memory import Memory
-from .redis import Redis
+from cashews.backends.memory import Memory
+
+from . import Redis
 
 _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
