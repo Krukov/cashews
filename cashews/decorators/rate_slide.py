@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
@@ -16,14 +17,13 @@ def _default_action(*args: Any, **kwargs: Any) -> NoReturn:
     raise RateLimitError()
 
 
-def rate_limit(
+def slice_rate_limit(
     backend: _BackendInterface,
     limit: int,
     period: TTL,
-    ttl: Optional[TTL] = None,
     key: Optional[str] = None,
     action: Callable = _default_action,
-    prefix: str = "rate_limit",
+    prefix: str = "srate",
 ) -> Decorator:  # pylint: disable=too-many-arguments
     """
     Rate limit for function call. Do not call function if rate limit is reached, and call given action
@@ -31,13 +31,11 @@ def rate_limit(
     :param backend: cache backend
     :param limit: number of calls
     :param period: Period
-    :param ttl: time ban, default == period
     :param key: a rate-limit key template
     :param action: call when rate limit reached, default raise RateLimitError
     :param prefix: custom prefix for key, default 'rate_limit'
     """
     period = ttl_to_seconds(period)
-    ttl = ttl_to_seconds(ttl) or period
     action = action or _default_action
 
     def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
@@ -46,22 +44,20 @@ def rate_limit(
 
         @wraps(func)
         async def wrapped_func(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _period = ttl_to_seconds(period, *args, **kwargs, with_callable=True)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
 
-            requests_count = await backend.incr(key=_cache_key)  # set 1 if not exists
+            requests_count = await _get_requests_count(backend, _cache_key, limit, _period)
             if requests_count and requests_count > limit:
-                if ttl and requests_count == limit + 1:
-                    await backend.expire(key=_cache_key, timeout=_ttl)
                 logger.info("Rate limit reach for %s", _cache_key)
                 action(*args, **kwargs)
-
-            if requests_count == 1:
-                await backend.expire(key=_cache_key, timeout=_period)
-
             return await func(*args, **kwargs)
 
         return wrapped_func
 
     return decorator
+
+
+async def _get_requests_count(backend: _BackendInterface, key: str, limit: int, period: int) -> int:
+    timestamp = datetime.utcnow().timestamp()
+    return await backend.slice_incr(key, timestamp - period, timestamp, maxvalue=limit + 1, expire=period)

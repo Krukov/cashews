@@ -8,6 +8,16 @@ source =
     cashews
 
 parallel = true
+exclude_lines =
+    # Have to re-enable the standard pragma
+    pragma: no cover
+    ...
+
+    # Don't complain about missing debug-only code:
+    def __repr__
+
+    # Don't complain about abstract methods, they aren't run:
+    @(abc\.)?abstractmethod
 
 [report]
 precision = 2

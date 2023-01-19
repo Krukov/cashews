@@ -6,10 +6,12 @@ from .backends.memory import Memory
 from .exceptions import BackendNotAvailableError
 
 try:
-    from .backends.client_side import BcastClientSide
-    from .backends.redis import Redis
+    import redis  # noqa: F401
 except ImportError:
     BcastClientSide, Redis = None, None
+else:
+    from .backends.redis import Redis
+    from .backends.redis.client_side import BcastClientSide
 
 try:
     import diskcache  # noqa: F401

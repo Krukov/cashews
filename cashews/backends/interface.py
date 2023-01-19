@@ -96,6 +96,10 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
+    async def slice_incr(self, key: str, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+        ...
+
+    @abstractmethod
     async def get_size(self, key: str) -> int:
         """
         Return size in bites that allocated by a value for given key

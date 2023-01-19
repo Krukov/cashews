@@ -9,7 +9,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 
 @pytest.fixture(name="create_cache")
 def _create_cache(redis_dsn, backend_factory):
-    from cashews.backends.client_side import BcastClientSide
+    from cashews.backends.redis.client_side import BcastClientSide
 
     def call(local_cache):
         return backend_factory(BcastClientSide, redis_dsn, hash_key=None, local_cache=local_cache)
@@ -108,7 +108,7 @@ async def test_rewrite_bcast(create_cache):
 
 
 async def test_simple_cmd_bcast_many(create_cache):
-    from cashews.backends.client_side import _empty_in_redis
+    from cashews.backends.redis.client_side import _empty_in_redis
 
     local = Memory()
     cache = await create_cache(local)

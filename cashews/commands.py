@@ -27,6 +27,8 @@ class Command(Enum):
     GET_BITS = "get_bits"
     INCR_BITS = "incr_bits"
 
+    SLICE_INCR = "slice_incr"
+
     PING = "ping"
     GET_SIZE = "get_size"
 

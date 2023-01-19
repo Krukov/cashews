@@ -13,17 +13,6 @@ from .disable_control import _is_disable_middleware
 from .exceptions import NotConfiguredError
 from .ttl import ttl_to_seconds
 
-try:
-    from .backends.client_side import BcastClientSide
-except ImportError:
-    BcastClientSide = None  # type: ignore
-
-try:
-    from .backends.diskcache import DiskCache
-except ImportError:
-    DiskCache = None  # type: ignore
-
-
 #  pylint: disable=too-many-public-methods
 
 
@@ -215,6 +204,13 @@ class Cache(_BackendInterface):
 
     async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         return await self._with_middlewares(Command.INCR_BITS, key)(key, *indexes, size=size, by=by)
+
+    async def slice_incr(
+        self, key: str, start: int, end: int, maxvalue: int, expire: Union[float, TTL, None] = None
+    ) -> int:
+        return await self._with_middlewares(Command.SLICE_INCR, key)(
+            key=key, start=start, end=end, maxvalue=maxvalue, expire=ttl_to_seconds(expire)
+        )
 
     async def incr(self, key: str) -> int:
         return await self._with_middlewares(Command.INCR, key)(key=key)
@@ -508,12 +504,31 @@ class Cache(_BackendInterface):
         ttl: Optional[TTL] = None,
         action: Optional[Callable] = None,
         prefix="rate_limit",
+        key: Optional[str] = None,
     ):  # pylint: disable=too-many-arguments
         return decorators.rate_limit(
             backend=self,
             limit=limit,
             period=period,
             ttl=ttl,
+            action=action,
+            key=key,
+            prefix=prefix,
+        )
+
+    def slice_rate_limit(
+        self,
+        limit: int,
+        period: TTL,
+        key: Optional[str] = None,
+        action: Optional[Callable] = None,
+        prefix="srl",
+    ):
+        return decorators.slice_rate_limit(
+            backend=self,
+            limit=limit,
+            period=period,
+            key=key,
             action=action,
             prefix=prefix,
         )

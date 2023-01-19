@@ -369,16 +369,17 @@ cache.setup("mem://")
 # no more than 10 calls per minute or ban for 10 minutes - raise RateLimitError
 @cache.rate_limit(limit=10, period="1m", ttl="10m")
 async def get(name):
+    value = await api_call()
     return {"status": value}
 
 
 
-# no more than 100 calls per 10 minute or ban for 1 minutes. if rate limit will rich -> return from cache
+# no more than 100 calls in 10 minute window. if rate limit will rich -> return from cache
 @cache.failover(ttl="10m", exceptions=(RateLimitError, ))
-@cache.rate_limit(limit=100, period="10m", ttl="1m")
+@cache.slice_rate_limit(limit=100, period="10m")
 async def get_next(name):
+    value = await api_call()
     return {"status": value}
-
 
 ```
 

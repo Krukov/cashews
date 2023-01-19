@@ -7,11 +7,23 @@ from ..interface import Backend
 from .client import Redis, SafeRedis
 
 _UNLOCK = """
-if redis.call("get",KEYS[1]) == ARGV[1] then
-    return redis.call("del",KEYS[1])
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
 else
     return 0
 end
+"""
+_INCR_SLICE = """
+redis.call("ZREMRANGEBYSCORE", KEYS[1], 0, "(" .. ARGV[1])
+local current_count = redis.call("ZCOUNT", KEYS[1], ARGV[1], ARGV[2])
+if current_count < tonumber(ARGV[3]) then
+    current_count = current_count + 1
+    redis.call("ZADD", KEYS[1], ARGV[2], ARGV[2])
+    if tonumber(ARGV[4]) > 0 then
+        redis.call("PEXPIRE", KEYS[1], ARGV[4])
+    end
+end
+return current_count
 """
 _empty = object()
 # pylint: disable=arguments-differ
@@ -82,7 +94,7 @@ class _Redis(Backend):
         return await self._client.ttl(key)
 
     async def expire(self, key: str, timeout: float):
-        return await self._client.expire(key, int(timeout))
+        return await self._client.pexpire(key, int(timeout * 1000))
 
     async def set_lock(self, key: str, value, expire: float) -> bool:
         pexpire = None
@@ -203,6 +215,13 @@ class _Redis(Backend):
 
     async def get_raw(self, key: str) -> Any:
         return await self._client.get(key)
+
+    async def slice_incr(self, key: str, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+        expire = expire or 0
+        expire = int(expire * 1000)
+        if "INCR_SLICE" not in self._sha:
+            self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
+        return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
 
     async def close(self):
         await self._client.close()

@@ -1,8 +1,8 @@
 from .backend_settings import register_backend  # noqa
 from .cache_condition import NOT_NONE  # noqa
 from .commands import Command  # noqa
-from .decorators import CircuitBreakerOpen, RateLimitError, context_cache_detect, fast_condition  # noqa
-from .exceptions import CacheBackendInteractionError, LockedError  # noqa
+from .decorators import context_cache_detect, fast_condition  # noqa
+from .exceptions import CacheBackendInteractionError, CircuitBreakerOpen, LockedError, RateLimitError  # noqa
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key  # noqa
 from .helpers import add_prefix, all_keys_lower, memory_limit  # noqa
 from .key import noself  # noqa
@@ -21,6 +21,7 @@ hit = cache.hit
 circuit_breaker = cache.circuit_breaker
 dynamic = cache.dynamic
 rate_limit = cache.rate_limit
+slice_rate_limit = cache.slice_rate_limit
 locked = cache.locked
 
 invalidate = cache.invalidate

@@ -23,6 +23,7 @@ def get_cache_key(
     if func_args is passed key build with parameters are included in func_args dict or tuple otherwise use all of them
     Used function module and name as prefix if key parameter not passed
     :param func: Target function
+    :param template: precompile template
     :param args: call positional arguments
     :param kwargs: call keyword arguments
     :return: cache key for call
@@ -53,6 +54,7 @@ def get_cache_key_template(
     Used function module and name as prefix if key parameter not passed
     :param func: Target function
     :param key: template for key, may contain alias to args or kwargs passed to a call
+    :param prefix: a prefix
     :param exclude_parameters: array of `args` and `kwargs` names to exclude from a key
         template (if key parameter not passed)
     :return: cache key template

@@ -41,6 +41,7 @@ class _ReplaceFormatter(Formatter):
         self.__default = default
         _decode_array = _get_decode_array(self._format_field)
         self.__type_format = {
+            str: _decode_direct,
             bool: _decoded_bool,
             bytes: _decode_bytes,
             tuple: _decode_array,
@@ -70,8 +71,6 @@ class _ReplaceFormatter(Formatter):
         if value is None:
             return ""
         _type = type(value)
-        if _type == str:
-            return value
         if _type in self.__type_format:
             return self.__type_format[_type](value)
         for _type_map, func_format in self.__type_format.items():

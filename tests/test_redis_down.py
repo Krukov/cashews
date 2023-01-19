@@ -36,6 +36,7 @@ async def test_safe_redis(redis_backend):
 
     assert await redis.get_expire("test") == 0
     assert await redis.incr("test") is None
+    assert await redis.slice_incr("test", 1, 2, 10) is None
     assert await redis.get_size("test") == 0
     async for _ in redis.scan("*"):
         assert False

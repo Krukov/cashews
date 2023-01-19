@@ -183,3 +183,19 @@ class DiskCache(Backend):
 
     async def unlock(self, key: str, value: Any) -> bool:
         return await self.delete(key)
+
+    async def slice_incr(self, key: str, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+        val_set = await self.get(key)
+        count = 0
+        new_val = []
+        if val_set:
+            for val in val_set:
+                if start <= val <= end:
+                    count += 1
+                    new_val.append(val)
+
+        if count < maxvalue:
+            count += 1
+            new_val.append(end)
+        await self.set(key, new_val, expire=expire)
+        return count
