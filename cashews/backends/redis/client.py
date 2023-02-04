@@ -6,7 +6,7 @@ from typing import Any
 from redis.asyncio import Redis as _Redis
 from redis.exceptions import RedisError as RedisConnectionError
 
-from ...exceptions import CacheBackendInteractionError
+from cashews.exceptions import CacheBackendInteractionError
 
 logger = logging.getLogger(__name__)
 

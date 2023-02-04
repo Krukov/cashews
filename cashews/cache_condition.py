@@ -1,9 +1,6 @@
-import time
-from contextvars import ContextVar
-from functools import wraps
 from typing import Any, Callable, Dict, Tuple
 
-from ._typing import AsyncCallable_T, CacheCondition, CallableCacheCondition, Decorator
+from ._typing import CacheCondition
 
 
 def _not_none_store_condition(result, args, kwargs, key=None) -> bool:
@@ -25,24 +22,3 @@ def get_cache_condition(condition: CacheCondition) -> Callable[[Any, Tuple, Dict
     if condition in _NOT_NONE_CONDITIONS:
         return _not_none_store_condition
     return condition
-
-
-_spent = ContextVar("spent", default=0.0)
-
-
-def create_time_condition(limit: float) -> Tuple[CallableCacheCondition, Decorator]:
-    def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
-        @wraps(func)
-        async def _wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            try:
-                return await func(*args, **kwargs)
-            finally:
-                _spent.set(time.perf_counter() - start)
-
-        return _wrapper
-
-    def condition(result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> bool:
-        return _spent.get() > limit
-
-    return condition, decorator

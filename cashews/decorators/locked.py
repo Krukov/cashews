@@ -1,11 +1,11 @@
 from functools import wraps
 from typing import Optional, Union
 
-from .._typing import TTL, AsyncCallable_T, Decorator
-from ..backends.interface import _BackendInterface
-from ..exceptions import LockedError
-from ..key import get_cache_key, get_cache_key_template
-from ..ttl import ttl_to_seconds
+from cashews._typing import TTL, AsyncCallable_T, Decorator
+from cashews.backends.interface import _BackendInterface
+from cashews.exceptions import LockedError
+from cashews.key import get_cache_key, get_cache_key_template
+from cashews.ttl import ttl_to_seconds
 
 __all__ = ("locked",)
 

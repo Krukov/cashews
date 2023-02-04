@@ -1,24 +1,24 @@
 from typing import Any, Callable, Dict, Tuple, Type, Union
 from urllib.parse import parse_qsl, urlparse
 
-from .backends.interface import Backend
-from .backends.memory import Memory
-from .exceptions import BackendNotAvailableError
+from cashews.backends.interface import Backend
+from cashews.backends.memory import Memory
+from cashews.exceptions import BackendNotAvailableError
 
 try:
     import redis  # noqa: F401
 except ImportError:
     BcastClientSide, Redis = None, None
 else:
-    from .backends.redis import Redis
-    from .backends.redis.client_side import BcastClientSide
+    from cashews.backends.redis import Redis
+    from cashews.backends.redis.client_side import BcastClientSide
 
 try:
     import diskcache  # noqa: F401
 except ImportError:
     DiskCache = None
 else:
-    from .backends.diskcache import DiskCache
+    from cashews.backends.diskcache import DiskCache
 
 
 _NO_REDIS_ERROR = "Redis backend requires `redis` to be installed."

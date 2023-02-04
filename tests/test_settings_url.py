@@ -1,7 +1,7 @@
 import pytest
 
-from cashews.backend_settings import BackendNotAvailableError, settings_url_parse
 from cashews.backends.memory import Memory
+from cashews.wrapper.backend_settings import BackendNotAvailableError, settings_url_parse
 
 
 @pytest.mark.parametrize(

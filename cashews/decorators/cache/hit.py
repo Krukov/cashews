@@ -2,11 +2,12 @@ import asyncio
 from functools import wraps
 from typing import Optional
 
-from ..._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
-from ...backends.interface import _BackendInterface
-from ...formatter import register_template
-from ...key import get_cache_key, get_cache_key_template
-from ...ttl import ttl_to_seconds
+from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
+from cashews.backends.interface import _BackendInterface
+from cashews.formatter import register_template
+from cashews.key import get_cache_key, get_cache_key_template
+from cashews.ttl import ttl_to_seconds
+
 from .defaults import _empty, context_cache_detect
 
 __all__ = ("hit",)

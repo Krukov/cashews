@@ -1,4 +1,5 @@
-from ...serialize import PickleSerializerMixin
+from cashews.serialize import PickleSerializerMixin
+
 from .backend import _Redis
 
 __all__ = ["Redis"]

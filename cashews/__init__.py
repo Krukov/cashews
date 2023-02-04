@@ -1,4 +1,3 @@
-from .backend_settings import register_backend  # noqa
 from .cache_condition import NOT_NONE  # noqa
 from .commands import Command  # noqa
 from .decorators import context_cache_detect, fast_condition  # noqa
@@ -7,7 +6,7 @@ from .formatter import default_formatter, get_template_and_func_for, get_templat
 from .helpers import add_prefix, all_keys_lower, memory_limit  # noqa
 from .key import noself  # noqa
 from .validation import invalidate_further  # noqa
-from .wrapper import Cache  # noqa
+from .wrapper import Cache, register_backend  # noqa
 
 cache_detect = context_cache_detect
 # pylint: disable=invalid-name
