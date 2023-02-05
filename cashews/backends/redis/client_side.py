@@ -230,7 +230,7 @@ class BcastClientSide(Redis):
         return result
 
     async def get_expire(self, key: str) -> int:
-        if await self._local_cache.get_expire(key) != -1:
+        if await self._local_cache.get_expire(key) > 0:
             if self._listen_started.is_set():
                 return await self._local_cache.get_expire(key)
         expire = await super().get_expire(self._add_prefix(key))

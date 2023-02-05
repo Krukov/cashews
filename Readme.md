@@ -27,6 +27,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Different cache strategies out-of-the-box
 - Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
 - Set TTL as a string ("2h5m"), as `timedelta` or use a function in case TTL depends on key parameters
+- Transactionality
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
@@ -66,6 +67,7 @@ async def cache_using_function(request):
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
 - [Middleware](#middleware)
+- [Transactional mode](#transactional)
 
 ### Configuration
 
@@ -799,6 +801,8 @@ async def logging_middleware(call, cmd: Command, backend: Backend, *args, **kwar
 
 cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
+
+### Transactional
 
 ## Development
 

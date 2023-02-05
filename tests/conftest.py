@@ -54,7 +54,7 @@ async def _backend(request, redis_dsn, backend_factory):
     if request.param == "diskcache":
         from cashews.backends.diskcache import DiskCache
 
-        backend = await backend_factory(DiskCache)
+        backend = await backend_factory(DiskCache, shards=0)
         yield backend
     elif request.param == "redis":
         from cashews.backends.redis import Redis

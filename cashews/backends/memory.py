@@ -122,7 +122,7 @@ class Memory(Backend):
 
     async def get_expire(self, key: str) -> int:
         if key not in self.store:
-            return -1
+            return -2
         expire_at, _ = self.store[key]
         return round(expire_at - time.time()) if expire_at is not None else -1
 

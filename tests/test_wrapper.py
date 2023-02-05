@@ -38,9 +38,17 @@ async def test_prefix_many(cache):
     assert await cache.get_many("key", "-:key") == ("value", "-value")
 
 
-async def test_init(cache):
-    await cache.init("mem://localhost")
+async def test_init():
+    cache = Cache()
     assert cache.is_init
+    cache.setup("mem://localhost", prefix="test")
+    assert not cache.is_init
+
+    await cache.init("mem://localhost", prefix="new")
+    assert cache.is_init
+
+    cache.setup("mem://localhost")
+    assert not cache.is_init
 
 
 async def test_auto_init(cache):
@@ -135,6 +143,7 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
 
     await cache.slice_incr("key_slice", 0, 10, maxvalue=10)
     target.slice_incr.assert_called_once_with(key="key_slice", start=0, end=10, maxvalue=10, expire=None)
+    await cache.close()
 
 
 async def test_disable_cache_on_fail_return(cache: Cache):
@@ -182,7 +191,7 @@ async def test_disable_cache_on_fail_return_2(cache: Cache):
 async def test_multilayer_cache(cache: Cache):
     # If results from key2, key1 must not be set
 
-    @cache(ttl=1, key="key1", upper=True)
+    @cache(ttl=1, key="key1", upper=True, lock=True)
     @cache(ttl=1, key="key2")
     async def func():
         return 1

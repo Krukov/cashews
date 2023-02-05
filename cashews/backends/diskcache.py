@@ -149,7 +149,9 @@ class DiskCache(Backend):
         return await self._run_in_executor(self._get_expire, key)
 
     def _get_expire(self, key: str):
-        _, expire = self._cache.get(key, expire_time=True)
+        value, expire = self._cache.get(key, expire_time=True)
+        if value is None:
+            return -2
         if expire is None:
             return -1
         return round((datetime.utcfromtimestamp(expire) - datetime.utcnow()).total_seconds())

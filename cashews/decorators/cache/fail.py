@@ -9,7 +9,7 @@ from cashews.ttl import ttl_to_seconds
 
 from .defaults import _empty, context_cache_detect
 
-__all__ = ("failover",)
+__all__ = ("failover", "fast_condition")
 
 
 def fast_condition(getter, setter=None):

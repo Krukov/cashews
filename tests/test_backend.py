@@ -105,6 +105,7 @@ async def test_expire(cache):
 
 
 async def test_get_set_expire(cache):
+    assert await cache.get_expire("key") == -2
     await cache.set("key", b"value")
     assert await cache.get("key") == b"value"
     assert await cache.get_expire("key") == -1

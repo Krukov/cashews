@@ -32,6 +32,29 @@ async def test_fail_cache_simple(backend):
         await func(fail=True)
 
 
+async def test_fail_cache_fast_condition(backend):
+    mem = set()
+
+    def getter(key):
+        return key in mem
+
+    def setter(key, _):
+        mem.add(key)
+
+    fast_condition = decorators.fast_condition(getter=getter, setter=setter)
+
+    @decorators.failover(backend, ttl=EXPIRE, condition=fast_condition, key="fail", prefix="")
+    async def func(fail=False):
+        if fail:
+            raise CustomError()
+        return b"ok"
+
+    assert await func() == b"ok"
+    assert await func(fail=True) == b"ok"
+    assert await func(fail=True) == b"ok"
+    assert "fail" in mem
+
+
 async def test_cache_simple(backend):
     @decorators.cache(backend, ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):

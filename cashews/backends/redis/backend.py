@@ -77,13 +77,15 @@ class _Redis(Backend):
             xx = True
         elif exist is False:
             nx = True
-        pexpire = None
-        if isinstance(expire, float):
-            pexpire = int(expire * 1000)
-            expire = None
-        return bool(await self._client.set(key, value, ex=expire, px=pexpire, nx=nx, xx=xx))
+        px = int(expire * 1000) if expire else None
+        return bool(await self._client.set(key, value, px=px, nx=nx, xx=xx))
 
     async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
+        if len(pairs) == 1:
+            key, value = list(pairs.items())[0]
+            px = int(expire * 1000) if expire else None
+            await self._client.set(key, value, px=px)
+            return
         await self._client.mset(pairs)
         if expire is not None:
             async with self._client.pipeline(transaction=True) as pipe:
@@ -141,7 +143,7 @@ class _Redis(Backend):
                 return
 
     async def delete_many(self, *keys: str):
-        await self._client.delete(*keys)
+        await self._client.unlink(*keys)
 
     async def delete_match(self, pattern: str):
         if "*" not in pattern:
