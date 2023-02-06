@@ -3,7 +3,8 @@ from typing import Any, AsyncIterator, Dict, Mapping, Optional, Tuple, Type, Uni
 
 from redis.asyncio import BlockingConnectionPool
 
-from ..interface import Backend
+from cashews.backends.interface import Backend
+
 from .client import Redis, SafeRedis
 
 _UNLOCK = """

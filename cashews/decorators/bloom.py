@@ -4,10 +4,10 @@ from collections import namedtuple
 from functools import wraps
 from typing import Any, Iterable, Optional, Tuple, Union
 
-from .._typing import AsyncCallable_T, Decorator
-from ..backends.interface import _BackendInterface
-from ..key import get_cache_key, get_cache_key_template
-from ..utils import get_indexes
+from cashews._typing import AsyncCallable_T, Decorator
+from cashews.backends.interface import _BackendInterface
+from cashews.key import get_cache_key, get_cache_key_template
+from cashews.utils import get_indexes
 
 __all__ = ("bloom",)
 

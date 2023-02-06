@@ -7,7 +7,8 @@ from cashews.backends.memory import Memory
 from cashews.cache_condition import NOT_NONE
 from cashews.exceptions import NotConfiguredError
 from cashews.formatter import get_templates_for_func
-from cashews.wrapper import Cache, _create_auto_init
+from cashews.wrapper import Cache
+from cashews.wrapper.auto_init import create_auto_init
 
 pytestmark = pytest.mark.asyncio
 
@@ -56,7 +57,7 @@ async def test_auto_init(cache):
 
     type(target).is_init = PropertyMock(side_effect=lambda: init)
     target.init.side_effect = set_init
-    cache._backends[""] = (target, (_create_auto_init(),))
+    cache._backends[""] = (target, (create_auto_init(),))
     await asyncio.gather(cache.ping(), cache.ping(), cache.get("test"))
     target.init.assert_called_once()
 

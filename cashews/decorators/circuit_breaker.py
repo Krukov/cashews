@@ -3,11 +3,11 @@ from datetime import datetime
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from .._typing import TTL, AsyncCallable_T, Decorator
-from ..backends.interface import _BackendInterface
-from ..exceptions import CircuitBreakerOpen
-from ..key import get_cache_key, get_cache_key_template
-from ..ttl import ttl_to_seconds
+from cashews._typing import TTL, AsyncCallable_T, Decorator
+from cashews.backends.interface import _BackendInterface
+from cashews.exceptions import CircuitBreakerOpen
+from cashews.key import get_cache_key, get_cache_key_template
+from cashews.ttl import ttl_to_seconds
 
 
 def circuit_breaker(
