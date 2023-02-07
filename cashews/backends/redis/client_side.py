@@ -247,11 +247,8 @@ class BcastClientSide(Redis):
     async def set_lock(self, key: str, value, expire):
         await self._mark_as_recently_updated(key)
         await self._local_cache.set_lock(key, value, expire)
-        pexpire = None
-        if isinstance(expire, float):
-            pexpire = int(expire * 1000)
-            expire = None
-        return bool(await self._client.set(self._add_prefix(key), value, ex=expire, px=pexpire, nx=True))
+        pexpire = int(expire * 1000)
+        return bool(await self._client.set(self._add_prefix(key), value, px=pexpire, nx=True))
 
     async def unlock(self, key, value):
         await self._local_cache.unlock(key, value)

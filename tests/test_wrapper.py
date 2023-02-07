@@ -13,18 +13,6 @@ from cashews.wrapper.auto_init import create_auto_init
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="target")
-def _target():
-    return Mock(wraps=Memory(), is_full_disable=False)
-
-
-@pytest.fixture(name="cache")
-def __cache(target):
-    _cache = Cache()
-    _cache._add_backend(target)
-    return _cache
-
-
 async def test_prefix_many(cache):
     await cache.init("mem://")
     await cache.init("mem://", prefix="-")
@@ -74,8 +62,8 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
     target.set.assert_called_once_with(key="key", value={"any": True}, expire=60, exist=None)
 
-    await cache.set_raw(key="key2", value={"any": True}, expire=60, exist=None)
-    target.set_raw.assert_called_once_with(key="key2", value={"any": True}, expire=60, exist=None)
+    await cache.set_raw(key="key2", value="value", expire=60)
+    target.set_raw.assert_called_once_with(key="key2", value="value", expire=60)
 
     await cache.get("key")  # -> Any
     target.get.assert_called_once_with(key="key", default=None)

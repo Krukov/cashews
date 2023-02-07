@@ -1,40 +1,17 @@
 from unittest.mock import Mock
 
 import pytest
-import pytest_asyncio
 
-from cashews.backends.memory import Memory
 from cashews.decorators.bloom import bloom, dual_bloom
 
 pytestmark = pytest.mark.asyncio
 
 
-@pytest_asyncio.fixture(
-    name="backend",
-    params=[
-        "memory",
-        pytest.param("redis", marks=pytest.mark.redis),
-    ],
-)
-async def _cache(request, redis_dsn, backend_factory):
-    if request.param == "diskcache":
-        from cashews.backends.diskcache import DiskCache
-
-        backend = await backend_factory(DiskCache, shards=0)
-        yield backend
-    elif request.param == "redis":
-        from cashews.backends.redis import Redis
-
-        yield await backend_factory(Redis, redis_dsn, hash_key=None)
-    else:
-        yield await backend_factory(Memory)
-
-
-async def test_bloom_simple(backend):
+async def test_bloom_simple(cache):
     n = 100
     call = Mock()
 
-    @bloom(backend=backend, name="name:{k}", false_positives=1, capacity=n)
+    @bloom(backend=cache, name="name:{k}", false_positives=1, capacity=n)
     async def func(k):
         call(k)
         return k > (n / 2)
@@ -52,6 +29,9 @@ async def test_bloom_simple(backend):
 
 
 async def test_bloom_simple_big_size(backend):
+    if backend.__class__.__name__ == "DiskCache":
+        pytest.skip()
+
     n = 1_000_000
     call = Mock()
 
@@ -72,11 +52,11 @@ async def test_bloom_simple_big_size(backend):
     call.assert_not_called()
 
 
-async def test_bloom_dual(backend):
+async def test_bloom_dual(cache):
     n = 100
     call = Mock()
 
-    @dual_bloom(backend=backend, name="name:{k}", false=1, capacity=n)
+    @dual_bloom(backend=cache, name="name:{k}", false=1, capacity=n)
     async def func(k):
         call(k)
         return k > (n / 2)

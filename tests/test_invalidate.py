@@ -9,13 +9,6 @@ from cashews.validation import invalidate_func, invalidate_further
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="cache")
-def _cache():
-    cache = Cache()
-    cache.setup("mem://")
-    return cache
-
-
 async def test_invalidate_func(cache: Cache):
     @cache(ttl=1)
     async def func(arg):
@@ -91,7 +84,7 @@ async def test_invalidate_decor_complicate(cache: Cache):
     not_invalidate = await func("test", flag=False)
     second_call = await func("test", "key", flag=True)
     last_call = await func("test2", None)
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
 
     assert first_call != second_call != last_call
     assert first_call == await func("test")
@@ -101,7 +94,7 @@ async def test_invalidate_decor_complicate(cache: Cache):
 
     await func2("test3")
 
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert first_call == await func("test")
     assert second_call == await func("test", "key")
     assert last_call == await func("test2", None)
@@ -109,7 +102,7 @@ async def test_invalidate_decor_complicate(cache: Cache):
 
     await func2("test")
 
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert first_call != await func("test")
     assert second_call != await func("test", "key")
     assert last_call == await func("test2", None)
@@ -117,7 +110,7 @@ async def test_invalidate_decor_complicate(cache: Cache):
 
     await func2("test2")
 
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert first_call != await func("test")
     assert not_invalidate == await func("test", flag=False)
 
@@ -148,7 +141,7 @@ async def test_invalidate_further_get(cache):
         assert await cache.set("key2", "value2")
         assert await cache.get("key") is None
 
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert await cache.get("key") is None
     assert await cache.get("key2") == "value2"
     assert await cache.set("key", "value3")
@@ -164,7 +157,7 @@ async def test_invalidate_further_get_many(cache):
     with invalidate_further():
         assert await cache.get_many("key") == (None,)
 
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert await cache.get_many("key", "key2") == (None, "value2")
 
 
@@ -176,5 +169,5 @@ async def test_invalidate_further_get_match(cache):
     with invalidate_further():
         assert {k: v async for k, v in cache.get_match("key1*")} == {}
 
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert {k: v async for k, v in cache.get_match("key*")} == {"key2": "value2"}

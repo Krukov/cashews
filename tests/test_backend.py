@@ -1,48 +1,11 @@
 import asyncio
-from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 
-from cashews.backends.interface import Backend
+from cashews.backends.interface import NOT_EXIST, UNLIMITED, Backend
 from cashews.backends.memory import Memory
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest_asyncio.fixture(
-    name="cache",
-    params=[
-        "memory",
-        pytest.param("redis", marks=pytest.mark.redis),
-        pytest.param("redis_hash", marks=pytest.mark.redis),
-        pytest.param("redis_cs", marks=pytest.mark.redis),
-        pytest.param("diskcache", marks=pytest.mark.diskcache),
-    ],
-)
-async def _cache(request, redis_dsn, backend_factory):
-    if request.param == "diskcache":
-        from cashews.backends.diskcache import DiskCache
-
-        backend = await backend_factory(DiskCache, shards=0)
-    elif request.param == "redis":
-        from cashews.backends.redis import Redis
-
-        backend = await backend_factory(Redis, redis_dsn, hash_key=None)
-    elif request.param == "redis_hash":
-        from cashews.backends.redis import Redis
-
-        backend = await backend_factory(Redis, redis_dsn, hash_key=uuid4().hex)
-    elif request.param == "redis_cs":
-        from cashews.backends.redis.client_side import BcastClientSide
-
-        backend = await backend_factory(BcastClientSide, redis_dsn, hash_key=None)
-    else:
-        backend = await backend_factory(Memory)
-    try:
-        yield backend
-    finally:
-        await backend.close()
 
 
 async def test_set_get(cache):
@@ -105,10 +68,10 @@ async def test_expire(cache):
 
 
 async def test_get_set_expire(cache):
-    assert await cache.get_expire("key") == -2
+    assert await cache.get_expire("key") == NOT_EXIST
     await cache.set("key", b"value")
     assert await cache.get("key") == b"value"
-    assert await cache.get_expire("key") == -1
+    assert await cache.get_expire("key") == UNLIMITED
     await cache.expire("key", 1)
     assert await cache.get_expire("key") == 1
 

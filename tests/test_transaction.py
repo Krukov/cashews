@@ -1,18 +1,13 @@
 import asyncio
+import random
 
 import pytest
 
+from cashews.backends.interface import NOT_EXIST, UNLIMITED
 from cashews.wrapper import Cache
 from cashews.wrapper.transaction import TransactionMode
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(name="cache")
-def __cache(backend):
-    _cache = Cache()
-    _cache._add_backend(backend)
-    return _cache
 
 
 @pytest.fixture(
@@ -70,7 +65,7 @@ async def test_transaction_set_exception(cache: Cache, tx_mode):
     await cache.set("key1", "value1", expire=1)
     await cache.set("key2", "value2", expire=2)
 
-    try:
+    with pytest.raises(ValueError):
         async with cache.transaction(tx_mode):
             await cache.set("key1", "value2", expire=3)
             await cache.set("key", "value")
@@ -79,8 +74,6 @@ async def test_transaction_set_exception(cache: Cache, tx_mode):
             assert await cache.get("key1") == "value2"
             assert await cache.get("key2") == "value2"
             raise ValueError("rollback")
-    except ValueError:
-        pass
 
     assert await cache.get("key") is None
     assert await cache.get("key1") == "value1"
@@ -144,13 +137,25 @@ async def test_transaction_set_delete_match_get_many_match(cache: Cache, tx_mode
 
 async def test_transaction_incr(cache: Cache, tx_mode):
     await cache.incr("key1")
+    await cache.incr("key3")
+    await cache.incr("key4")
 
     async with cache.transaction(tx_mode):
         assert await cache.incr("key1") == 2
+        assert await cache.incr("key1") == 3
+
         assert await cache.incr("key2") == 1
 
-    assert await cache.incr("key1") == 3
+        assert await cache.delete("key3")
+        assert await cache.incr("key3") == 1
+
+        assert await cache.incr("key4") == 2
+        assert await cache.delete("key4")
+
+    assert await cache.incr("key1") == 4
     assert await cache.incr("key2") == 2
+    assert await cache.incr("key3") == 2
+    assert await cache.incr("key4") == 1
 
 
 async def test_transaction_expire(cache: Cache, tx_mode):
@@ -168,8 +173,8 @@ async def test_transaction_expire(cache: Cache, tx_mode):
         assert await cache.get_expire("key1") >= 10
         assert await cache.get_expire("key2") >= 11
         assert await cache.get_expire("key3") < 0
-        assert await cache.get_expire("key4") == -1
-        assert await cache.get_expire("key5") == -2
+        assert await cache.get_expire("key4") == UNLIMITED
+        assert await cache.get_expire("key5") == NOT_EXIST
 
     assert await cache.get_expire("key1") >= 10
     assert await cache.get_expire("key2") >= 11
@@ -217,8 +222,8 @@ async def test_isolation(cache: Cache, tx_mode):
         await cache.set("key1", "value")
         if value == "v4":
             raise Exception("rollback")
-        await asyncio.sleep(0.1)
         await cache.set("key2", value)
+        await asyncio.sleep(random.randint(1, 5) / 100)  # like race condition
         await cache.set("key3", value, exist=True)
         await cache.set("key1", value)
 
@@ -237,6 +242,21 @@ async def test_isolation(cache: Cache, tx_mode):
             first_value = value
         else:
             assert value == first_value
+
+
+async def test_inner_transaction_commit_outer_rollback(cache: Cache, tx_mode):
+    await cache.set("key1", "value1")
+    await cache.set("key2", "value2")
+
+    async with cache.transaction(tx_mode) as tx:
+        await cache.delete("key2")
+        await cache.set("key1", "value2")
+        async with cache.transaction(tx_mode):
+            await cache.set("key1", "value3")
+        await tx.rollback()
+
+    assert await cache.get("key1") == "value1"
+    assert await cache.get("key2") == "value2"
 
 
 async def test_decorators_smoke(cache: Cache, tx_mode):

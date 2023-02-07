@@ -43,12 +43,12 @@ class _Redis(Backend):
         kwargs.setdefault("max_connections", 10)
         kwargs.setdefault("socket_keepalive", True)
         kwargs.setdefault("retry_on_timeout", False)
-        kwargs.setdefault("socket_timeout", 0.1)
+        kwargs.setdefault("socket_timeout", 1)
         kwargs["decode_responses"] = False
 
         self._pool_class = kwargs.pop("connection_pool_class", BlockingConnectionPool)
         if self._pool_class == BlockingConnectionPool:
-            kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 0.1)
+            kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 10)
         self._sha: Dict[str, Any] = {}
         if not safe:
             self._client_class = Redis
@@ -100,11 +100,8 @@ class _Redis(Backend):
         return await self._client.pexpire(key, int(timeout * 1000))
 
     async def set_lock(self, key: str, value, expire: float) -> bool:
-        pexpire = None
-        if isinstance(expire, float):
-            pexpire = int(expire * 1000)
-            expire = None
-        return bool(await self._client.set(key, value, ex=expire, px=pexpire, nx=True))
+        pexpire = int(expire * 1000)
+        return bool(await self._client.set(key, value, px=pexpire, nx=True))
 
     async def is_locked(
         self,
@@ -208,10 +205,8 @@ class _Redis(Backend):
         return tuple(await bitops.execute())
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:
-        pong = await self._client.ping()
-        if pong and message:
-            return message
-        return b"PONG"
+        await self._client.ping()
+        return b"PONG" if message in (None, b"PING") else message
 
     async def set_raw(self, key: str, value: Any, **kwargs: Any):
         return await self._client.set(key, value, **kwargs)

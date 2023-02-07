@@ -8,7 +8,6 @@ from .key import noself  # noqa
 from .validation import invalidate_further  # noqa
 from .wrapper import Cache, register_backend  # noqa
 
-cache_detect = context_cache_detect
 # pylint: disable=invalid-name
 cache = Cache(name="default")
 noself_cache = noself(cache.cache)
@@ -16,6 +15,9 @@ failover = cache.failover
 early = cache.early
 soft = cache.soft
 hit = cache.hit
+transaction = cache.transaction
+setup = cache.setup
+cache_detect = cache.detect
 
 circuit_breaker = cache.circuit_breaker
 dynamic = cache.dynamic

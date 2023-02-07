@@ -27,7 +27,7 @@ async def test_fail_cache_simple(backend):
     assert await func() == b"ok"
     assert await func(fail=True) == b"ok"
 
-    await asyncio.sleep(EXPIRE * 1.1)
+    await asyncio.sleep(EXPIRE * 2)
     with pytest.raises(CustomError):
         await func(fail=True)
 
@@ -245,6 +245,7 @@ async def test_soft_cache_on_exc(backend):
 @pytest.mark.xfail
 async def test_early_cache_parallel(backend):
     mock = Mock()
+    await backend.init()
 
     @decorators.early(backend, ttl=0.1, early_ttl=0.05, key="key")
     async def func(resp=b"ok"):
@@ -265,6 +266,7 @@ async def test_early_cache_parallel(backend):
 
 async def test_lock_cache_parallel(backend):
     mock = Mock()
+    await backend.init()
 
     @decorators.locked(backend, key="key", step=0.01)
     async def func():

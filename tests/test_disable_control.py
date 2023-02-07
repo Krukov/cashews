@@ -3,23 +3,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews.backends.memory import Memory
 from cashews.commands import Command
 from cashews.wrapper import Cache
 
 pytestmark = pytest.mark.asyncio
-
-
-@pytest.fixture(name="target")
-def _target():
-    return Mock(wraps=Memory())
-
-
-@pytest.fixture(name="cache")
-def _cache(target):
-    cache = Cache()
-    cache._add_backend(target)
-    return cache
 
 
 async def test_disable_cmd(cache):

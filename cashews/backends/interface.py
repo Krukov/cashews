@@ -7,6 +7,9 @@ from typing import Any, AsyncIterator, Mapping, Optional, Set, Tuple
 from cashews.commands import ALL, Command
 from cashews.exceptions import LockedError
 
+NOT_EXIST = -2
+UNLIMITED = -1
+
 
 class _BackendInterface(metaclass=ABCMeta):
     @property

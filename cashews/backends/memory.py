@@ -7,7 +7,7 @@ from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 from cashews.utils import Bitarray, get_obj_size
 
-from .interface import Backend
+from .interface import NOT_EXIST, UNLIMITED, Backend
 
 __all__ = ["Memory"]
 
@@ -122,9 +122,11 @@ class Memory(Backend):
 
     async def get_expire(self, key: str) -> int:
         if key not in self.store:
-            return -2
+            return NOT_EXIST
         expire_at, _ = self.store[key]
-        return round(expire_at - time.time()) if expire_at is not None else -1
+        if expire_at is not None:
+            return round(expire_at - time.time())
+        return UNLIMITED
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:
         return b"PONG" if message in (None, b"PING") else message  # type: ignore[return-value]
