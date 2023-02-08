@@ -2,21 +2,19 @@ from cashews.backends.interface import _BackendInterface
 from cashews.decorators import context_cache_detect
 
 from .backend_settings import register_backend  # noqa
-from .commands import CommandWrapperMixin
-from .decorators import DecoratorsWrapperMixin
-from .disable_control import ControlWrapperMixin
-from .transaction import TransactionWrapperMixin
-from .wrapper import Wrapper
+from .commands import CommandWrapper
+from .decorators import DecoratorsWrapper
+from .disable_control import ControlWrapper
+from .transaction import TransactionWrapper
 
 __all__ = ["Cache", "register_backend"]
 
 
 class Cache(
-    TransactionWrapperMixin,
-    CommandWrapperMixin,
-    ControlWrapperMixin,
-    DecoratorsWrapperMixin,
-    Wrapper,
+    TransactionWrapper,
+    ControlWrapper,
+    CommandWrapper,
+    DecoratorsWrapper,
     _BackendInterface,
 ):
     detect = context_cache_detect

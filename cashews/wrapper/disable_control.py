@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 from cashews._typing import AsyncCallable_T
 from cashews.commands import Command
 
+from .wrapper import Wrapper
+
 if TYPE_CHECKING:  # pragma: no cover
     from cashews.backends.interface import Backend
 
@@ -16,7 +18,11 @@ async def _is_disable_middleware(call: AsyncCallable_T, cmd: Command, backend: "
     return await call(*args, **kwargs)
 
 
-class ControlWrapperMixin:
+class ControlWrapper(Wrapper):
+    def __init__(self, name: str = ""):
+        super().__init__(name)
+        self.add_middleware(_is_disable_middleware)
+
     def disable(self, *cmds: Command, prefix: str = "") -> None:
         return self._get_backend(prefix).disable(*cmds)
 
@@ -39,5 +45,4 @@ class ControlWrapperMixin:
 
     @property
     def is_full_disable(self):
-        b = [backend.is_full_disable for backend, _ in self._backends.values()]
-        return all(b)
+        return all([backend.is_full_disable for backend, _ in self._backends.values()])

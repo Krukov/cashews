@@ -7,6 +7,8 @@ from cashews._typing import AsyncCallable_T, Middleware
 from cashews.backends.interface import Backend
 from cashews.backends.transaction import LockTransactionBackend, TransactionBackend
 
+from .wrapper import Wrapper
+
 _transaction = ContextVar("transaction", default=None)
 
 
@@ -16,7 +18,7 @@ class TransactionMode(Enum):
     SERIALIZABLE = "serializable"  # global lock - not allow any parallel changes
 
 
-class TransactionWrapperMixin:
+class TransactionWrapper(Wrapper):
     transaction_mode = TransactionMode.LOCKED
     transaction_timeout = 10
 

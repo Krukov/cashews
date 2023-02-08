@@ -7,9 +7,10 @@ from cashews.cache_condition import get_cache_condition
 from cashews.ttl import ttl_to_seconds
 
 from .time_condition import create_time_condition
+from .wrapper import Wrapper
 
 
-class DecoratorsWrapperMixin:
+class DecoratorsWrapper(Wrapper):
     _default_fail_exceptions: Tuple[Type[Exception], ...] = (Exception,)
 
     def set_default_fail_exceptions(self, *exc: Type[Exception]) -> None:
