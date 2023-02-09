@@ -1,4 +1,4 @@
-from functools import lru_cache, partial
+from functools import partial
 from typing import Dict, Tuple
 
 from cashews import validation
@@ -25,7 +25,6 @@ class Wrapper:
         self.name = name
         super().__init__()
 
-    @lru_cache(maxsize=1000)
     def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Middleware, ...]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):

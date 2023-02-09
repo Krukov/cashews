@@ -140,7 +140,6 @@ async def test_invalidate_further_decorator(cache):
 
 
 async def test_invalidate_further_get(cache):
-
     await cache.set("key", "value")
     assert await cache.get("key") == "value"
 
@@ -157,7 +156,6 @@ async def test_invalidate_further_get(cache):
 
 
 async def test_invalidate_further_get_many(cache):
-
     await cache.set("key", "value")
     await cache.set("key2", "value2")
 
@@ -171,7 +169,6 @@ async def test_invalidate_further_get_many(cache):
 
 
 async def test_invalidate_further_get_match(cache):
-
     await cache.set("key1", "value1")
     await cache.set("key2", "value2")
     assert {k: v async for k, v in cache.get_match("key*")} == {"key1": "value1", "key2": "value2"}
