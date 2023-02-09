@@ -86,18 +86,24 @@ async def test_init_enable(cache):
     assert not cache.is_disable()
 
 
-async def test_prefix(cache):
+async def test_prefix_cache(cache):
     cache.setup("mem://localhost")
+    await cache.set("-:key", "value")
+
     cache.setup("://", prefix="-", disable=True)
     assert not cache.is_disable()
     assert cache.is_disable(prefix="-")
 
     await cache.set("key", "value")
-    await cache.set("-:key", "-value")
+    await cache.set("-:key", "new")
 
     assert await cache.get("key") == "value"
     assert await cache.get("-:key") is None
-    assert await cache.get("-:key", default="def") == "def"
+
+    cache.enable(prefix="-")
+    assert cache.is_enable(prefix="-")
+
+    assert await cache.get("-:key") is None  # new backend haven't this key
 
 
 async def test_disable_ctz(cache):
