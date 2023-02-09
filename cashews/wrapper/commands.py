@@ -6,8 +6,10 @@ from cashews.backends.interface import Backend
 from cashews.commands import Command
 from cashews.ttl import ttl_to_seconds
 
+from .wrapper import Wrapper
 
-class CommandWrapperMixin:
+
+class CommandWrapper(Wrapper):
     async def set(
         self,
         key: str,

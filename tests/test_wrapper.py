@@ -13,18 +13,6 @@ from cashews.wrapper.auto_init import create_auto_init
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="target")
-def _target():
-    return Mock(wraps=Memory(), is_full_disable=False)
-
-
-@pytest.fixture(name="cache")
-def __cache(target):
-    _cache = Cache()
-    _cache._add_backend(target)
-    return _cache
-
-
 async def test_prefix_many(cache):
     await cache.init("mem://")
     await cache.init("mem://", prefix="-")
@@ -38,9 +26,17 @@ async def test_prefix_many(cache):
     assert await cache.get_many("key", "-:key") == ("value", "-value")
 
 
-async def test_init(cache):
-    await cache.init("mem://localhost")
+async def test_init():
+    cache = Cache()
     assert cache.is_init
+    cache.setup("mem://localhost", prefix="test")
+    assert not cache.is_init
+
+    await cache.init("mem://localhost", prefix="new")
+    assert cache.is_init
+
+    cache.setup("mem://localhost")
+    assert not cache.is_init
 
 
 async def test_auto_init(cache):
@@ -66,8 +62,8 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
     target.set.assert_called_once_with(key="key", value={"any": True}, expire=60, exist=None)
 
-    await cache.set_raw(key="key2", value={"any": True}, expire=60, exist=None)
-    target.set_raw.assert_called_once_with(key="key2", value={"any": True}, expire=60, exist=None)
+    await cache.set_raw(key="key2", value="value", expire=60)
+    target.set_raw.assert_called_once_with(key="key2", value="value", expire=60)
 
     await cache.get("key")  # -> Any
     target.get.assert_called_once_with(key="key", default=None)
@@ -135,6 +131,7 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
 
     await cache.slice_incr("key_slice", 0, 10, maxvalue=10)
     target.slice_incr.assert_called_once_with(key="key_slice", start=0, end=10, maxvalue=10, expire=None)
+    await cache.close()
 
 
 async def test_disable_cache_on_fail_return(cache: Cache):
@@ -182,7 +179,7 @@ async def test_disable_cache_on_fail_return_2(cache: Cache):
 async def test_multilayer_cache(cache: Cache):
     # If results from key2, key1 must not be set
 
-    @cache(ttl=1, key="key1", upper=True)
+    @cache(ttl=1, key="key1", upper=True, lock=True)
     @cache(ttl=1, key="key2")
     async def func():
         return 1

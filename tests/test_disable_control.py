@@ -1,29 +1,16 @@
 import asyncio
+from random import random
 from unittest.mock import Mock
 
 import pytest
 
-from cashews.backends.memory import Memory
 from cashews.commands import Command
 from cashews.wrapper import Cache
 
 pytestmark = pytest.mark.asyncio
 
 
-@pytest.fixture(name="target")
-def _target():
-    return Mock(wraps=Memory())
-
-
-@pytest.fixture(name="cache")
-def _cache(target):
-    cache = Cache()
-    cache._add_backend(target)
-    return cache
-
-
 async def test_disable_cmd(cache):
-    await cache.init("mem://localhost")
     cache.disable(Command.INCR)
     await cache.set("test", 10)
     await cache.incr("test")
@@ -68,11 +55,26 @@ async def test_is_disable():
 
 
 async def test_disable_context_manager(cache):
-    await cache.init("mem://localhost")
     with cache.disabling(Command.INCR):
         await cache.set("test", 10)
         await cache.incr("test")
     assert await cache.get("test") == 10
+
+
+async def test_disable_context_manage_get(cache):
+    await cache.set("test", 10)
+    with cache.disabling():
+        assert await cache.get("test") is None
+
+
+async def test_disable_context_manage_decor(cache):
+    @cache(ttl="1m")
+    async def func():
+        return random()
+
+    was = await func()
+    with cache.disabling():
+        assert await func() != was
 
 
 async def test_init_disable(cache):
@@ -87,7 +89,6 @@ async def test_init_enable(cache):
 
 
 async def test_prefix_cache(cache):
-    cache.setup("mem://localhost")
     await cache.set("-:key", "value")
 
     cache.setup("://", prefix="-", disable=True)
@@ -107,7 +108,6 @@ async def test_prefix_cache(cache):
 
 
 async def test_disable_ctz(cache):
-    await cache.init("mem://localhost")
     cache.enable()
 
     async def test():
@@ -170,7 +170,6 @@ async def test_disable_bloom(cache: Cache, target: Mock):
 
 async def test_disable_decorators_get(cache: Cache):
     data = (i for i in range(10))
-    await cache.init("mem://localhost")
 
     @cache(ttl=1)
     async def func():
@@ -195,9 +194,7 @@ async def test_disable_decorators_get(cache: Cache):
     assert await func() == 2
 
 
-async def test_disable_decorator_set():
-    cache = Cache()
-    await cache.init("mem://")
+async def test_disable_decorator_set(cache):
     data = (i for i in range(10))
     cache.disable(Command.SET)
 
@@ -213,9 +210,7 @@ async def test_disable_decorator_set():
     assert await func() == 2
 
 
-async def test_disable_and_get_enable():
-    cache = Cache()
-    await cache.init("mem://")
+async def test_disable_and_get_enable(cache):
     data = (i for i in range(10))
     cache.enable()
     assert cache.is_enable()

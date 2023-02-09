@@ -27,6 +27,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Different cache strategies out-of-the-box
 - Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
 - Set TTL as a string ("2h5m"), as `timedelta` or use a function in case TTL depends on key parameters
+- Transactionality
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
@@ -66,6 +67,7 @@ async def cache_using_function(request):
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
 - [Middleware](#middleware)
+- [Transactional mode](#transactional)
 
 ### Configuration
 
@@ -510,7 +512,9 @@ await MyClass().get_name("me", version="v2")
 ```
 
 As you can see, there is an ugly reference to the instance in the key. That is not what we expect to see.
-That cache will not work properly. There are 3 solutions to avoid it.) define `__str__` magic method in our class
+That cache will not work properly. There are 3 solutions to avoid it:
+
+1. define `__str__` magic method in our class
 
 ```python
 
@@ -798,6 +802,76 @@ async def logging_middleware(call, cmd: Command, backend: Backend, *args, **kwar
 
 
 cache.setup("mem://", middlewares=(logging_middleware, ))
+```
+
+### Transactional
+
+Applications more often based on database with transaction (OLTP) usage. Usually cache support transactions poorly.
+Here just simple example how we can make our cache inconsistent:
+
+```python
+async def my_handler():
+    async with db.transaction():
+        await db.insert(user)
+        await cache.set(f"key:{user.id}", user)
+        await api.service.register(user)
+```
+
+Here the api call may fail, the database transaction will rollback, but the cache will not.
+Of course, at this code we can solve it by moving the cache call outside transaction, but in real code it may not so easy.
+Another case: we want to make bulk operations with group of keys to keep it consistent:
+
+```python
+async def login(user, token, session):
+    ...
+    old_session = await cache.get(f"current_session:{user.id}")
+    await cache.incr(f"sessions_count:{user.id}")
+    await cache.set(f"current_session:{user.id}", session)
+    await cache.set(f"token:{token.id}", user)
+    return old_session
+```
+
+Here we want to have some way to protect our code from race conditions and do operations with cache simultaneously.
+
+Cashews support transaction operations:
+
+```python
+from cashews import cache
+...
+
+@cache.transaction()
+async def my_handler():
+    async with db.transaction():
+        await db.insert(user)
+        await cache.set(f"key:{user.id}", user)
+        await api.service.register(user)
+
+# or
+async def login(user, token, session):
+    async with cache.transaction() as tx:
+        old_session = await cache.get(f"current_session:{user.id}")
+        await cache.incr(f"sessions_count:{user.id}")
+        await cache.set(f"current_session:{user.id}", session)
+        await cache.set(f"token:{token.id}", user)
+        if ...:
+            tx.rollback()
+    return old_session
+
+```
+
+Transactions in cashews support different mode of "isolation"
+
+- fast (0-7% overhead) - memory based, can't protect of race conditions, but may use for atomicity
+- locked (default - 4-9% overhead) - use kind of shared lock per cache key (in case of redis or disk backend), protect of race conditions
+- serializable (7-50% overhead) - use global shared lock - one transaction per time (almost useless)
+
+```python
+from cashews import cache, TransactionMode
+...
+
+@cache.transaction(TransactionMode.SERIALIZABLE, timeout=1)
+async def my_handler():
+   ...
 ```
 
 ## Development

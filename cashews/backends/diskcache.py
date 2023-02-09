@@ -7,7 +7,7 @@ from diskcache import Cache, FanoutCache
 
 from cashews.utils import Bitarray
 
-from .interface import Backend
+from .interface import NOT_EXIST, UNLIMITED, Backend
 
 
 class DiskCache(Backend):
@@ -148,17 +148,19 @@ class DiskCache(Backend):
     async def get_expire(self, key: str) -> int:
         return await self._run_in_executor(self._get_expire, key)
 
-    def _get_expire(self, key: str):
-        _, expire = self._cache.get(key, expire_time=True)
+    def _get_expire(self, key: str) -> int:
+        value, expire = self._cache.get(key, expire_time=True)
+        if value is None:
+            return NOT_EXIST
         if expire is None:
-            return -1
+            return UNLIMITED
         return round((datetime.utcfromtimestamp(expire) - datetime.utcnow()).total_seconds())
 
     async def get_size(self, key: str) -> int:
         return -1
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:
-        return message or b"PONG"
+        return b"PONG" if message in (None, b"PING") else message
 
     async def clear(self):
         await self._run_in_executor(self._cache.clear)

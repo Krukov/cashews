@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 from cashews import validation
 from cashews._typing import Middleware
@@ -9,7 +9,6 @@ from cashews.exceptions import NotConfiguredError
 
 from .auto_init import create_auto_init
 from .backend_settings import settings_url_parse
-from .disable_control import _is_disable_middleware
 
 
 class Wrapper:
@@ -17,13 +16,15 @@ class Wrapper:
 
     def __init__(self, name: str = ""):
         self._backends: Dict[str, Tuple[Backend, Tuple[Middleware, ...]]] = {}  # {key: (backend, middleware)}
-        self._default_middlewares: Tuple[Middleware, ...] = (
-            _is_disable_middleware,
+        self._default_middlewares: List[Middleware, ...] = [
             create_auto_init(),
             validation._invalidate_middleware,
-        )
+        ]
         self.name = name
         super().__init__()
+
+    def add_middleware(self, middleware: Middleware):
+        self._default_middlewares.append(middleware)
 
     def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Middleware, ...]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
@@ -31,7 +32,6 @@ class Wrapper:
                 return self._backends[prefix]
         if self.default_prefix not in self._backends:
             raise NotConfiguredError("run `cache.setup(...)` before using cache")
-        return self._backends[self.default_prefix]
 
     def _get_backend(self, key: str) -> Backend:
         backend, _ = self._get_backend_and_config(key)
@@ -65,7 +65,7 @@ class Wrapper:
     def _add_backend(self, backend: Backend, middlewares=(), prefix: str = default_prefix):
         self._backends[prefix] = (
             backend,
-            self._default_middlewares + middlewares,
+            tuple(self._default_middlewares) + middlewares,
         )
 
     async def init(self, *args, **kwargs):

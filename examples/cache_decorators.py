@@ -36,6 +36,7 @@ async def long_running_function_fail(foo):
 
 
 async def main():
+    await cache.clear()
     print(await long_running_function("simple"))
     print(await long_running_function_hit("hit"))
     print(await long_running_function_early("early"))

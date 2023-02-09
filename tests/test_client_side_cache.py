@@ -159,3 +159,12 @@ async def test_simple_cmd_bcast_many(create_cache):
         assert False
 
     await cache.close()
+
+
+async def test_unsafe_redis_down():
+    from cashews.backends.redis.client_side import BcastClientSide
+
+    cache = BcastClientSide(address="redis://localhost:9223")
+
+    with pytest.raises(asyncio.TimeoutError):
+        await cache.init()

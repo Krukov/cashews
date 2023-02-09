@@ -72,7 +72,7 @@ class BcastClientSide(Redis):
         self.__is_init = False
         self._listen_task = asyncio.create_task(self._listen_invalidate_forever())
         try:
-            await asyncio.wait_for(self._listen_started.wait(), timeout=2)
+            await asyncio.wait_for(self._listen_started.wait(), timeout=self._kwargs["socket_timeout"])
         except (TimeoutError, asyncio.TimeoutError):
             if self._listen_task.done():
                 raise self._listen_task.exception()
@@ -147,10 +147,21 @@ class BcastClientSide(Redis):
         await self._local_cache.set(key, _empty_in_redis)
         return default
 
-    async def set(self, key: str, value: Any, *args: Any, **kwargs: Any) -> Any:
-        await self._local_cache.set(key, value, *args, **kwargs)
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        expire: Optional[float] = None,
+        exist: Optional[bool] = None,
+    ) -> bool:
+        await self._local_cache.set(key, value, expire, exist)
         await self._mark_as_recently_updated(key)
-        return await super().set(self._add_prefix(key), value, *args, **kwargs)
+        _set = await super().set(self._add_prefix(key), value, expire, exist)
+        if _set:
+            await self._local_cache.set(key, value, expire)
+        else:
+            await self._recently_update.delete(key)
+        return _set
 
     async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         await self._local_cache.set_many(pairs, expire)
@@ -230,7 +241,7 @@ class BcastClientSide(Redis):
         return result
 
     async def get_expire(self, key: str) -> int:
-        if await self._local_cache.get_expire(key) != -1:
+        if await self._local_cache.get_expire(key) > 0:
             if self._listen_started.is_set():
                 return await self._local_cache.get_expire(key)
         expire = await super().get_expire(self._add_prefix(key))
@@ -247,11 +258,8 @@ class BcastClientSide(Redis):
     async def set_lock(self, key: str, value, expire):
         await self._mark_as_recently_updated(key)
         await self._local_cache.set_lock(key, value, expire)
-        pexpire = None
-        if isinstance(expire, float):
-            pexpire = int(expire * 1000)
-            expire = None
-        return bool(await self._client.set(self._add_prefix(key), value, ex=expire, px=pexpire, nx=True))
+        pexpire = int(expire * 1000)
+        return bool(await self._client.set(self._add_prefix(key), value, px=pexpire, nx=True))
 
     async def unlock(self, key, value):
         await self._local_cache.unlock(key, value)

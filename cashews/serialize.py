@@ -110,6 +110,9 @@ class PickleSerializerMixin:
     async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         transformed_pairs = {}
         for key, value in pairs.items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                transformed_pairs[key] = value
+                continue
             value = self._pickler.dumps(value)
             transformed_pairs[key] = self._prepend_sign_to_value(key, value)
         return await super().set_many(transformed_pairs, expire=expire)
