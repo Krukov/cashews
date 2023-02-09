@@ -45,7 +45,6 @@ class DecoratorsWrapperMixin:
 
     def _wrap_with_condition(self, decorator_fabric, condition, lock=False, time_condition=None, **decor_kwargs):
         def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
-
             _condition = condition
             if time_condition is not None:
                 _condition, _decor = create_time_condition(time_condition)

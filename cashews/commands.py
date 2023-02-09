@@ -2,7 +2,6 @@ from enum import Enum
 
 
 class Command(Enum):
-
     GET = "get"
     GET_MANY = "get_many"
     GET_RAW = "get_raw"
