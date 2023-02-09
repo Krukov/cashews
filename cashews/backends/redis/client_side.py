@@ -72,7 +72,7 @@ class BcastClientSide(Redis):
         self.__is_init = False
         self._listen_task = asyncio.create_task(self._listen_invalidate_forever())
         try:
-            await asyncio.wait_for(self._listen_started.wait(), timeout=2)
+            await asyncio.wait_for(self._listen_started.wait(), timeout=self._kwargs["socket_timeout"])
         except (TimeoutError, asyncio.TimeoutError):
             if self._listen_task.done():
                 raise self._listen_task.exception()
@@ -147,10 +147,21 @@ class BcastClientSide(Redis):
         await self._local_cache.set(key, _empty_in_redis)
         return default
 
-    async def set(self, key: str, value: Any, *args: Any, **kwargs: Any) -> Any:
-        await self._local_cache.set(key, value, *args, **kwargs)
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        expire: Optional[float] = None,
+        exist: Optional[bool] = None,
+    ) -> bool:
+        await self._local_cache.set(key, value, expire, exist)
         await self._mark_as_recently_updated(key)
-        return await super().set(self._add_prefix(key), value, *args, **kwargs)
+        _set = await super().set(self._add_prefix(key), value, expire, exist)
+        if _set:
+            await self._local_cache.set(key, value, expire)
+        else:
+            await self._recently_update.delete(key)
+        return _set
 
     async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
         await self._local_cache.set_many(pairs, expire)

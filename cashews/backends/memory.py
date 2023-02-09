@@ -19,6 +19,8 @@ class Memory(Backend):
     Inmemory backend lru with ttl
     """
 
+    __slots__ = ["store", "_check_interval", "size", "__is_init", "__remove_expired_stop", "__remove_expired_task"]
+
     def __init__(self, size: int = 1000, check_interval: float = 1):
         self.store: OrderedDict = OrderedDict()
         self._check_interval = check_interval

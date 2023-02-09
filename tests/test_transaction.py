@@ -235,6 +235,7 @@ async def test_isolation(cache: Cache, tx_mode):
         return_exceptions=True,
     )
 
+    assert await cache.get("incr")
     assert await cache.get("incr") == 1 if tx_mode == TransactionMode.FAST else 3
     first_value = None
     async for key, value in cache.get_match("k*"):
@@ -257,6 +258,23 @@ async def test_inner_transaction_commit_outer_rollback(cache: Cache, tx_mode):
 
     assert await cache.get("key1") == "value1"
     assert await cache.get("key2") == "value2"
+
+
+async def test_gather(cache: Cache, tx_mode):
+    await cache.set("key1", "value1")
+    await cache.set("key2", "value1")
+
+    async with cache.transaction(tx_mode):
+        await asyncio.gather(
+            cache.set("key1", "value3"),
+            cache.set("key1", "value4"),
+            cache.delete("key2"),
+            cache.incr("key3"),
+        )
+
+    assert await cache.get("key1") in ("value4", "value3")
+    assert await cache.get("key2") is None
+    assert await cache.get("key3") == 1
 
 
 async def test_decorators_smoke(cache: Cache, tx_mode):

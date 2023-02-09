@@ -45,11 +45,11 @@ async def test_invalidate_decor(cache: Cache):
         return random.random()
 
     first_call = await func("test")
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
 
     assert first_call == await func("test")
     await func2("test")
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert first_call != await func("test")
 
 

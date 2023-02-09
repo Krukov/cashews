@@ -239,6 +239,8 @@ class LockTransactionBackend(TransactionBackend):
             if await self._backend.set_lock(lock_key, self._lock_id, expire=self._timeout):
                 self._locks.add(lock_key)
                 return
+            if lock_key in self._locks:
+                return
             await asyncio.sleep(step)
         raise LockedError("probably deadlock or long running transactions")
 

@@ -5,7 +5,7 @@ from .backend_settings import register_backend  # noqa
 from .commands import CommandWrapper
 from .decorators import DecoratorsWrapper
 from .disable_control import ControlWrapper
-from .transaction import TransactionWrapper
+from .transaction import TransactionMode, TransactionWrapper
 
 __all__ = ["Cache", "register_backend"]
 

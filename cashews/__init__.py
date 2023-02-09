@@ -6,7 +6,7 @@ from .formatter import default_formatter, get_template_and_func_for, get_templat
 from .helpers import add_prefix, all_keys_lower, memory_limit  # noqa
 from .key import noself  # noqa
 from .validation import invalidate_further  # noqa
-from .wrapper import Cache, register_backend  # noqa
+from .wrapper import Cache, TransactionMode, register_backend  # noqa
 
 # pylint: disable=invalid-name
 cache = Cache(name="default")

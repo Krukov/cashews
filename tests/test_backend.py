@@ -19,12 +19,18 @@ async def test_set_get_many(cache):
 
 
 async def test_set_exist(cache):
-    assert await cache.set("key", b"value")
-    assert await cache.set("key", b"value", exist=True)
-    assert not await cache.set("key2", b"value", exist=True)
+    assert await cache.set("key", "value")
+    assert await cache.set("key", "value2", exist=True)
+    assert await cache.get("key") == "value2"
 
-    assert await cache.set("key2", b"value", exist=False)
-    assert not await cache.set("key2", b"value", exist=False)
+    assert not await cache.set("key2", "value", exist=True)
+    assert await cache.get("key2") is None
+
+    assert await cache.set("key2", "value", exist=False)
+    assert await cache.get("key2") == "value"
+
+    assert not await cache.set("key2", "value2", exist=False)
+    assert await cache.get("key2") == "value"
 
 
 async def test_set_many(cache):
