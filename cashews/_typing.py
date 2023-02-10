@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Iterable, Tuple, TypeVar, Union
 
 try:
     from typing import Protocol
@@ -15,6 +15,11 @@ class CallableCacheCondition(Protocol):
         ...
 
 
+Key = str
+KeyTemplate = str
+KeyOrTemplate = Union[KeyTemplate, Key]
+Value = Any
+Tags = Iterable[str]
 CacheCondition = Union[CallableCacheCondition, str, None]
 
 AsyncCallableResult_T = TypeVar("AsyncCallableResult_T")

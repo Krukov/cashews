@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from typing import Any, AsyncIterator, Mapping, Optional, Set, Tuple
 
+from cashews._typing import Key, Tags, Value
 from cashews.commands import ALL, Command
 from cashews.exceptions import LockedError
 
@@ -28,83 +29,88 @@ class _BackendInterface(metaclass=ABCMeta):
     @abstractmethod
     async def set(
         self,
-        key: str,
-        value: Any,
+        key: Key,
+        value: Value,
         expire: Optional[float] = None,
         exist: Optional[bool] = None,
+        tags: Optional[Tags] = None,
     ) -> bool:
         ...
 
     @abstractmethod
-    async def set_raw(self, key: str, value: Any, **kwargs: Any):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None, tags: Optional[Tags] = None):
         ...
 
     @abstractmethod
-    async def get(self, key: str, default: Optional[Any] = None) -> Any:
+    async def set_raw(self, key: Key, value: Value, **kwargs: Any):
         ...
 
     @abstractmethod
-    async def get_raw(self, key: str) -> Any:
+    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
         ...
 
     @abstractmethod
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Optional[Any], ...]:
+    async def get_raw(self, key: Key) -> Value:
         ...
 
     @abstractmethod
-    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
+    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
         ...
 
     @abstractmethod
-    async def exists(self, key: str) -> bool:
+    async def exists(self, key: Key) -> bool:
         ...
 
     @abstractmethod
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         ...
 
     @abstractmethod
-    async def incr(self, key: str) -> int:
+    async def incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
         ...
 
     @abstractmethod
-    async def delete(self, key: str) -> bool:
+    async def delete(self, key: Key) -> bool:
         ...
 
     @abstractmethod
-    async def delete_many(self, *keys: str):
+    async def delete_many(self, *keys: Key):
         ...
 
     @abstractmethod
     async def delete_match(self, pattern: str):
         ...
 
-    @abstractmethod
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[str, Any]]:
+    # @abstractmethod
+    async def delete_tags(self, tags: Tags):
         ...
 
     @abstractmethod
-    async def expire(self, key: str, timeout: float):
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:
         ...
 
     @abstractmethod
-    async def get_expire(self, key: str) -> int:
+    async def expire(self, key: Key, timeout: float):
         ...
 
     @abstractmethod
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+    async def get_expire(self, key: Key) -> int:
         ...
 
     @abstractmethod
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         ...
 
     @abstractmethod
-    async def slice_incr(self, key: str, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         ...
 
     @abstractmethod
-    async def get_size(self, key: str) -> int:
+    async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+        ...
+
+    @abstractmethod
+    async def get_size(self, key: Key) -> int:
         """
         Return size in bites that allocated by a value for given key
         """
@@ -119,24 +125,24 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def set_lock(self, key: str, value: Any, expire: float) -> bool:
+    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
         ...
 
     @abstractmethod
     async def is_locked(
         self,
-        key: str,
+        key: Key,
         wait: Optional[float] = None,
         step: float = 0.1,
     ) -> bool:
         ...
 
     @abstractmethod
-    async def unlock(self, key: str, value: Any) -> bool:
+    async def unlock(self, key: Key, value: Value) -> bool:
         ...
 
     @asynccontextmanager
-    async def lock(self, key: str, expire: float):
+    async def lock(self, key: Key, expire: float):
         identifier = str(uuid.uuid4())
         lock = await self.set_lock(key, identifier, expire=expire)
         if not lock:

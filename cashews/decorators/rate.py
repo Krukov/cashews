@@ -2,7 +2,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator
+from cashews._typing import TTL, AsyncCallable_T, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import RateLimitError
 from cashews.formatter import register_template
@@ -21,7 +21,7 @@ def rate_limit(
     limit: int,
     period: TTL,
     ttl: Optional[TTL] = None,
-    key: Optional[str] = None,
+    key: Optional[KeyOrTemplate] = None,
     action: Callable = _default_action,
     prefix: str = "rate_limit",
 ) -> Decorator:  # pylint: disable=too-many-arguments

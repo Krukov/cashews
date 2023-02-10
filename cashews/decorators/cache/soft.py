@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
+from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 def soft(
     backend: _BackendInterface,
     ttl: TTL,
-    key: Optional[str] = None,
+    key: Optional[KeyOrTemplate] = None,
     soft_ttl: Optional[TTL] = None,
     exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
@@ -32,6 +32,8 @@ def soft(
     :param backend: cache backend
     :param ttl: duration in seconds to store a result
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
+    :param exceptions: exceptions at which returned cache result if not reach ttl
+    :param soft_ttl: pre expire ttl
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     """

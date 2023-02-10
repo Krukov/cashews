@@ -17,8 +17,8 @@ class CustomError(Exception):
     pass
 
 
-async def test_fail_cache_simple(backend):
-    @decorators.failover(backend, ttl=EXPIRE, exceptions=CustomError, key="fail")
+async def test_fail_cache_simple(cache):
+    @cache.failover(ttl=EXPIRE, exceptions=CustomError, key="fail")
     async def func(fail=False):
         if fail:
             raise CustomError()
@@ -32,7 +32,7 @@ async def test_fail_cache_simple(backend):
         await func(fail=True)
 
 
-async def test_fail_cache_fast_condition(backend):
+async def test_fail_cache_fast_condition(cache):
     mem = set()
 
     def getter(key):
@@ -43,7 +43,7 @@ async def test_fail_cache_fast_condition(backend):
 
     fast_condition = decorators.fast_condition(getter=getter, setter=setter)
 
-    @decorators.failover(backend, ttl=EXPIRE, condition=fast_condition, key="fail", prefix="")
+    @cache.failover(ttl=EXPIRE, condition=fast_condition, key="fail", prefix="")
     async def func(fail=False):
         if fail:
             raise CustomError()
@@ -55,8 +55,8 @@ async def test_fail_cache_fast_condition(backend):
     assert "fail" in mem
 
 
-async def test_cache_simple(backend):
-    @decorators.cache(backend, ttl=EXPIRE, key="key")
+async def test_cache_simple(cache):
+    @cache.cache(ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         return resp
 
@@ -69,10 +69,10 @@ async def test_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
-async def test_cache_simple_none(backend):
+async def test_cache_simple_none(cache):
     mock = Mock()
 
-    @decorators.cache(backend, ttl=EXPIRE, key="key")
+    @cache(ttl=EXPIRE, key="key")
     async def func():
         mock()
         return None
@@ -84,57 +84,63 @@ async def test_cache_simple_none(backend):
     assert mock.call_count == 1
 
 
-async def test_cache_simple_key(backend):
+async def test_cache_simple_key(cache):
     _REGISTER.clear()
 
-    @decorators.cache(backend, ttl=1, key="key:{some}")
+    @cache(ttl=1, key="key:{some}")
     async def func1(resp=b"ok", some="err"):
         return resp
 
-    @decorators.cache(backend, ttl=1)
+    @cache(ttl=1)
     async def func2(resp, some="err"):
         return resp
 
-    _noself = noself(decorators.cache)(backend, ttl=1)
+    await func1()
+    await func2("ok")
+
+    assert next(get_templates_for_func(func1)) == "key:{some}"
+    assert next(get_templates_for_func(func2)) == "tests.test_cache:func2:resp:{resp}:some:{some}"
+
+
+async def test_cache_self_noself_key(cache):
+    _REGISTER.clear()
+
+    _noself = noself(cache)
 
     class Klass:
-        @decorators.cache(backend, ttl=1)
+        @cache(ttl=1)
         async def method(self, resp):
             return resp
 
         @staticmethod
-        @decorators.cache(backend, ttl=1)
+        @cache(ttl=1)
         async def stat(resp):
             return resp
 
-        @_noself
+        @_noself(ttl=1)
         async def method2(self, resp):
             return resp
 
-    await func1()
-    await func2("ok")
     obj = Klass()
     await obj.method("ok")
     await obj.stat("ok")
     await obj.method2("ok")
 
-    assert next(get_templates_for_func(func1)) == "key:{some}"
-    assert next(get_templates_for_func(func2)) == "tests.test_cache:func2:resp:{resp}:some:{some}"
     assert (
         next(get_templates_for_func(obj.method))
-        == "tests.test_cache:test_cache_simple_key.<locals>.Klass.method:self:{self}:resp:{resp}"
+        == "tests.test_cache:test_cache_self_noself_key.<locals>.Klass.method:self:{self}:resp:{resp}"
     )
     assert (
         next(get_templates_for_func(obj.method2))
-        == "tests.test_cache:test_cache_simple_key.<locals>.Klass.method2:resp:{resp}"
+        == "tests.test_cache:test_cache_self_noself_key.<locals>.Klass.method2:resp:{resp}"
     )
     assert next(get_templates_for_func(obj.stat)) == "tests.test_cache:stat:resp:{resp}"
 
 
-async def test_cache_simple_cond(backend):
+async def test_cache_simple_cond(cache):
     mock = Mock()
 
-    @decorators.cache(backend, ttl=EXPIRE, key="key", condition=lambda x, *args, **kwargs: x == b"hit")
+    @cache(ttl=EXPIRE, key="key", condition=lambda x, *args, **kwargs: x == b"hit")
     async def func(resp=b"ok"):
         mock()
         return resp
@@ -151,7 +157,7 @@ async def test_cache_simple_cond(backend):
     assert mock.call_count == 3
 
 
-async def test_cache_simple_ttl(backend):
+async def test_cache_simple_ttl(cache):
     mock = Mock()
 
     def _ttl(resp=b"ok"):
@@ -159,7 +165,7 @@ async def test_cache_simple_ttl(backend):
             return 0.01
         return "2h"
 
-    @decorators.cache(backend, ttl=_ttl)
+    @cache(ttl=_ttl)
     async def func(resp=b"ok"):
         mock()
         return resp
@@ -181,8 +187,8 @@ async def test_cache_simple_ttl(backend):
     assert mock.call_count == 3
 
 
-async def test_early_cache_simple(backend):
-    @decorators.early(backend, ttl=EXPIRE, key="key")
+async def test_early_cache_simple(cache):
+    @cache.early(ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         return resp
 
@@ -195,10 +201,10 @@ async def test_early_cache_simple(backend):
     assert await func(b"notok") == b"notok"
 
 
-async def test_soft_cache_simple(backend):
+async def test_soft_cache_simple(cache):
     mock = Mock()
 
-    @decorators.soft(backend, ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
+    @cache.soft(ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         mock()
         return resp
@@ -215,10 +221,10 @@ async def test_soft_cache_simple(backend):
     assert mock.call_count == 2
 
 
-async def test_soft_cache_on_exc(backend):
+async def test_soft_cache_on_exc(cache):
     mock = Mock()
 
-    @decorators.soft(backend, ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
+    @cache.soft(ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         if resp == b"notok":
             raise ValueError()
@@ -243,11 +249,10 @@ async def test_soft_cache_on_exc(backend):
 
 
 @pytest.mark.xfail
-async def test_early_cache_parallel(backend):
+async def test_early_cache_parallel(cache):
     mock = Mock()
-    await backend.init()
 
-    @decorators.early(backend, ttl=0.1, early_ttl=0.05, key="key")
+    @cache.early(ttl=0.1, early_ttl=0.05, key="key")
     async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
         mock(resp)
@@ -264,11 +269,10 @@ async def test_early_cache_parallel(backend):
     assert mock.call_count in (2, 3, 4)  # depends on backend
 
 
-async def test_lock_cache_parallel(backend):
+async def test_lock_cache_parallel(cache):
     mock = Mock()
-    await backend.init()
 
-    @decorators.locked(backend, key="key", step=0.01)
+    @cache.locked(key="key", step=0.01)
     async def func():
         await asyncio.sleep(0.1)
         mock()
@@ -279,10 +283,10 @@ async def test_lock_cache_parallel(backend):
     assert mock.call_count == 2
 
 
-async def test_lock_cache_parallel_ttl(backend):
+async def test_lock_cache_parallel_ttl(cache):
     mock = Mock()
 
-    @decorators.locked(backend, key="key", step=0.01, ttl=0.1)
+    @cache.locked(key="key", step=0.01, ttl=0.1)
     async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
         mock(resp)
@@ -314,10 +318,10 @@ async def test_lock_cache_broken_backend():
     assert mock.call_count == 40
 
 
-async def test_hit_cache(backend):
+async def test_hit_cache(cache):
     mock = Mock()
 
-    @decorators.hit(backend, ttl=1000, cache_hits=10, key="test")
+    @cache.hit(ttl=1000, cache_hits=10, key="test")
     async def func(resp=b"ok"):
         mock(resp)
         return resp
@@ -332,10 +336,10 @@ async def test_hit_cache(backend):
     assert mock.call_count in [2, 3, 4]
 
 
-async def test_hit_cache_early(backend):
+async def test_hit_cache_early(cache):
     mock = Mock()
 
-    @decorators.hit(backend, ttl=10, cache_hits=5, key="test", update_after=1)
+    @cache.hit(ttl=10, cache_hits=5, key="test", update_after=1)
     async def func(resp=b"ok"):
         mock(resp)
         return resp
@@ -353,8 +357,8 @@ async def test_hit_cache_early(backend):
     assert mock.call_count == 3
 
 
-async def test_context_cache_detect_simple(backend):
-    @decorators.cache(backend, ttl=EXPIRE, key="key")
+async def test_context_cache_detect_simple(cache):
+    @cache(ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         return resp
 
@@ -375,12 +379,12 @@ async def test_context_cache_detect_simple(backend):
     assert decorators.context_cache_detect._levels == {}
 
 
-async def test_context_cache_detect_deep(backend):
-    @decorators.cache(backend, ttl=EXPIRE, key="key1")
+async def test_context_cache_detect_deep(cache):
+    @cache(ttl=EXPIRE, key="key1")
     async def func1():
         return 1
 
-    @decorators.cache(backend, ttl=EXPIRE, key="key2")
+    @cache(ttl=EXPIRE, key="key2")
     async def func2():
         return 2
 
@@ -400,12 +404,12 @@ async def test_context_cache_detect_deep(backend):
     assert decorators.context_cache_detect._levels == {}
 
 
-async def test_context_cache_detect_context(backend):
-    @decorators.cache(backend, ttl=EXPIRE, key="key1")
+async def test_context_cache_detect_context(cache):
+    @cache(ttl=EXPIRE, key="key1")
     async def func1():
         return 1
 
-    @decorators.cache(backend, ttl=EXPIRE, key="key2")
+    @cache(ttl=EXPIRE, key="key2")
     async def func2():
         return 2
 
@@ -414,8 +418,8 @@ async def test_context_cache_detect_context(backend):
             await asyncio.gather(*funcs)
             return len(detector.keys)
 
-    await backend.set("key1", "test")
-    await backend.set("key2", "test")
+    await cache.set("key1", "test")
+    await cache.set("key2", "test")
     assert await func1() == "test"
     assert await func2() == "test"
 

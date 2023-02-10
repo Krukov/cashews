@@ -1,7 +1,7 @@
 from functools import partial
-from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Tuple, Union
+from typing import AsyncIterator, Dict, List, Mapping, Optional, Tuple, Union
 
-from cashews._typing import TTL
+from cashews._typing import TTL, Key, Tags, Value
 from cashews.backends.interface import Backend
 from cashews.commands import Command
 from cashews.ttl import ttl_to_seconds
@@ -12,25 +12,30 @@ from .wrapper import Wrapper
 class CommandWrapper(Wrapper):
     async def set(
         self,
-        key: str,
-        value: Any,
+        key: Key,
+        value: Value,
         expire: Union[float, TTL, None] = None,
         exist: Optional[bool] = None,
+        tags: Optional[Tags] = None,
     ) -> bool:
         return await self._with_middlewares(Command.SET, key)(
-            key=key, value=value, expire=ttl_to_seconds(expire), exist=exist
+            key=key,
+            value=value,
+            expire=ttl_to_seconds(expire),
+            exist=exist,
+            tags=tags,
         )
 
-    async def set_raw(self, key: str, value: Any, **kwargs):
+    async def set_raw(self, key: Key, value: Value, **kwargs):
         return await self._with_middlewares(Command.SET_RAW, key)(key=key, value=value, **kwargs)
 
-    async def get(self, key: str, default: Optional[Any] = None) -> Any:
+    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
         return await self._with_middlewares(Command.GET, key)(key=key, default=default)
 
-    async def get_raw(self, key: str) -> Any:
+    async def get_raw(self, key: Key) -> Value:
         return await self._with_middlewares(Command.GET_RAW, key)(key=key)
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(pattern, batch_size):
@@ -45,7 +50,7 @@ class CommandWrapper(Wrapper):
         self,
         pattern: str,
         batch_size: int = 100,
-    ) -> AsyncIterator[Tuple[str, Any]]:
+    ) -> AsyncIterator[Tuple[Key, Value]]:
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(pattern, batch_size):
@@ -56,47 +61,51 @@ class CommandWrapper(Wrapper):
         async for key, value in (await call(pattern=pattern, batch_size=batch_size)):
             yield key, value
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
+    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
         backends: Dict[Backend, List[str]] = {}
         for key in keys:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
-        result: Dict[str, Any] = {}
+        result: Dict[Key, Value] = {}
         for _keys in backends.values():
             _values = await self._with_middlewares(Command.GET_MANY, _keys[0])(*_keys, default=default)
             result.update(dict(zip(_keys, _values)))
         return tuple(result.get(key) for key in keys)
 
-    async def set_many(self, pairs: Mapping[str, Any], expire: Union[float, TTL, None] = None):
-        backends: Dict[Backend, List[str]] = {}
+    async def set_many(
+        self, pairs: Mapping[Key, Value], expire: Union[float, TTL, None] = None, tags: Optional[Tags] = None
+    ):
+        backends: Dict[Backend, List[Key]] = {}
         for key in pairs:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
         for backend, keys in backends.items():
             data = {key: pairs[key] for key in keys}
-            await self._with_middlewares(Command.SET_MANY, keys[0])(pairs=data, expire=ttl_to_seconds(expire))
+            await self._with_middlewares(Command.SET_MANY, keys[0])(
+                pairs=data, expire=ttl_to_seconds(expire), tags=tags
+            )
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         return await self._with_middlewares(Command.GET_BITS, key)(key, *indexes, size=size)
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         return await self._with_middlewares(Command.INCR_BITS, key)(key, *indexes, size=size, by=by)
 
     async def slice_incr(
-        self, key: str, start: int, end: int, maxvalue: int, expire: Union[float, TTL, None] = None
+        self, key: Key, start: int, end: int, maxvalue: int, expire: Union[float, TTL, None] = None
     ) -> int:
         return await self._with_middlewares(Command.SLICE_INCR, key)(
             key=key, start=start, end=end, maxvalue=maxvalue, expire=ttl_to_seconds(expire)
         )
 
-    async def incr(self, key: str) -> int:
-        return await self._with_middlewares(Command.INCR, key)(key=key)
+    async def incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
+        return await self._with_middlewares(Command.INCR, key)(key=key, value=value, tags=tags)
 
-    async def delete(self, key: str):
+    async def delete(self, key: Key) -> bool:
         return await self._with_middlewares(Command.DELETE, key)(key=key)
 
-    async def delete_many(self, *keys: str) -> None:
-        backends: Dict[Backend, List[str]] = {}
+    async def delete_many(self, *keys: Key) -> None:
+        backends: Dict[Backend, List[Key]] = {}
         for key in keys:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
@@ -106,22 +115,22 @@ class CommandWrapper(Wrapper):
     async def delete_match(self, pattern: str):
         return await self._with_middlewares(Command.DELETE_MATCH, pattern)(pattern=pattern)
 
-    async def expire(self, key: str, timeout: TTL):
+    async def expire(self, key: Key, timeout: TTL):
         return await self._with_middlewares(Command.EXPIRE, key)(key=key, timeout=ttl_to_seconds(timeout))
 
-    async def get_expire(self, key: str) -> int:
+    async def get_expire(self, key: Key) -> int:
         return await self._with_middlewares(Command.GET_EXPIRE, key)(key=key)
 
-    async def exists(self, key: str) -> bool:
+    async def exists(self, key: Key) -> bool:
         return await self._with_middlewares(Command.EXIST, key)(key=key)
 
-    async def set_lock(self, key: str, value: Any, expire: TTL) -> bool:
+    async def set_lock(self, key: Key, value: Value, expire: TTL) -> bool:
         return await self._with_middlewares(Command.SET_LOCK, key)(key=key, value=value, expire=ttl_to_seconds(expire))
 
-    async def unlock(self, key: str, value: str) -> bool:
+    async def unlock(self, key: Key, value: Value) -> bool:
         return await self._with_middlewares(Command.UNLOCK, key)(key=key, value=value)
 
-    async def get_size(self, key: str) -> int:
+    async def get_size(self, key: Key) -> int:
         return await self._with_middlewares(Command.GET_SIZE, key)(key=key)
 
     async def ping(self, message: Optional[bytes] = None) -> bytes:
@@ -134,7 +143,7 @@ class CommandWrapper(Wrapper):
 
     async def is_locked(
         self,
-        key: str,
+        key: Key,
         wait: Union[float, None, TTL] = None,
         step: Union[int, float] = 0.1,
     ) -> bool:

@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import wraps
 from typing import Any, Callable, NoReturn, Optional
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator
+from cashews._typing import TTL, AsyncCallable_T, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import RateLimitError
 from cashews.formatter import register_template
@@ -21,7 +21,7 @@ def slice_rate_limit(
     backend: _BackendInterface,
     limit: int,
     period: TTL,
-    key: Optional[str] = None,
+    key: Optional[KeyOrTemplate] = None,
     action: Callable = _default_action,
     prefix: str = "srate",
 ) -> Decorator:  # pylint: disable=too-many-arguments

@@ -2,7 +2,7 @@ import asyncio
 from functools import wraps
 from typing import Optional
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
+from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, Key, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
@@ -18,7 +18,7 @@ def hit(
     ttl: TTL,
     cache_hits: int,
     update_after: Optional[int] = None,
-    key: Optional[str] = None,
+    key: Optional[KeyOrTemplate] = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "hit",
 ) -> Decorator:
@@ -67,7 +67,7 @@ def hit(
     return _decor
 
 
-async def _get_and_save(func, args, kwargs, backend, key, ttl, store):
+async def _get_and_save(func, args, kwargs, backend: _BackendInterface, key: Key, ttl, store):
     result = await func(*args, **kwargs)
     if store(result, args, kwargs, key=key):
         await asyncio.gather(
