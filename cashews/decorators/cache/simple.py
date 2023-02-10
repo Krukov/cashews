@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Optional
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
+from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
@@ -15,7 +15,7 @@ __all__ = ("cache",)
 def cache(
     backend: _BackendInterface,
     ttl: TTL,
-    key: Optional[str] = None,
+    key: Optional[KeyOrTemplate] = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "",
 ) -> Decorator:

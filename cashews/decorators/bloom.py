@@ -4,7 +4,7 @@ from collections import namedtuple
 from functools import wraps
 from typing import Any, Iterable, Optional, Tuple, Union
 
-from cashews._typing import AsyncCallable_T, Decorator
+from cashews._typing import AsyncCallable_T, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.utils import get_indexes
@@ -30,7 +30,7 @@ def bloom(
     backend: _BackendInterface,
     *,
     capacity: int,
-    name: Optional[str] = None,
+    name: Optional[KeyOrTemplate] = None,
     false_positives: Union[float, int] = 1,
     check_false_positive: bool = True,
     prefix: str = "bloom",
@@ -98,7 +98,7 @@ def dual_bloom(
     backend: _BackendInterface,
     *,
     capacity: IntOrPair,
-    name: Optional[str] = None,
+    name: Optional[KeyOrTemplate] = None,
     false: Optional[IntOrPair] = 1,
     no_collisions: bool = False,
     prefix: str = "dual_bloom",

@@ -3,7 +3,7 @@ from datetime import datetime
 from functools import wraps
 from typing import Optional, Tuple, Type, Union
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator
+from cashews._typing import TTL, AsyncCallable_T, Decorator, Key, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import CircuitBreakerOpen
 from cashews.key import get_cache_key, get_cache_key_template
@@ -18,7 +18,7 @@ def circuit_breaker(
     half_open_ttl: Optional[TTL] = None,
     min_calls: int = 1,
     exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
-    key: Optional[str] = None,
+    key: Optional[KeyOrTemplate] = None,
     prefix: str = "circuit_breaker",
 ) -> Decorator:
     """
@@ -69,6 +69,6 @@ def circuit_breaker(
     return _decor
 
 
-async def _get_requests_count(backend: _BackendInterface, key: str, period: int) -> int:
+async def _get_requests_count(backend: _BackendInterface, key: Key, period: int) -> int:
     timestamp = datetime.utcnow().timestamp()
     return await backend.slice_incr(key, timestamp - period, timestamp, 9999, expire=period)

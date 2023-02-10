@@ -46,7 +46,8 @@ async def test_get_no_value(cache):
 async def test_incr(cache):
     assert await cache.incr("incr") == 1
     assert await cache.incr("incr") == 2
-    assert await cache.get("incr") == 2
+    assert await cache.incr("incr", 5) == 7
+    assert await cache.get("incr") == 7
 
 
 async def test_incr_set(cache):

@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Optional, Union
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator
+from cashews._typing import TTL, AsyncCallable_T, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import LockedError
 from cashews.key import get_cache_key, get_cache_key_template
@@ -12,7 +12,7 @@ __all__ = ("locked",)
 
 def locked(
     backend: _BackendInterface,
-    key: Optional[str] = None,
+    key: Optional[KeyOrTemplate] = None,
     ttl: Optional[TTL] = None,
     max_lock_ttl: int = 10,
     step: Union[float, int] = 0.1,

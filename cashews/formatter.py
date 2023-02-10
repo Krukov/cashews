@@ -5,6 +5,8 @@ from hashlib import md5, sha1, sha256
 from string import Formatter
 from typing import Any, Callable, Iterable, Optional, Tuple
 
+from ._typing import KeyOrTemplate
+
 
 def _decode_bytes(value: bytes):
     try:
@@ -140,7 +142,7 @@ def _upper(value: str) -> str:
     return value.upper()
 
 
-def template_to_pattern(template: str, _formatter=_ReplaceFormatter(), **values) -> str:
+def template_to_pattern(template: KeyOrTemplate, _formatter=_ReplaceFormatter(), **values) -> str:
     return _formatter.format(template, **values)
 
 

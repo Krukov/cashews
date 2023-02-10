@@ -2,7 +2,7 @@ from functools import partial
 from typing import Dict, List, Tuple
 
 from cashews import validation
-from cashews._typing import Middleware
+from cashews._typing import Key, Middleware
 from cashews.backends.interface import Backend
 from cashews.commands import Command
 from cashews.exceptions import NotConfiguredError
@@ -15,7 +15,7 @@ class Wrapper:
     default_prefix = ""
 
     def __init__(self, name: str = ""):
-        self._backends: Dict[str, Tuple[Backend, Tuple[Middleware, ...]]] = {}  # {key: (backend, middleware)}
+        self._backends: Dict[str, Tuple[Backend, Tuple[Middleware, ...]]] = {}
         self._default_middlewares: List[Middleware, ...] = [
             create_auto_init(),
             validation._invalidate_middleware,
@@ -26,18 +26,18 @@ class Wrapper:
     def add_middleware(self, middleware: Middleware):
         self._default_middlewares.append(middleware)
 
-    def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Middleware, ...]]:
+    def _get_backend_and_config(self, key: Key) -> Tuple[Backend, Tuple[Middleware, ...]]:
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):
                 return self._backends[prefix]
         if self.default_prefix not in self._backends:
             raise NotConfiguredError("run `cache.setup(...)` before using cache")
 
-    def _get_backend(self, key: str) -> Backend:
+    def _get_backend(self, key: Key) -> Backend:
         backend, _ = self._get_backend_and_config(key)
         return backend
 
-    def _with_middlewares(self, cmd: Command, key: str):
+    def _with_middlewares(self, cmd: Command, key: Key):
         backend, middlewares = self._get_backend_and_config(key)
         return self._with_middlewares_for_backend(cmd, backend, middlewares)
 

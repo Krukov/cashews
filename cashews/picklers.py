@@ -1,6 +1,6 @@
 import pickle
-from typing import Any
 
+from ._typing import Value
 from .exceptions import UnsupportedPicklerError
 
 _SQLALC_PICKLE = True
@@ -22,33 +22,33 @@ class Pickler:
     PickleError = pickle.PickleError
 
     @staticmethod
-    def loads(value: bytes) -> Any:
+    def loads(value: bytes) -> Value:
         return pickle.loads(value, fix_imports=False, encoding="bytes")
 
     @staticmethod
-    def dumps(value: Any) -> bytes:
+    def dumps(value: Value) -> bytes:
         return pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL, fix_imports=False)
 
 
 class SQLAlchemyPickler(Pickler):
     @staticmethod
-    def loads(value: bytes) -> Any:
+    def loads(value: bytes) -> Value:
         return sqlalchemy_pickle.loads(
             value,
         )
 
     @staticmethod
-    def dumps(value: Any) -> bytes:
+    def dumps(value: Value) -> bytes:
         return sqlalchemy_pickle.dumps(value)
 
 
 class DillPickler(Pickler):
     @staticmethod
-    def loads(value: bytes) -> Any:
+    def loads(value: bytes) -> Value:
         return dill.loads(value)
 
     @staticmethod
-    def dumps(value: Any) -> bytes:
+    def dumps(value: Value) -> bytes:
         return dill.dumps(value)
 
 

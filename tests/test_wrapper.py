@@ -60,7 +60,13 @@ async def test_auto_init(cache):
 
 async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
-    target.set.assert_called_once_with(key="key", value={"any": True}, expire=60, exist=None)
+    target.set.assert_called_once_with(
+        key="key",
+        value={"any": True},
+        expire=60,
+        exist=None,
+        tags=None,
+    )
 
     await cache.set_raw(key="key2", value="value", expire=60)
     target.set_raw.assert_called_once_with(key="key2", value="value", expire=60)
@@ -72,13 +78,13 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     target.get_raw.assert_called_once_with(key="key")
 
     await cache.set_many({"key1": "value1", "key2": "value2"}, expire=60)
-    target.set_many.assert_called_once_with(pairs={"key1": "value1", "key2": "value2"}, expire=60)
+    target.set_many.assert_called_once_with(pairs={"key1": "value1", "key2": "value2"}, expire=60, tags=None)
 
     await cache.get_many("key1", "key2")
     target.get_many.assert_called_once_with("key1", "key2", default=None)
 
     await cache.incr("key_incr")  # -> int
-    target.incr.assert_called_once_with(key="key_incr")
+    target.incr.assert_called_once_with(key="key_incr", value=1, tags=None)
 
     await cache.delete("key")
     target.delete.assert_called_once_with(key="key")

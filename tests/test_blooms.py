@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews.decorators.bloom import bloom, dual_bloom
+from cashews.decorators.bloom import bloom
 
 pytestmark = pytest.mark.asyncio
 
@@ -11,7 +11,7 @@ async def test_bloom_simple(cache):
     n = 100
     call = Mock()
 
-    @bloom(backend=cache, name="name:{k}", false_positives=1, capacity=n)
+    @cache.bloom(name="name:{k}", false_positives=1, capacity=n)
     async def func(k):
         call(k)
         return k > (n / 2)
@@ -56,7 +56,7 @@ async def test_bloom_dual(cache):
     n = 100
     call = Mock()
 
-    @dual_bloom(backend=cache, name="name:{k}", false=1, capacity=n)
+    @cache.dual_bloom(name="name:{k}", false=1, capacity=n)
     async def func(k):
         call(k)
         return k > (n / 2)

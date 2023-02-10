@@ -3,6 +3,7 @@ from typing import Any, AsyncIterator, Dict, Mapping, Optional, Tuple, Type, Uni
 
 from redis.asyncio import BlockingConnectionPool
 
+from cashews._typing import Key, Tags, Value
 from cashews.backends.interface import Backend
 
 from .client import Redis, SafeRedis
@@ -71,7 +72,9 @@ class _Redis(Backend):
     async def clear(self):
         return await self._client.flushdb()
 
-    async def set(self, key: str, value: Any, expire: Optional[float] = None, exist=None) -> bool:
+    async def set(
+        self, key: Key, value: Value, expire: Optional[float] = None, exist=None, tags: Optional[Tags] = None
+    ) -> bool:
         nx = xx = None
         if exist is True:
             xx = True
@@ -80,7 +83,7 @@ class _Redis(Backend):
         px = int(expire * 1000) if expire else None
         return bool(await self._client.set(key, value, px=px, nx=nx, xx=xx))
 
-    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None, tags: Optional[Tags] = None):
         if len(pairs) == 1:
             key, value = list(pairs.items())[0]
             px = int(expire * 1000) if expire else None
@@ -93,19 +96,19 @@ class _Redis(Backend):
                     await pipe.pexpire(key, int(expire * 1000))
                 await pipe.execute()
 
-    async def get_expire(self, key: str) -> int:
+    async def get_expire(self, key: Key) -> int:
         return await self._client.ttl(key)
 
-    async def expire(self, key: str, timeout: float):
+    async def expire(self, key: Key, timeout: float):
         return await self._client.pexpire(key, int(timeout * 1000))
 
-    async def set_lock(self, key: str, value, expire: float) -> bool:
+    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
         pexpire = int(expire * 1000)
         return bool(await self._client.set(key, value, px=pexpire, nx=True))
 
     async def is_locked(
         self,
-        key: str,
+        key: Key,
         wait: Optional[float] = None,
         step: float = 0.1,
     ) -> bool:
@@ -119,18 +122,18 @@ class _Redis(Backend):
                 await asyncio.sleep(step)
         return True
 
-    async def unlock(self, key: str, value: Any) -> bool:
+    async def unlock(self, key: Key, value: Value) -> bool:
         if "UNLOCK" not in self._sha:
             self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
         return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
 
-    async def delete(self, key: str) -> bool:
+    async def delete(self, key: Key) -> bool:
         return bool(await self._client.unlink(key))
 
-    async def exists(self, key: str) -> bool:
+    async def exists(self, key: Key) -> bool:
         return bool(await self._client.exists(key))
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -139,7 +142,7 @@ class _Redis(Backend):
             if not cursor:
                 return
 
-    async def delete_many(self, *keys: str):
+    async def delete_many(self, *keys: Key):
         await self._client.unlink(*keys)
 
     async def delete_match(self, pattern: str):
@@ -155,7 +158,7 @@ class _Redis(Backend):
                 continue
             await self._client.unlink(keys[0], *keys[1:])
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[str, Any]]:  # type: ignore
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:  # type: ignore
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -171,14 +174,14 @@ class _Redis(Backend):
             if not cursor:
                 return
 
-    async def get_size(self, key: str) -> int:
+    async def get_size(self, key: Key) -> int:
         size = await self._client.memory_usage(key) or 0
         return int(size)
 
-    async def get(self, key: str, default=None) -> Any:
+    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
         return await self._client.get(key)
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Optional[Any], ...]:
+    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
         if not keys:
             return tuple()
         values = await self._client.mget(keys[0], *keys[1:])
@@ -186,10 +189,10 @@ class _Redis(Backend):
             return tuple()
         return tuple(value if value is not None else default for value in values)
 
-    async def incr(self, key: str) -> int:
-        return await self._client.incr(key)
+    async def incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
+        return await self._client.incr(key, amount=value)
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1):
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         """
         https://redis.io/commands/bitfield
         """
@@ -198,7 +201,7 @@ class _Redis(Backend):
             bitops.get(fmt=f"u{size}", offset=f"#{index}")
         return tuple(await bitops.execute() or [])
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         bitops = self._client.bitfield(key)
         for index in indexes:
             bitops.incrby(fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT")
@@ -208,13 +211,13 @@ class _Redis(Backend):
         await self._client.ping()
         return b"PONG" if message in (None, b"PING") else message
 
-    async def set_raw(self, key: str, value: Any, **kwargs: Any):
+    async def set_raw(self, key: Key, value: Value, **kwargs: Any):
         return await self._client.set(key, value, **kwargs)
 
-    async def get_raw(self, key: str) -> Any:
+    async def get_raw(self, key: Key) -> Value:
         return await self._client.get(key)
 
-    async def slice_incr(self, key: str, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+    async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
         expire = expire or 0
         expire = int(expire * 1000)
         if "INCR_SLICE" not in self._sha:
