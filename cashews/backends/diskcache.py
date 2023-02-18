@@ -1,11 +1,11 @@
 import asyncio
 import re
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Mapping, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, Iterable, List, Mapping, Optional, Tuple
 
 from diskcache import Cache, FanoutCache
 
-from cashews._typing import Key, Tags, Value
+from cashews._typing import Key, Value
 from cashews.utils import Bitarray
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
@@ -42,7 +42,6 @@ class DiskCache(Backend):
         value: Value,
         expire: Optional[float] = None,
         exist: Optional[bool] = None,
-        tags: Optional[Tags] = None,
     ) -> bool:
         future = self._run_in_executor(self._set, key, value, expire, exist)
         if exist is not None:
@@ -55,10 +54,13 @@ class DiskCache(Backend):
                     self._set_locks.pop(key, None)
         return await future
 
-    def _set(self, key: Key, value: Value, expire=None, exist=None, tags: Optional[Tags] = None):
+    def _set(self, key: Key, value: Value, expire=None, exist=None):
         if exist is not None:
             if not self._exists(key) is exist:
                 return False
+        if expire is None:
+            expire = self._get_expire(key)
+            expire = expire if expire not in [UNLIMITED, NOT_EXIST] else None
         return self._cache.set(key, value, expire)
 
     async def set_raw(self, key: Key, value: Any, **kwargs: Any):
@@ -74,14 +76,20 @@ class DiskCache(Backend):
         return await self._run_in_executor(self._get_many, keys, default)
 
     def _get_many(self, keys: List[Key], default: Optional[Value] = None):
-        return tuple(self._cache.get(key, default=default) for key in keys)
+        values = []
+        for key in keys:
+            val = self._cache.get(key, default=default)
+            if isinstance(val, Bitarray):
+                val = None
+            values.append(val)
+        return values
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None, tags: Optional[Tags] = None):
-        return await self._run_in_executor(self._set_many, pairs, expire, tags)
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+        return await self._run_in_executor(self._set_many, pairs, expire)
 
-    def _set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None, tags: Optional[Tags] = None):
+    def _set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
         for key, value in pairs.items():
-            self._set(key, value, expire=expire, tags=tags)
+            self._set(key, value, expire=expire)
 
     async def exists(self, key: Key) -> bool:
         return await self._run_in_executor(self._exists, key)
@@ -102,50 +110,67 @@ class DiskCache(Backend):
                 yield key
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
-        value = await self.get(key, default=0)
-        array = Bitarray(str(value))
+        array = await self.get(key, default=Bitarray("0"))
         result = []
         for index in indexes:
             result.append(array.get(index, size))
         return tuple(result)
 
     async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
-        value = await self.get(key, default=0)
-        array = Bitarray(str(value))
+        array = await self.get(key, default=Bitarray("0"))
         result = []
         for index in indexes:
             array.incr(index, size, by)
             result.append(array.get(index, size))
-        await self.set(key, array.to_int())
+        await self.set(key, array)
         return tuple(result)
 
-    async def incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
-        return await self._run_in_executor(self._incr, key, value, tags)
+    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+        return await self._run_in_executor(self._incr, key, value, expire)
 
-    def _incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
-        return self._cache.incr(key, delta=value, retry=True)
+    def _incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+        res = self._cache.incr(key, delta=value, retry=True)
+        if res == 1 and expire:
+            self._cache.touch(key, expire)
+        return res
 
     async def delete(self, key: Key) -> bool:
-        return await self._run_in_executor(self._cache.delete, key)
+        try:
+            return await self._run_in_executor(self._cache.delete, key)
+        finally:
+            await self._call_on_remove_callbacks(key)
 
     async def delete_many(self, *keys: Key):
-        await self._run_in_executor(self._delete_many, keys)
+        try:
+            await self._run_in_executor(self._delete_many, keys)
+        finally:
+            await self._call_on_remove_callbacks(*keys)
 
     def _delete_many(self, keys: List[Key]):
         for key in keys:
             self._cache.delete(key)
 
     async def delete_match(self, pattern: str):
-        return await self._run_in_executor(self._delete_match, pattern)
+        keys = []
+        async for key in self.scan(pattern):
+            keys.append(key)
+        try:
+            return await self._run_in_executor(self._delete_match, pattern)
+        finally:
+            await self._call_on_remove_callbacks(*keys)
 
     def _delete_match(self, pattern: str):
         for key in self._scan(pattern):
             self._cache.delete(key)
 
     async def get_match(self, pattern: str, batch_size: int = None) -> AsyncIterator[Tuple[Key, Value]]:
-        if not self._sharded:
-            for key in await self._run_in_executor(self._scan, pattern):
-                yield key, await self._run_in_executor(self._cache.get, key)
+        if self._sharded:
+            return
+        for key in await self._run_in_executor(self._scan, pattern):
+            value = await self._run_in_executor(self._cache.get, key)
+            if isinstance(value, Bitarray):
+                continue
+            yield key, value
 
     async def expire(self, key: Key, timeout: float) -> int:
         return await self._run_in_executor(self._cache.touch, key, timeout)
@@ -170,9 +195,6 @@ class DiskCache(Backend):
     async def clear(self):
         await self._run_in_executor(self._cache.clear)
 
-    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
-        return await self.set(key, value, expire=expire, exist=False)
-
     async def is_locked(
         self,
         key: Key,
@@ -189,7 +211,13 @@ class DiskCache(Backend):
         return await self.exists(key)
 
     async def unlock(self, key: Key, value: Value) -> bool:
-        return await self.delete(key)
+        return await self._run_in_executor(self._unlock, key, value)
+
+    def _unlock(self, key: Key, value: Value) -> bool:
+        if self._cache.get(key) == value:
+            self._cache.delete(key)
+            return True
+        return False
 
     async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
         val_set = await self.get(key)
@@ -206,3 +234,24 @@ class DiskCache(Backend):
             new_val.append(end)
         await self.set(key, new_val, expire=expire)
         return count
+
+    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+        val = await self.get(key, default=set())
+        val.update(values)
+        await self.set(key, val, expire=expire)
+
+    async def set_remove(self, key: Key, *values: str):
+        val = await self.get(key, default=set())
+        val.difference_update(values)
+        await self.set(key, val)
+
+    async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
+        values = await self.get(key, default=set())
+        _values = []
+        for _ in range(count):
+            if not values:
+                break
+            _values.append(values.pop())
+
+        await self.set(key, values)
+        return _values

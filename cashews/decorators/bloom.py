@@ -105,11 +105,11 @@ def dual_bloom(
 ) -> Decorator:
     """
     Decorator that can help you to use bloom filter algorithm
-     this is  implementation with 2 bloom filters - one for true and 1 for false
+     this is  implementation with 2 bloom filters - one for true and another for false
      That give as ability use bloom filter without pre-filling data
-     but with possible false positive and negative results
+     but with possible false positive and false negative results
 
-    @dual_bloom(name="user_name:{name}", false_positives=1, capacity=10_000)
+    @dual_bloom(name="user_name:{name}", false=1, capacity=10_000)
     async def is_user_exists(name) -> bool:
         return name in ....
 
@@ -128,20 +128,6 @@ def dual_bloom(
             _cache_key = f"{prefix}:{_cache_key}"
         _true_bloom_key = _cache_key + ":true"
         _false_bloom_key = _cache_key + ":false"
-
-        __delete = getattr(func, "delete", None)
-
-        async def _delete(*args: Any, **kwargs: Any) -> None:
-            if __delete:
-                await __delete(*args, **kwargs)
-            _bloom_key = get_cache_key(func, _cache_key, args, kwargs)
-            indexes_true, indexes_false = _get_indexes(_bloom_key, *filters_params)
-            await asyncio.gather(
-                backend.incr_bits(_true_bloom_key, *indexes_true, by=-1),
-                backend.incr_bits(_false_bloom_key, *indexes_false, by=-1),
-            )
-
-        func.delete = _delete
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
@@ -207,6 +193,7 @@ def params_for(capacity: int, false_positives: float = 0.01) -> BloomParams:
     """
     m = _count_m(capacity, false_positives)
     k = _count_k(m, capacity)
+    assert k > 0, "too high false positive value"
     return m, k
 
 

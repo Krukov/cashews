@@ -6,7 +6,6 @@ from typing import Any, Callable, NoReturn, Optional
 from cashews._typing import TTL, AsyncCallable_T, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import RateLimitError
-from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
@@ -40,7 +39,6 @@ def slice_rate_limit(
 
     def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
-        register_template(func, _key_template)
 
         @wraps(func)
         async def wrapped_func(*args, **kwargs):

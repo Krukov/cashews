@@ -44,3 +44,8 @@ class Bitarray:
 
     def __str__(self):
         return f"{self._value:b}"
+
+    def __eq__(self, other):
+        if not isinstance(other, Bitarray):
+            return False
+        return self._value == other._value

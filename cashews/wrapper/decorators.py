@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Callable, Dict, Iterable, Optional, Tuple, Type, Union
 
 from cashews import decorators, validation
-from cashews._typing import TTL, AsyncCallable_T, CacheCondition, KeyOrTemplate
+from cashews._typing import TTL, AsyncCallable_T, CacheCondition, KeyOrTemplate, Tags
 from cashews.cache_condition import get_cache_condition
 from cashews.ttl import ttl_to_seconds
 
@@ -86,6 +86,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "",
         upper: bool = False,
         lock: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.cache,
@@ -96,6 +97,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     cache = __call__
@@ -129,6 +131,7 @@ class DecoratorsWrapper(Wrapper):
         time_condition: Optional[TTL] = None,
         prefix: str = "early",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.early,
@@ -139,6 +142,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def soft(
@@ -151,6 +155,7 @@ class DecoratorsWrapper(Wrapper):
         time_condition: Optional[TTL] = None,
         prefix: str = "soft",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.soft,
@@ -162,6 +167,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def hit(
@@ -174,6 +180,7 @@ class DecoratorsWrapper(Wrapper):
         time_condition: Optional[TTL] = None,
         prefix: str = "hit",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.hit,
@@ -185,6 +192,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def dynamic(
@@ -195,6 +203,7 @@ class DecoratorsWrapper(Wrapper):
         time_condition: Optional[TTL] = None,
         prefix: str = "dynamic",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.hit,
@@ -206,6 +215,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def invalidate(
@@ -231,6 +241,7 @@ class DecoratorsWrapper(Wrapper):
         half_open_ttl: TTL = None,
         exceptions: Union[Type[Exception], Tuple[Type[Exception], ...], None] = None,
         key: Optional[KeyOrTemplate] = None,
+        min_calls: int = 1,
         prefix: str = "circuit_breaker",
     ):
         _exceptions = exceptions or self._default_fail_exceptions
@@ -241,6 +252,7 @@ class DecoratorsWrapper(Wrapper):
             ttl=ttl_to_seconds(ttl),
             half_open_ttl=ttl_to_seconds(half_open_ttl),
             exceptions=_exceptions,
+            min_calls=min_calls,
             key=key,
             prefix=prefix,
         )

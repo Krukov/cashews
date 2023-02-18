@@ -1,12 +1,13 @@
 import asyncio
-from typing import Any, AsyncIterator, Dict, Mapping, Optional, Tuple, Type, Union
+from typing import Any, AsyncIterator, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
 
 from redis.asyncio import BlockingConnectionPool
+from redis.asyncio.client import Pipeline
 
-from cashews._typing import Key, Tags, Value
+from cashews._typing import Key, Value
 from cashews.backends.interface import Backend
 
-from .client import Redis, SafeRedis
+from .client import Redis, SafePipeline, SafeRedis
 
 _UNLOCK = """
 if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -24,6 +25,13 @@ if current_count < tonumber(ARGV[3]) then
     if tonumber(ARGV[4]) > 0 then
         redis.call("PEXPIRE", KEYS[1], ARGV[4])
     end
+end
+return current_count
+"""
+_INCR_EXPIRE = """
+local current_count = redis.call("INCRBY", KEYS[1], ARGV[1])
+if current_count == 1 then
+    redis.call("PEXPIRE", KEYS[1], ARGV[2])
 end
 return current_count
 """
@@ -53,7 +61,9 @@ class _Redis(Backend):
         self._sha: Dict[str, Any] = {}
         if not safe:
             self._client_class = Redis
+            self._pipeline_class = Pipeline
         else:
+            self._pipeline_class = SafePipeline
             self._client_class = SafeRedis
         self._kwargs = kwargs
         self._address = address
@@ -69,11 +79,19 @@ class _Redis(Backend):
         await self._client.initialize()
         self.__is_init = True
 
+    @property
+    def _pipeline(self):
+        return self._pipeline_class(self._client.connection_pool, self._client.response_callbacks, True, None)
+
     async def clear(self):
         return await self._client.flushdb()
 
     async def set(
-        self, key: Key, value: Value, expire: Optional[float] = None, exist=None, tags: Optional[Tags] = None
+        self,
+        key: Key,
+        value: Value,
+        expire: Optional[float] = None,
+        exist=None,
     ) -> bool:
         nx = xx = None
         if exist is True:
@@ -81,20 +99,15 @@ class _Redis(Backend):
         elif exist is False:
             nx = True
         px = int(expire * 1000) if expire else None
-        return bool(await self._client.set(key, value, px=px, nx=nx, xx=xx))
+        _set = bool(await self._client.set(key, value, px=px, nx=nx, xx=xx))
+        return _set
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None, tags: Optional[Tags] = None):
-        if len(pairs) == 1:
-            key, value = list(pairs.items())[0]
-            px = int(expire * 1000) if expire else None
-            await self._client.set(key, value, px=px)
-            return
-        await self._client.mset(pairs)
-        if expire is not None:
-            async with self._client.pipeline(transaction=True) as pipe:
-                for key in pairs.keys():
-                    await pipe.pexpire(key, int(expire * 1000))
-                await pipe.execute()
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+        px = int(expire * 1000) if expire else None
+        async with self._pipeline as pipe:
+            for key, value in pairs.items():
+                await pipe.set(key, value, px=px)
+            await pipe.execute()
 
     async def get_expire(self, key: Key) -> int:
         return await self._client.ttl(key)
@@ -128,7 +141,10 @@ class _Redis(Backend):
         return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
 
     async def delete(self, key: Key) -> bool:
-        return bool(await self._client.unlink(key))
+        try:
+            return bool(await self._client.unlink(key))
+        finally:
+            await self._call_on_remove_callbacks(key)
 
     async def exists(self, key: Key) -> bool:
         return bool(await self._client.exists(key))
@@ -143,7 +159,10 @@ class _Redis(Backend):
                 return
 
     async def delete_many(self, *keys: Key):
-        await self._client.unlink(*keys)
+        try:
+            await self._client.unlink(*keys)
+        finally:
+            await self._call_on_remove_callbacks(*keys)
 
     async def delete_match(self, pattern: str):
         if "*" not in pattern:
@@ -156,7 +175,8 @@ class _Redis(Backend):
                 if not cursor:
                     return
                 continue
-            await self._client.unlink(keys[0], *keys[1:])
+            await self._client.unlink(*keys)
+            await self._call_on_remove_callbacks(*[key.decode() for key in keys])
 
     async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:  # type: ignore
         cursor = 0
@@ -184,13 +204,19 @@ class _Redis(Backend):
     async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
         if not keys:
             return tuple()
-        values = await self._client.mget(keys[0], *keys[1:])
-        if not values:
-            return tuple()
+        values = await self._client.mget(*keys)
+        if values is None:
+            return tuple([default] * len(keys))
         return tuple(value if value is not None else default for value in values)
 
-    async def incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
-        return await self._client.incr(key, amount=value)
+    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+        if not expire:
+            return await self._client.incr(key, amount=value)
+        if "INCR_EXPIRE" not in self._sha:
+            self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
+        expire = expire or 0
+        expire = int(expire * 1000)
+        return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
         """
@@ -223,6 +249,21 @@ class _Redis(Backend):
         if "INCR_SLICE" not in self._sha:
             self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
         return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
+
+    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+        if expire is None:
+            return await self._client.sadd(key, *values)
+        expire = int(expire * 1000)
+        async with self._pipeline as pipe:
+            await pipe.sadd(key, *values)
+            await pipe.pexpire(key, expire)
+            await pipe.execute()
+
+    async def set_remove(self, key: Key, *values: str):
+        await self._client.srem(key, *values)
+
+    async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
+        return [value.decode() for value in await self._client.spop(key, count)]
 
     async def close(self):
         await self._client.close()

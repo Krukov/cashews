@@ -2,9 +2,9 @@ import uuid
 from abc import ABCMeta, abstractmethod
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any, AsyncIterator, Mapping, Optional, Set, Tuple
+from typing import Any, AsyncIterator, Iterable, List, Mapping, Optional, Set, Tuple
 
-from cashews._typing import Key, Tags, Value
+from cashews._typing import Callback, Key, Value
 from cashews.commands import ALL, Command
 from cashews.exceptions import LockedError
 
@@ -33,12 +33,11 @@ class _BackendInterface(metaclass=ABCMeta):
         value: Value,
         expire: Optional[float] = None,
         exist: Optional[bool] = None,
-        tags: Optional[Tags] = None,
     ) -> bool:
         ...
 
     @abstractmethod
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None, tags: Optional[Tags] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
         ...
 
     @abstractmethod
@@ -58,6 +57,10 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:
+        ...
+
+    @abstractmethod
     async def exists(self, key: Key) -> bool:
         ...
 
@@ -66,7 +69,7 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
         ...
 
     @abstractmethod
@@ -79,14 +82,6 @@ class _BackendInterface(metaclass=ABCMeta):
 
     @abstractmethod
     async def delete_match(self, pattern: str):
-        ...
-
-    # @abstractmethod
-    async def delete_tags(self, tags: Tags):
-        ...
-
-    @abstractmethod
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:
         ...
 
     @abstractmethod
@@ -110,6 +105,18 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
+    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+        ...
+
+    @abstractmethod
+    async def set_remove(self, key: Key, *values: str):
+        ...
+
+    @abstractmethod
+    async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
+        ...
+
+    @abstractmethod
     async def get_size(self, key: Key) -> int:
         """
         Return size in bites that allocated by a value for given key
@@ -124,9 +131,8 @@ class _BackendInterface(metaclass=ABCMeta):
     async def clear(self):
         ...
 
-    @abstractmethod
     async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
-        ...
+        return await self.set(key, value, expire=expire, exist=False)
 
     @abstractmethod
     async def is_locked(
@@ -162,8 +168,9 @@ class _BackendInterface(metaclass=ABCMeta):
 
 
 class ControlMixin:
-    def __init__(self) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         self.__disable: ContextVar[Set[Command]] = ContextVar(str(id(self)), default=set())
+        super().__init__(*args, **kwargs)
 
     @property
     def _disable(self) -> Set[Command]:
@@ -208,3 +215,11 @@ class ControlMixin:
 class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs):
         super().__init__()
+        self._on_remove_callbacks: List[Callback] = []
+
+    def on_remove_callback(self, callback: Callback):
+        self._on_remove_callbacks.append(callback)
+
+    async def _call_on_remove_callbacks(self, *keys: Key):
+        for callback in self._on_remove_callbacks:
+            await callback(keys, backend=self)

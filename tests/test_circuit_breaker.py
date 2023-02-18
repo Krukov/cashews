@@ -2,7 +2,6 @@ import asyncio
 
 import pytest
 
-from cashews.decorators.circuit_breaker import circuit_breaker
 from cashews.exceptions import CircuitBreakerOpen
 
 pytestmark = pytest.mark.asyncio
@@ -14,8 +13,8 @@ class CustomError(Exception):
     pass
 
 
-async def test_circuit_breaker_simple(backend):
-    @circuit_breaker(backend, ttl=EXPIRE * 10, min_calls=10, errors_rate=5, period=1, key="test")
+async def test_circuit_breaker_simple(cache):
+    @cache.circuit_breaker(ttl=EXPIRE * 10, min_calls=10, errors_rate=5, period=1, key="test")
     async def func(fail=False):
         if fail:
             raise CustomError()
@@ -35,9 +34,8 @@ async def test_circuit_breaker_simple(backend):
         await func(fail=False)
 
 
-async def test_circuit_breaker_half_open(backend):
-    @circuit_breaker(
-        backend,
+async def test_circuit_breaker_half_open(cache):
+    @cache.circuit_breaker(
         ttl=EXPIRE,
         half_open_ttl=0.1,
         errors_rate=1,

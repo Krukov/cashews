@@ -2,7 +2,7 @@ import hashlib
 import hmac
 from typing import Any, Mapping, Optional, Tuple, Union
 
-from ._typing import Key, Tags, Value
+from ._typing import Key, Value
 from .exceptions import SignIsMissingError, UnSecureDataError
 from .picklers import DEFAULT_PICKLE, get_pickler
 
@@ -43,10 +43,10 @@ class PickleSerializerMixin:
         self._pickler = get_pickler(pickle_type)
 
     async def get(self, key: Key, default: Optional[Value] = None) -> Value:
-        return await self._serialize_value(await super().get(key), key, default=default)
+        return self._serialize_value(await super().get(key), key, default=default)
 
-    async def _serialize_value(self, value: Union[None, int, bytes], key: Key, default=None) -> Value:
-        if value is None:
+    def _serialize_value(self, value: Union[None, int, bytes], key: Key, default=None) -> Value:
+        if value is None or value is default:
             return default
         if isinstance(value, int):
             return value
@@ -97,9 +97,11 @@ class PickleSerializerMixin:
         return sign, digestmod
 
     async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Value:
+        encoded_values = await super().get_many(*keys, default=default)
         values = []
-        for key, value in zip(keys, await super().get_many(*keys, default=default) or [None] * len(keys)):
-            values.append(await self._serialize_value(value, key))
+        for key, value in zip(keys, encoded_values):
+            desired_value = self._serialize_value(value, key, default=default)
+            values.append(desired_value)
         return tuple(values)
 
     async def set(self, key: Key, value: Value, *args: Any, **kwargs: Any) -> bool:
@@ -108,7 +110,7 @@ class PickleSerializerMixin:
         value = self._pickler.dumps(value)
         return await super().set(key, self._prepend_sign_to_value(key, value), *args, **kwargs)
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None, tags: Optional[Tags] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
         transformed_pairs = {}
         for key, value in pairs.items():
             if isinstance(value, int) and not isinstance(value, bool):
@@ -116,7 +118,7 @@ class PickleSerializerMixin:
                 continue
             value = self._pickler.dumps(value)
             transformed_pairs[key] = self._prepend_sign_to_value(key, value)
-        return await super().set_many(transformed_pairs, expire=expire, tags=tags)
+        return await super().set_many(transformed_pairs, expire=expire)
 
     def _prepend_sign_to_value(self, key: Key, value: Value) -> bytes:
         sign = self._gen_sign(key, value, self._digestmod)

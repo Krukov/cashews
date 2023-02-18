@@ -19,7 +19,9 @@ Key = str
 KeyTemplate = str
 KeyOrTemplate = Union[KeyTemplate, Key]
 Value = Any
-Tags = Iterable[str]
+Tag = str
+Tags = Iterable[Tag]
+
 CacheCondition = Union[CallableCacheCondition, str, None]
 
 AsyncCallableResult_T = TypeVar("AsyncCallableResult_T")
@@ -40,4 +42,13 @@ class Middleware(Protocol):
         *args,
         **kwargs,
     ) -> Awaitable[AsyncCallableResult_T]:  # pragma: no cover
+        ...
+
+
+class Callback(Protocol):
+    def __call__(
+        self,
+        keys: Iterable[Key],
+        backend: "Backend",
+    ) -> Awaitable:  # pragma: no cover
         ...
