@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from cashews import Cache
 from cashews.backends.memory import Memory
 
 pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
@@ -11,8 +12,11 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 def _create_cache(redis_dsn, backend_factory):
     from cashews.backends.redis.client_side import BcastClientSide
 
-    def call(local_cache):
-        return backend_factory(BcastClientSide, redis_dsn, hash_key=None, local_cache=local_cache)
+    async def call(local_cache=None):
+        backend = backend_factory(BcastClientSide, redis_dsn, hash_key=None, local_cache=local_cache)
+        await backend.init()
+        await backend.clear()
+        return backend
 
     return call
 
@@ -168,3 +172,27 @@ async def test_unsafe_redis_down():
 
     with pytest.raises(asyncio.TimeoutError):
         await cache.init()
+
+
+async def test_set_get_mem_overload(create_cache):
+    cache = await create_cache(Memory(size=1))
+
+    assert await cache.set("key1", "test")
+    assert await cache.set("key2", "test")
+    assert await cache.set("key1", "test2")
+
+    assert await cache.get("key1", "test2")
+    assert await cache.set("key2", "test")
+
+
+async def test_set_tag_get(create_cache):
+    backend = await create_cache()
+    cache = Cache()
+    cache._add_backend(backend)
+
+    cache.register_tag("tag", "key{i}")
+    assert await cache.set("key1", "test", expire=0.1, tags=["tag"])
+    assert await cache.set("key2", "test", expire=0.1, tags=["tag"])
+    assert await cache.set_pop("_tag:tag", count=1)
+    await asyncio.sleep(0.11)
+    assert not await cache.set_pop("_tag:tag", count=1)

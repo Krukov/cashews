@@ -1,6 +1,6 @@
 import inspect
 from functools import lru_cache
-from typing import Any, Callable, Container, Dict, Optional, Tuple
+from typing import Any, Callable, Container, Dict, Iterable, Optional, Tuple
 
 from ._typing import Decorator, Key, KeyOrTemplate, KeyTemplate
 from .exceptions import WrongKeyError
@@ -35,7 +35,7 @@ def get_cache_key(
     return template_to_pattern(_key_template, _formatter=default_formatter, **key_values)
 
 
-def get_func_params(func: Callable) -> str:
+def get_func_params(func: Callable) -> Iterable[str]:
     signature = _get_func_signature(func)
     for param_name, param in signature.parameters.items():
         if param.kind == inspect.Parameter.VAR_KEYWORD:
@@ -64,7 +64,7 @@ def get_cache_key_template(
     if key is None:
         key = generate_key_template(func, exclude_parameters)
     else:
-        _check_key_params(key, list(get_func_params(func)))
+        _check_key_params(key, get_func_params(func))
     if prefix:
         key = f"{prefix}:{key}"
     return key
@@ -101,7 +101,7 @@ class _Star:
         return _Star()
 
 
-def _check_key_params(key: KeyOrTemplate, func_params):
+def _check_key_params(key: KeyOrTemplate, func_params: Iterable[str]):
     func_params = {param: _Star() for param in func_params}
     errors = []
 

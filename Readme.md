@@ -31,7 +31,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Middlewares
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
-- Different cache invalidation techniques (time-based and function-call based)
+- Different cache invalidation techniques (time-based or tags)
 - Cache any objects securely with pickle (use [hash key](#redis))
 - 2x faster then `aiocache`
 
@@ -651,40 +651,66 @@ Sometimes, you want to invalidate the cache after some action is triggered.
 Consider this example:
 
 ```python
-from datetime import timedelta
-
 from cashews import cache
 
 cache.setup("mem://")
 
-@cache(ttl=timedelta(days=1))
-async def user_items(user_id, fresh=False):
-    ...
-
-@cache(ttl=timedelta(hours=3))
+@cache(ttl="1h", key="items:page:{page}")
 async def items(page=1):
     ...
 
-@cache.invalidate("module:items:page:*")  # or: @cache.invalidate(items)
-@cache.invalidate(user_items, {"user_id": lambda user: user.id}, defaults={"fresh": True})
-async def create_item(user):
+@cache.invalidate("items:page:*")
+async def create_item(item):
    ...
 ```
 
-Here, the cache for `user_items` and `items` will be invalidated every time `create_item` is called.
+Here, the cache for `items` will be invalidated every time `create_item` is called
+There are two problems:
 
-Also you can invalidate future call of cache request by context manager:
+1. with redis backend you cashews will scan a full database to get a keys that match a pattern (`items:page:*`) - not good for performance reasons
+2. what if we do not specify a key for cache:
 
 ```python
-from cashews import invalidate_further
+@cache(ttl="1h")
+async def items(page=1):
+    ...
+```
 
-await cache.set("key", "value")
+Cashews provide the tag system: you can tag cache keys, so they will be stored in a separate [SET](https://redis.io/docs/data-types/sets/)
+to avoid high load on redis storage. To use the tags in a more efficient ways please use it with the client side feature
 
-with invalidate_further():
-  await cache.get("key") # will delete cache
+```python
+from cashews import cache
+
+cache.setup("redis://", client_side=True)
+
+@cache(ttl="1h", tags=["items", "page:{page}"])
+async def items(page=1):
+    ...
 
 
+await cache.delete_tags("page:1")
+await cache.delete_tags("items")
 
+# low level api
+cache.register_tag("my_tag", key_template="key{i}")
+
+await cache.set("key1", "value", expire="1d", tags=["my_tag"])
+```
+
+You can invalidate future call of cache request by context manager:
+
+```python
+from cashews import cache, invalidate_further
+
+@cache(ttl="3h")
+async def items():
+    ...
+
+async def add_item(item: Item) -> List[Item]:
+    ...
+    with invalidate_further():
+        await items
 ```
 
 #### Cache invalidation on code change
@@ -834,6 +860,8 @@ async def login(user, token, session):
 Here we want to have some way to protect our code from race conditions and do operations with cache simultaneously.
 
 Cashews support transaction operations:
+
+> :warning: \*\*Warning: transaction operations are `set`, `set_many`, `delete`, `delete_many`, `delete_match` and `incr`
 
 ```python
 from cashews import cache

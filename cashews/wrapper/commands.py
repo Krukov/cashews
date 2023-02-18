@@ -1,7 +1,7 @@
 from functools import partial
-from typing import AsyncIterator, Dict, List, Mapping, Optional, Tuple, Union
+from typing import AsyncIterator, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
-from cashews._typing import TTL, Key, Tags, Value
+from cashews._typing import TTL, Key, Value
 from cashews.backends.interface import Backend
 from cashews.commands import Command
 from cashews.ttl import ttl_to_seconds
@@ -16,14 +16,12 @@ class CommandWrapper(Wrapper):
         value: Value,
         expire: Union[float, TTL, None] = None,
         exist: Optional[bool] = None,
-        tags: Optional[Tags] = None,
     ) -> bool:
         return await self._with_middlewares(Command.SET, key)(
             key=key,
             value=value,
             expire=ttl_to_seconds(expire),
             exist=exist,
-            tags=tags,
         )
 
     async def set_raw(self, key: Key, value: Value, **kwargs):
@@ -72,9 +70,7 @@ class CommandWrapper(Wrapper):
             result.update(dict(zip(_keys, _values)))
         return tuple(result.get(key) for key in keys)
 
-    async def set_many(
-        self, pairs: Mapping[Key, Value], expire: Union[float, TTL, None] = None, tags: Optional[Tags] = None
-    ):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Union[float, TTL, None] = None):
         backends: Dict[Backend, List[Key]] = {}
         for key in pairs:
             backend = self._get_backend(key)
@@ -82,7 +78,8 @@ class CommandWrapper(Wrapper):
         for backend, keys in backends.items():
             data = {key: pairs[key] for key in keys}
             await self._with_middlewares(Command.SET_MANY, keys[0])(
-                pairs=data, expire=ttl_to_seconds(expire), tags=tags
+                pairs=data,
+                expire=ttl_to_seconds(expire),
             )
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
@@ -98,8 +95,8 @@ class CommandWrapper(Wrapper):
             key=key, start=start, end=end, maxvalue=maxvalue, expire=ttl_to_seconds(expire)
         )
 
-    async def incr(self, key: Key, value: int = 1, tags: Optional[Tags] = None) -> int:
-        return await self._with_middlewares(Command.INCR, key)(key=key, value=value, tags=tags)
+    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+        return await self._with_middlewares(Command.INCR, key)(key=key, value=value, expire=expire)
 
     async def delete(self, key: Key) -> bool:
         return await self._with_middlewares(Command.DELETE, key)(key=key)
@@ -148,3 +145,12 @@ class CommandWrapper(Wrapper):
         step: Union[int, float] = 0.1,
     ) -> bool:
         return await self._with_middlewares(Command.IS_LOCKED, key)(key=key, wait=ttl_to_seconds(wait), step=step)
+
+    async def set_add(self, key: Key, *values: str):
+        return await self._with_middlewares(Command.SET_ADD, key)(key, *values)
+
+    async def set_remove(self, key: Key, *values: str):
+        return await self._with_middlewares(Command.SET_REMOVE, key)(key, *values)
+
+    async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
+        return await self._with_middlewares(Command.SET_POP, key)(key=key, count=count)

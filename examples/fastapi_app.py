@@ -14,10 +14,10 @@ cache.setup(os.environ.get("CACHE_URI", "redis://?client_side=True"))
 
 @app.get("/")
 @cache.failover(ttl="1h")
-@cache.rate_limit(10, "1m")
+@cache.slice_rate_limit(10, "1m")
 @cache(ttl="10m", key="simple:{user_agent}", time_condition="1s")
 async def simple(user_agent: str = Header("No")):
-    await asyncio.sleep(1)
+    await asyncio.sleep(1.1)
     return "".join([random.choice(string.ascii_letters) for _ in range(10)])
 
 

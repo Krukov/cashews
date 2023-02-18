@@ -48,7 +48,6 @@ def _some(value: Klass):
         ("func:1", None, None),
         ("prefix:func2:test:user:1:1", None, None),
         ("func2:user:1", None, None),
-        ("func2:user:1", None, None),
     ),
 )
 def test_detect_template_and_func_by_key(key, template, func):

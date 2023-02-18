@@ -4,6 +4,7 @@ import socket
 from typing import Any
 
 from redis.asyncio import Redis as _Redis
+from redis.asyncio.client import Pipeline
 from redis.exceptions import RedisError as RedisConnectionError
 
 from cashews.exceptions import CacheBackendInteractionError
@@ -41,3 +42,11 @@ class SafeRedis(_Redis):
             return self
 
     __aenter__ = initialize
+
+
+class SafePipeline(Pipeline):
+    async def execute(self, raise_on_error=False):
+        try:
+            await super().execute(raise_on_error)
+        except RedisConnectionError:
+            logger.error("redis: can not execute pipeline", exc_info=True)

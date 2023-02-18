@@ -1,7 +1,6 @@
 import asyncio
 
 from cashews import cache, default_formatter
-from cashews.formatter import get_templates_for_func
 
 cache.setup("mem://")
 
@@ -59,12 +58,9 @@ async def _call(function, *args, **kwargs):
         await function(*args, **kwargs)
         key = list(detector.keys.keys())[-1]
 
-    template = next(get_templates_for_func(function))
-
     print(
         f"""
     function "{function.__name__}" called with args={args} and kwargs={kwargs}
-    the key template:    {template}
     the key:             {key}
     """
     )

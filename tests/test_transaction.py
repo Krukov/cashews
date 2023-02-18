@@ -3,6 +3,7 @@ import random
 
 import pytest
 
+from cashews import LockedError
 from cashews.backends.interface import NOT_EXIST, UNLIMITED
 from cashews.wrapper import Cache
 from cashews.wrapper.transaction import TransactionMode
@@ -224,6 +225,7 @@ async def test_isolation(cache: Cache, tx_mode):
             raise Exception("rollback")
         await cache.set("key2", value)
         await asyncio.sleep(random.randint(1, 5) / 100)  # like race condition
+        await cache.incr("incr")
         await cache.set("key3", value, exist=True)
         await cache.set("key1", value)
 
@@ -235,8 +237,11 @@ async def test_isolation(cache: Cache, tx_mode):
         return_exceptions=True,
     )
 
-    assert await cache.get("incr")
-    assert await cache.get("incr") == 1 if tx_mode == TransactionMode.FAST else 3
+    if tx_mode == TransactionMode.FAST:
+        assert await cache.get("incr") == 2
+    else:
+        assert await cache.get("incr") == 6
+
     first_value = None
     async for key, value in cache.get_match("k*"):
         if first_value is None:
@@ -293,3 +298,13 @@ async def test_decorators_smoke(cache: Cache, tx_mode):
 
     assert await do_sum(1, 2, 5) == 8
     assert await do_sum(1, 2, 5) == 8
+
+
+async def test_long_running_transaction(cache):
+    @cache.transaction(TransactionMode.LOCKED, timeout=0.1)
+    async def func():
+        await cache.set("key", "value")
+        await asyncio.sleep(1)
+
+    with pytest.raises(LockedError):
+        await asyncio.gather(func(), func())
