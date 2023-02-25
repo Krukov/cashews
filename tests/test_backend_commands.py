@@ -1,4 +1,5 @@
 import asyncio
+from decimal import Decimal
 
 import pytest
 
@@ -6,22 +7,45 @@ from cashews.backends.interface import NOT_EXIST, UNLIMITED, Backend
 from cashews.backends.memory import Memory
 
 pytestmark = pytest.mark.asyncio
+VALUE = Decimal("100.2")
 
 
 async def test_set_get(cache):
-    await cache.set("key", b"value")
-    assert await cache.get("key") == b"value"
+    await cache.set("key", VALUE)
+    assert await cache.get("key") == VALUE
+
+
+async def test_incr_get(cache):
+    await cache.incr("key")
+    assert await cache.get("key") == 1
+
+
+async def test_incr_value_get(cache):
+    await cache.incr("key")
+    await cache.incr("key", 2)
+    assert await cache.get("key") == 3
+
+
+async def test_incr_expire(cache):
+    await cache.incr("key", expire=10)
+    assert await cache.get_expire("key") == 10
 
 
 async def test_set_get_many(cache):
-    await cache.set("key", b"value")
-    assert await cache.get_many("key", "no_exists") == (b"value", None)
+    await cache.set("key", VALUE)
+    assert await cache.get_many("key", "no_exists") == (VALUE, None)
+
+
+async def test_diff_types_get_many(cache):
+    await cache.incr("key")
+    await cache.incr_bits("key2", 0)
+    assert await cache.get_many("key", "key2") == (1, None)
 
 
 async def test_set_exist(cache):
     assert await cache.set("key", "value")
-    assert await cache.set("key", "value2", exist=True)
-    assert await cache.get("key") == "value2"
+    assert await cache.set("key", VALUE, exist=True)
+    assert await cache.get("key") == VALUE
 
     assert not await cache.set("key2", "value", exist=True)
     assert await cache.get("key2") is None
@@ -34,19 +58,21 @@ async def test_set_exist(cache):
 
 
 async def test_set_many(cache):
-    await cache.set_many({"key1": "value1", "key2": "value2"}, expire=1)
-    assert await cache.get("key1", "value1")
+    await cache.set_many({"key1": VALUE, "key2": "value2"}, expire=1)
+    assert await cache.get("key1", VALUE)
     assert await cache.get("key2", "value2")
 
 
 async def test_get_no_value(cache):
     assert await cache.get("key2") is None
+    assert await cache.get("key2", default=VALUE) is VALUE
 
 
 async def test_incr(cache):
     assert await cache.incr("incr") == 1
     assert await cache.incr("incr") == 2
-    assert await cache.get("incr") == 2
+    assert await cache.incr("incr", 5) == 7
+    assert await cache.get("incr") == 7
 
 
 async def test_incr_set(cache):
@@ -62,40 +88,40 @@ async def test_ping(cache):
 
 async def test_exists(cache):
     assert not await cache.exists("not")
-    await cache.set("yes", "1")
+    await cache.set("yes", VALUE)
     assert await cache.exists("yes")
 
 
 async def test_expire(cache):
-    await cache.set("key", b"value", expire=0.01)
-    assert await cache.get("key") == b"value"
-    await asyncio.sleep(0.1)
+    await cache.set("key", VALUE, expire=0.01)
+    assert await cache.get("key") == VALUE
+    await asyncio.sleep(0.01)
     assert await cache.get("key") is None
 
 
 async def test_get_set_expire(cache):
     assert await cache.get_expire("key") == NOT_EXIST
-    await cache.set("key", b"value")
-    assert await cache.get("key") == b"value"
+    await cache.set("key", VALUE)
+    assert await cache.get("key") == VALUE
     assert await cache.get_expire("key") == UNLIMITED
     await cache.expire("key", 1)
     assert await cache.get_expire("key") == 1
 
 
 async def test_delete_many(cache: Backend):
-    await cache.set("key1", b"value")
-    await cache.set("key2", b"value")
-    await cache.set("key3", b"value")
+    await cache.set("key1", VALUE)
+    await cache.set("key2", VALUE)
+    await cache.set("key3", VALUE)
 
     await cache.delete_many("key1", "key2", "key4")
 
     assert await cache.get("key1") is None
     assert await cache.get("key2") is None
-    assert await cache.get("key3") == b"value"
+    assert await cache.get("key3") == VALUE
 
 
 async def test_delete_match(cache: Backend):
-    await cache.set("pref:test:test", b"value")
+    await cache.set("pref:test:test", VALUE)
     await cache.set("pref:value:test", b"value2")
     await cache.set("pref:-:test", b"-")
     await cache.set("pref:*:test", b"*")
@@ -115,7 +141,7 @@ async def test_delete_match(cache: Backend):
 
 
 async def test_scan(cache: Backend):
-    await cache.set("pref:test:test", b"value")
+    await cache.set("pref:test:test", VALUE)
     await cache.set("pref:value:test", b"value2")
     await cache.set("pref:-:test", b"-")
     await cache.set("pref:*:test", b"*")
@@ -130,7 +156,7 @@ async def test_scan(cache: Backend):
 
 
 async def test_get_match(cache: Backend):
-    await cache.set("pref:test:test", b"value")
+    await cache.set("pref:test:test", VALUE)
     await cache.set("pref:value:test", b"value2")
     await cache.set("pref:-:test", b"-")
     await cache.set("pref:*:test", b"*")
@@ -142,13 +168,35 @@ async def test_get_match(cache: Backend):
 
     assert len(match) == 4
     assert dict(match) == {
-        "pref:test:test": b"value",
+        "pref:test:test": VALUE,
         "pref:value:test": b"value2",
         "pref:-:test": b"-",
         "pref:*:test": b"*",
     }
     match = [(key, value) async for key, value in cache.get_match("not_exists:*")]
     assert len(match) == 0
+
+
+async def test_set_lock_unlock(cache: Backend):
+    await cache.set_lock("lock", "lock", 10)
+    assert await cache.is_locked("lock")
+    await cache.unlock("lock", "lock")
+    assert not await cache.is_locked("lock")
+
+
+async def test_lock(cache: Backend):
+    async with cache.lock("lock", 10):
+        assert await cache.is_locked("lock")
+
+    assert not await cache.is_locked("lock")
+
+
+async def test_diff_types_get_match(cache):
+    await cache.incr("key")
+    await cache.incr_bits("key2", 0)
+    match = [(key, value) async for key, value in cache.get_match("*")]
+    assert len(match) == 1
+    assert dict(match) == {"key": 1}
 
 
 async def test_get_size(cache: Backend):
@@ -187,7 +235,7 @@ async def test_slice_incr(cache: Backend):
 
 
 async def test_lru(backend_factory):
-    cache = await backend_factory(Memory, size=10)
+    cache = backend_factory(Memory, size=10)
     # fill cache
     for i in range(10):
         await cache.set(f"key:{i}", i)
@@ -208,9 +256,11 @@ async def test_lru(backend_factory):
     for i in range(6, 10):
         assert await cache.get(f"key:{i}") is None
 
+    await cache.close()
+
 
 async def test_lru2(backend_factory):
-    cache = await backend_factory(Memory, size=10)
+    cache = backend_factory(Memory, size=10)
     # fill cache
     for i in range(10):
         await cache.set(f"key:{i}", i)
@@ -230,3 +280,5 @@ async def test_lru2(backend_factory):
 
     for i in range(6, 10):
         assert await cache.get(f"key:{i}") == i
+
+    await cache.close()

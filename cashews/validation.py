@@ -1,4 +1,5 @@
 import asyncio
+import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
@@ -12,6 +13,9 @@ from .key import get_call_values, get_func_params
 
 
 async def invalidate_func(backend: _BackendInterface, func, kwargs: Optional[Dict] = None) -> None:
+    warnings.warn(
+        "invalidating by function object is deprecated. Use 'tags' feature instead", DeprecationWarning, stacklevel=2
+    )
     values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
     for template in get_templates_for_func(func):
         del_template = template_to_pattern(template, **values)

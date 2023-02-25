@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Callable, Dict, Iterable, Optional, Tuple, Type, Union
 
 from cashews import decorators, validation
-from cashews._typing import TTL, AsyncCallable_T, CacheCondition
+from cashews._typing import TTL, AsyncCallable_T, CacheCondition, KeyOrTemplate, Tags
 from cashews.cache_condition import get_cache_condition
 from cashews.ttl import ttl_to_seconds
 
@@ -80,12 +80,13 @@ class DecoratorsWrapper(Wrapper):
     def __call__(
         self,
         ttl: TTL,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "",
         upper: bool = False,
         lock: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.cache,
@@ -96,6 +97,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     cache = __call__
@@ -104,7 +106,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         ttl: TTL,
         exceptions: Union[Type[Exception], Iterable[Type[Exception]], None] = None,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "fail",
@@ -123,12 +125,13 @@ class DecoratorsWrapper(Wrapper):
     def early(
         self,
         ttl: TTL,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         early_ttl: Optional[TTL] = None,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "early",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.early,
@@ -139,18 +142,20 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def soft(
         self,
         ttl: TTL,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         soft_ttl: Optional[TTL] = None,
         exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "soft",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.soft,
@@ -162,6 +167,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def hit(
@@ -169,11 +175,12 @@ class DecoratorsWrapper(Wrapper):
         ttl: TTL,
         cache_hits: int,
         update_after: int = 0,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "hit",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.hit,
@@ -185,16 +192,18 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def dynamic(
         self,
         ttl: TTL = 60 * 60 * 24,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "dynamic",
         upper: bool = False,
+        tags: Tags = (),
     ):
         return self._wrap_on(
             decorators.hit,
@@ -206,6 +215,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            tags=tags,
         )
 
     def invalidate(
@@ -230,7 +240,8 @@ class DecoratorsWrapper(Wrapper):
         ttl: TTL,
         half_open_ttl: TTL = None,
         exceptions: Union[Type[Exception], Tuple[Type[Exception], ...], None] = None,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
+        min_calls: int = 1,
         prefix: str = "circuit_breaker",
     ):
         _exceptions = exceptions or self._default_fail_exceptions
@@ -241,6 +252,7 @@ class DecoratorsWrapper(Wrapper):
             ttl=ttl_to_seconds(ttl),
             half_open_ttl=ttl_to_seconds(half_open_ttl),
             exceptions=_exceptions,
+            min_calls=min_calls,
             key=key,
             prefix=prefix,
         )
@@ -252,7 +264,7 @@ class DecoratorsWrapper(Wrapper):
         ttl: Optional[TTL] = None,
         action: Optional[Callable] = None,
         prefix="rate_limit",
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
     ):  # pylint: disable=too-many-arguments
         return decorators.rate_limit(
             backend=self,
@@ -268,7 +280,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         limit: int,
         period: TTL,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         action: Optional[Callable] = None,
         prefix="srl",
     ):
@@ -284,7 +296,7 @@ class DecoratorsWrapper(Wrapper):
     def locked(
         self,
         ttl: Optional[TTL] = None,
-        key: Optional[str] = None,
+        key: Optional[KeyOrTemplate] = None,
         step: Union[int, float] = 0.1,
         prefix: str = "locked",
     ):
@@ -300,7 +312,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         *,
         capacity: int,
-        name: Optional[str] = None,
+        name: Optional[KeyOrTemplate] = None,
         false_positives: Optional[Union[float, int]] = 1,
         check_false_positive: bool = True,
         prefix: str = "bloom",
@@ -318,7 +330,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         *,
         capacity: int,
-        name: Optional[str] = None,
+        name: Optional[KeyOrTemplate] = None,
         false: Optional[Union[float, int]] = 1,
         no_collisions: bool = False,
         prefix: str = "dual_bloom",

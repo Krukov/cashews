@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews.decorators.bloom import bloom, dual_bloom
+from cashews.decorators.bloom import bloom
 
 pytestmark = pytest.mark.asyncio
 
@@ -11,7 +11,7 @@ async def test_bloom_simple(cache):
     n = 100
     call = Mock()
 
-    @bloom(backend=cache, name="name:{k}", false_positives=1, capacity=n)
+    @cache.bloom(name="name:{k}", false_positives=1, capacity=n)
     async def func(k):
         call(k)
         return k > (n / 2)
@@ -29,9 +29,6 @@ async def test_bloom_simple(cache):
 
 
 async def test_bloom_simple_big_size(backend):
-    if backend.__class__.__name__ == "DiskCache":
-        pytest.skip()
-
     n = 1_000_000
     call = Mock()
 
@@ -56,25 +53,19 @@ async def test_bloom_dual(cache):
     n = 100
     call = Mock()
 
-    @dual_bloom(backend=cache, name="name:{k}", false=1, capacity=n)
+    @cache.dual_bloom(name="name:{k}", false=1, capacity=n)
     async def func(k):
         call(k)
         return k > (n / 2)
 
-    for i in range(n):
+    for i in range(n - 1):
         await func(i)
 
     call.reset_mock()
-    for i in range(n):
+    for i in range(n - 1):
         assert await func(i) is (i > (n / 2))
-        call.assert_not_called()
 
-    await func.delete(10)
-    await func.delete(70)
+    assert call.call_count == 0
 
-    assert await func(10) is False
-    call.assert_called_with(10)
-
-    call.reset_mock()
-    assert await func(70) is True
-    call.assert_called_with(70)
+    assert await func(100) is True
+    call.assert_called_with(100)

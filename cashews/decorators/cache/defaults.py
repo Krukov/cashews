@@ -2,6 +2,8 @@ import random
 from contextvars import ContextVar
 from typing import Any, Dict
 
+from cashews._typing import Key
+
 _empty = object()
 
 
@@ -13,7 +15,7 @@ class CacheDetect:
         self._unset_token = unset_token
         self._previous_level = previous_level
 
-    def _set(self, key: str, **kwargs: Any) -> None:
+    def _set(self, key: Key, **kwargs: Any) -> None:
         self._value.setdefault(key, []).append(kwargs)
 
     @property

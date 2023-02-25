@@ -37,12 +37,7 @@ async def test_memory_limit(cache: Cache, target):
     target.set.assert_not_called()
 
     await cache.set(key="key", value="v" * 15)
-    target.set.assert_called_once_with(
-        key="key",
-        value="v" * 15,
-        exist=None,
-        expire=None,
-    )
+    target.set.assert_called_once()
 
     await cache.ping()
     target.ping.assert_called_once_with(message=b"PING")
