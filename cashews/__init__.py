@@ -1,5 +1,6 @@
 from .cache_condition import NOT_NONE  # noqa
 from .commands import Command  # noqa
+from .contrib import *  # noqa
 from .decorators import context_cache_detect, fast_condition  # noqa
 from .exceptions import CacheBackendInteractionError, CircuitBreakerOpen, LockedError, RateLimitError  # noqa
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key  # noqa

@@ -1,5 +1,3 @@
-import random
-
 import pytest
 
 from cashews import Cache
@@ -12,9 +10,9 @@ pytestmark = [pytest.mark.integration]
     scope="session",
     params=[
         "memory",
-        pytest.param("redis", marks=pytest.mark.integration),
-        pytest.param("redis_cs", marks=pytest.mark.integration),
-        pytest.param("diskcache", marks=pytest.mark.integration),
+        pytest.param("redis", marks=pytest.mark.redis),
+        pytest.param("redis_cs", marks=pytest.mark.redis),
+        pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
 )
 def _app(request, redis_dsn):
@@ -27,7 +25,6 @@ def _app(request, redis_dsn):
         dsn = redis_dsn + "&client_side=t"
     cache = Cache()
     cache.setup(dsn)
-
     from fastapi import FastAPI, Header
     from starlette.responses import StreamingResponse
 
@@ -38,12 +35,12 @@ def _app(request, redis_dsn):
     async def root(q: str = "q", x_name: str = Header("test")):
         return {"name": x_name, "q": q}
 
-    @cache.iterator(ttl="5s")
     async def iterator():
         for i in range(10):
-            yield f"{random.randint(0, 9)}"
+            yield f"{i}"
 
     @app.get("/stream")
+    @cache(ttl="10s", key="stream")
     async def stream():
         return StreamingResponse(iterator(), status_code=201, headers={"X-Test": "TRUE"})
 
@@ -82,9 +79,9 @@ def test_cache_stream(client, app):
     response = client.get("/stream")
     assert response.status_code == 201
     assert response.headers["X-Test"] == "TRUE"
-    was = response.content
+    assert response.content == b"0123456789"
 
     response = client.get("/stream")
     assert response.status_code == 201
     assert response.headers["X-Test"] == "TRUE"
-    assert response.content == was
+    assert response.content == b"0123456789"
