@@ -54,6 +54,7 @@ class Cache(PickleSerializerMixin, DummyCache):
         "default_sum",
         "default_sha256",
         pytest.param("redis_md5", marks=pytest.mark.redis),
+        pytest.param("redis_sum", marks=pytest.mark.redis),
         pytest.param("dill_sum", marks=pytest.mark.integration),
         pytest.param("sqlalchemy_sha1", marks=pytest.mark.integration),
     ],
@@ -78,6 +79,8 @@ async def _cache(request, redis_dsn):
         "1_1",
         b"1_1",
         b"1_1_1",
+        "1",
+        b"0",
         0,
         1,
         2,
@@ -150,6 +153,44 @@ async def test_serialize_array_diff_value(value, cache):
     await cache.set("key", value)
     assert list(await cache.get("key")) == list(value)
     assert type(await cache.get("key")) == type(value)
+
+
+@pytest.mark.parametrize(
+    ("value", "encoded"),
+    (
+        ("test", b"md5:2182de23a749c70144594da72f8cedc2_\x80\x05\x95\b\x00\x00\x00\x00\x00\x00\x00\x8c\x04test\x94."),
+        (b"test", b"md5:3f70e6a878e99d91572ad5fc473285a4_\x80\x05\x95\b\x00\x00\x00\x00\x00\x00\x00C\x04test\x94."),
+        (0, b"0"),
+        (1.234, b"sum:915_\x80\x05\x95\n\x00\x00\x00\x00\x00\x00\x00G?\xf3\xbev\xc8\xb49X."),
+        (
+            Decimal("1.001"),
+            b"sum:117b_\x80\x05\x95#\x00\x00\x00\x00\x00\x00\x00\x8c\adecimal\x94\x8c\aDecimal\x94\x93\x94\x8c\x05"
+            b"1.001\x94\x85\x94R\x94.",
+        ),
+        (True, b"md5:b5d04289f61dd9a7cb8856222e64589a_\x80\x05\x88."),
+        (None, b"sum:40a_\x80\x05N."),
+        ("1", b"sum:5a8_\x80\x05\x95\x05\x00\x00\x00\x00\x00\x00\x00\x8c\x011\x94."),
+        ({"hi": True}, b"sum:85a_\x80\x05\x95\n\x00\x00\x00\x00\x00\x00\x00}\x94\x8c\x02hi\x94\x88s."),
+        (
+            TestDC(test="test", _=1),
+            b"sum:1e3f_\x80\x05\x95B\x00\x00\x00\x00\x00\x00\x00\x8c\x1ctests.test_pickle_serializer\x94\x8c\x06"
+            b"TestDC\x94\x93\x94)\x81\x94}\x94(\x8c\x04test\x94h\x05\x8c\x01_\x94K\x01ub.",
+        ),
+        (
+            [NT(name="test", test="lol"), 1, timedelta(days=10), TestDC(test="test", _=1)],
+            b"sum:360b_\x80\x05\x95\x80\x00\x00\x00\x00\x00\x00\x00]\x94(\x8c\x1ctests.test_pickle_serializer"
+            b"\x94\x8c\x02NT\x94\x93\x94\x8c\x03lol\x94\x8c\x04test\x94\x86\x94\x81\x94K\x01\x8c\bdatetime"
+            b"\x94\x8c\ttimedelta\x94\x93\x94K\nK\x00K\x00\x87\x94R\x94h\x01\x8c\x06TestDC"
+            b"\x94\x93\x94)\x81\x94}\x94(h\x05h\x05\x8c\x01_\x94K\x01ube.",
+        ),
+        (b"1", b"md5:6b4d579379f2e49f7bf25900b9521453_\x80\x05\x95\x05\x00\x00\x00\x00\x00\x00\x00C\x011\x94."),
+        (1, b"1"),
+        ("", b"sum:575_\x80\x05\x95\x04\x00\x00\x00\x00\x00\x00\x00\x8c\x00\x94."),
+    ),
+)
+async def test_serialize_backward(value, encoded, cache):
+    await cache.set_raw("key", encoded)
+    assert await cache.get("key") == value
 
 
 @pytest.mark.parametrize(
