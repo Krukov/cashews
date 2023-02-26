@@ -77,9 +77,9 @@ async def cache_using_function(request):
 from cashews import cache
 
 # via url
-cache.setup("redis://0.0.0.0/?db=1&socket_connect_timeout=0.5&safe=0&hash_key=my_secret&enable=1")
+cache.setup("redis://0.0.0.0/?db=1&socket_connect_timeout=0.5&suppress=0&hash_key=my_secret&enable=1")
 # or via kwargs
-cache.setup("redis://0.0.0.0/", db=1, wait_for_connection_timeout=0.5, safe=False, hash_key=b"my_key", enable=True)
+cache.setup("redis://0.0.0.0/", db=1, wait_for_connection_timeout=0.5, suppress=False, hash_key=b"my_key", enable=True)
 ```
 
 Alternatively, you can create cache instance yourself:
@@ -142,14 +142,14 @@ you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dil
 Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 
-Any connections errors are suppressed, to disable it use `safe=False` - a `CacheBackendInteractionError` will be raised
+Any connections errors are suppressed, to disable it use `suppress=False` - a `CacheBackendInteractionError` will be raised
 
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
 
 Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
 
 ```python
-cache.setup("redis://0.0.0.0/?db=1&minsize=10&safe=false&hash_key=my_secret", prefix="func")
+cache.setup("redis://0.0.0.0/?db=1&minsize=10&suppress=false&hash_key=my_secret", prefix="func")
 cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, hash_key="my_secret")
 cache.setup("redis://0.0.0.0", client_side=True, client_side_prefix="my_prefix:", pickle_type="dill")
 ```

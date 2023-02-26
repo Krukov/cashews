@@ -1,9 +1,10 @@
-from cashews.serialize import PickleSerializerMixin
+from cashews.picklers import DEFAULT_PICKLE
+from cashews.serialize import SerializerMixin
 
 from .backend import _Redis
 
 __all__ = ["Redis"]
 
 
-class Redis(PickleSerializerMixin, _Redis):
-    pass
+class Redis(SerializerMixin, _Redis):
+    pickle_type = DEFAULT_PICKLE

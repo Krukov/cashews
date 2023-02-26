@@ -3,16 +3,15 @@ from decimal import Decimal
 
 from cashews import Command, add_prefix, all_keys_lower, cache  # noqa: F401
 
-cache.setup("redis://0.0.0.0/2", middlewares=(add_prefix("test:"), all_keys_lower()))
+cache.setup("redis://0.0.0.0/2", hash_key="test", digestmod="md5", middlewares=(add_prefix("test:"), all_keys_lower()))
 
 
 async def basic():
     await cache.clear()
 
-    await cache.set("key", b"test")
+    await cache.set("key", 1)
     print(await cache.get("key"))
-    assert await cache.get("key") == b"test"
-    return
+    assert await cache.get("key") == 1
     await cache.set("key1", value={"any": True}, expire="1m")
 
     await cache.set_many({"key2": "test", "key3": Decimal("10.1")}, expire="1m")

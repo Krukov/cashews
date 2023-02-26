@@ -362,10 +362,3 @@ class DecoratorsWrapper(Wrapper):
             capacity=capacity,
             prefix=prefix,
         )
-
-    def iterator(
-        self,
-        ttl: TTL,
-        key: Optional[str] = None,
-    ):
-        return decorators.iterator(backend=self, ttl=ttl, key=key)

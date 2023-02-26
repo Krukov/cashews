@@ -10,9 +10,9 @@ pytestmark = [pytest.mark.integration]
     scope="session",
     params=[
         "memory",
-        pytest.param("redis", marks=pytest.mark.redis),
-        pytest.param("redis_cs", marks=pytest.mark.redis),
-        pytest.param("diskcache", marks=pytest.mark.diskcache),
+        pytest.param("redis", marks=pytest.mark.integration),
+        pytest.param("redis_cs", marks=pytest.mark.integration),
+        pytest.param("diskcache", marks=pytest.mark.integration),
     ],
 )
 def _app(request, redis_dsn):

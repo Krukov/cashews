@@ -1,7 +1,7 @@
 from starlette.responses import StreamingResponse
 
 from cashews.backends.interface import Backend
-from cashews.serialize import custom_serializer
+from cashews.serialize import register_type
 
 
 async def encode_streaming_response(value: StreamingResponse, backend: Backend, key: str, ttl) -> bytes:
@@ -47,4 +47,4 @@ async def get_iterator(backend: Backend, key: str):
         chunk_number += 1
 
 
-custom_serializer.register_type(StreamingResponse, encode_streaming_response, decode_streaming_response)
+register_type(StreamingResponse, encode_streaming_response, decode_streaming_response)

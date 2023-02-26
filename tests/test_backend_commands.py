@@ -15,6 +15,11 @@ async def test_set_get(cache):
     assert await cache.get("key") == VALUE
 
 
+async def test_set_get_bytes(cache):
+    await cache.set("key", b"10")
+    assert await cache.get("key") == b"10"
+
+
 async def test_incr_get(cache):
     await cache.incr("key")
     assert await cache.get("key") == 1
@@ -195,7 +200,7 @@ async def test_diff_types_get_match(cache):
     await cache.incr("key")
     await cache.incr_bits("key2", 0)
     match = [(key, value) async for key, value in cache.get_match("*")]
-    assert len(match) == 1
+    assert len(match) == 1, match
     assert dict(match) == {"key": 1}
 
 
