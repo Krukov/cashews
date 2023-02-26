@@ -1,8 +1,8 @@
 from functools import wraps
-from typing import Callable, Dict, Iterable, Optional, Tuple, Type, Union
+from typing import Callable, Dict, Optional, Tuple, Type, Union
 
 from cashews import decorators, validation
-from cashews._typing import TTL, AsyncCallable_T, CacheCondition, KeyOrTemplate, Tags
+from cashews._typing import TTL, AsyncCallable_T, CacheCondition, Exceptions, KeyOrTemplate, Tags
 from cashews.cache_condition import get_cache_condition
 from cashews.ttl import ttl_to_seconds
 
@@ -16,7 +16,7 @@ class DecoratorsWrapper(Wrapper):
     def set_default_fail_exceptions(self, *exc: Type[Exception]) -> None:
         self._default_fail_exceptions = exc
 
-    def _wrap_on(self, decorator_fabric, upper, **decor_kwargs):
+    def _wrap_on(self, decorator_fabric, upper: bool, **decor_kwargs):
         if upper:
             return self._wrap_with_condition(decorator_fabric, **decor_kwargs)
         return self._wrap(decorator_fabric, **decor_kwargs)
@@ -76,7 +76,6 @@ class DecoratorsWrapper(Wrapper):
 
         return _decorator
 
-    # DecoratorS
     def __call__(
         self,
         ttl: TTL,
@@ -105,7 +104,7 @@ class DecoratorsWrapper(Wrapper):
     def failover(
         self,
         ttl: TTL,
-        exceptions: Union[Type[Exception], Iterable[Type[Exception]], None] = None,
+        exceptions: Exceptions = None,
         key: Optional[KeyOrTemplate] = None,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
@@ -150,7 +149,7 @@ class DecoratorsWrapper(Wrapper):
         ttl: TTL,
         key: Optional[KeyOrTemplate] = None,
         soft_ttl: Optional[TTL] = None,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
+        exceptions: Exceptions = Exception,
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "soft",
@@ -218,6 +217,19 @@ class DecoratorsWrapper(Wrapper):
             tags=tags,
         )
 
+    def iterator(
+        self,
+        ttl: TTL,
+        key: Optional[str] = None,
+        condition: CacheCondition = None,
+    ):
+        return decorators.iterator(
+            self,
+            ttl=ttl,
+            key=key,
+            condition=get_cache_condition(condition),
+        )
+
     def invalidate(
         self,
         func,
@@ -239,7 +251,7 @@ class DecoratorsWrapper(Wrapper):
         period: TTL,
         ttl: TTL,
         half_open_ttl: TTL = None,
-        exceptions: Union[Type[Exception], Tuple[Type[Exception], ...], None] = None,
+        exceptions: Exceptions = None,
         key: Optional[KeyOrTemplate] = None,
         min_calls: int = 1,
         prefix: str = "circuit_breaker",
