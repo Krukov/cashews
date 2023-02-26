@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Iterable, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Iterable, Tuple, Type, TypeVar, Union
 
 try:
     from typing import Protocol
@@ -21,6 +21,7 @@ KeyOrTemplate = Union[KeyTemplate, Key]
 Value = Any
 Tag = str
 Tags = Iterable[Tag]
+Exceptions = Union[Type[Exception], Iterable[Type[Exception]], None]
 
 CacheCondition = Union[CallableCacheCondition, str, None]
 

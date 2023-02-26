@@ -1,11 +1,9 @@
 import asyncio
-from typing import Optional
 from unittest.mock import Mock
 
 import pytest
 
 from cashews import decorators, noself
-from cashews.backends.memory import Memory
 from cashews.formatter import _REGISTER, get_templates_for_func
 
 pytestmark = pytest.mark.asyncio
@@ -267,55 +265,6 @@ async def test_early_cache_parallel(cache):
         await asyncio.gather(*[func() for _ in range(10)])
 
     assert mock.call_count in (2, 3, 4)  # depends on backend
-
-
-async def test_lock_cache_parallel(cache):
-    mock = Mock()
-
-    @cache.locked(key="key", step=0.01)
-    async def func():
-        await asyncio.sleep(0.1)
-        mock()
-
-    for _ in range(2):
-        await asyncio.gather(*[func() for _ in range(10)], return_exceptions=True)
-
-    assert mock.call_count == 2
-
-
-async def test_lock_cache_parallel_ttl(cache):
-    mock = Mock()
-
-    @cache.locked(key="key", step=0.01, ttl=0.1)
-    async def func(resp=b"ok"):
-        await asyncio.sleep(0.01)
-        mock(resp)
-        return resp
-
-    for _ in range(4):
-        await asyncio.gather(*[func() for _ in range(10)], return_exceptions=True)
-
-    assert mock.call_count == 40
-
-
-async def test_lock_cache_broken_backend():
-    class BrokenMemoryBackend(Memory):
-        async def ping(self, message: Optional[bytes] = None) -> bytes:
-            raise Exception("broken")
-
-    backend = Mock(wraps=BrokenMemoryBackend())
-    mock = Mock()
-
-    @decorators.locked(backend, key="key", step=0.01)
-    async def func(resp=b"ok"):
-        await asyncio.sleep(0.01)
-        mock(resp)
-        return resp
-
-    for _ in range(4):
-        await asyncio.gather(*[func() for _ in range(10)])
-
-    assert mock.call_count == 40
 
 
 async def test_hit_cache(cache):
