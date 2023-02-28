@@ -26,6 +26,10 @@ class WrongKeyError(CacheError):
     """Raised If key template have wrong parameter."""
 
 
+class TagNotRegisteredError(CacheError):
+    """Raised If tag not registered."""
+
+
 class LockedError(CacheError):
     """Raised if a key already locked"""
 

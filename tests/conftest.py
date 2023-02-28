@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
@@ -28,25 +29,33 @@ else:
     del aiohttp
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for session."""
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="session")
 def redis_dsn():
     host = os.getenv("REDIS_HOST", "")
     port = os.getenv("REDIS_PORT", "6379")
     return f"redis://{host}:{port}/"
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def backend_factory():
-    async def factory(backend_cls: type[Backend], *args, **kwargs):
+    def factory(backend_cls: type[Backend], *args, **kwargs):
         backend = backend_cls(*args, **kwargs)
-        await backend.init()
-        await backend.clear()
         return backend
 
     return factory
 
 
 @pytest_asyncio.fixture(
+    name="raw_backend",
+    scope="session",
     params=[
         "memory",
         "transactional",
@@ -56,48 +65,54 @@ def backend_factory():
         pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
 )
-async def backend(request, redis_dsn, backend_factory):
+async def _backend(request, redis_dsn, backend_factory):
     if request.param == "diskcache":
         from cashews.backends.diskcache import DiskCache
 
-        backend = await backend_factory(DiskCache, shards=0)
+        backend = backend_factory(DiskCache, shards=0)
     elif request.param == "redis":
         from cashews.backends.redis import Redis
 
-        backend = await backend_factory(
-            Redis, redis_dsn, hash_key=None, max_connections=20, safe=False, socket_timeout=10
-        )
+        backend = backend_factory(Redis, redis_dsn, hash_key=None, max_connections=20, safe=False, socket_timeout=10)
     elif request.param == "redis_hash":
         from cashews.backends.redis import Redis
 
-        backend = await backend_factory(
+        backend = backend_factory(
             Redis, redis_dsn, hash_key=uuid4().hex, max_connections=20, safe=False, socket_timeout=10
         )
     elif request.param == "redis_cs":
         from cashews.backends.redis.client_side import BcastClientSide
 
-        backend = await backend_factory(
+        backend = backend_factory(
             BcastClientSide, redis_dsn, hash_key=None, max_connections=5, safe=False, socket_timeout=10
         )
+        backend._expire_for_recently_update = 0.1
     elif request.param == "transactional":
-        backend = TransactionBackend(await backend_factory(Memory))
+        backend = TransactionBackend(backend_factory(Memory))
     else:
-        backend = await backend_factory(Memory)
+        backend = backend_factory(Memory, check_interval=0.01)
     try:
+        await backend.init()
         yield backend
     finally:
-        if request.param == "transactional":
-            await backend.commit()
         await backend.close()
 
 
-@pytest.fixture()
-def target(backend):
-    return Mock(wraps=backend, is_full_disable=False)
+@pytest_asyncio.fixture()
+async def backend(raw_backend):
+    await raw_backend.clear()
+    yield raw_backend
 
 
-@pytest.fixture()
-def cache(target):
+@pytest.fixture(scope="session")
+def target(raw_backend):
+    return Mock(wraps=raw_backend, is_full_disable=False, name=str(raw_backend))
+
+
+@pytest_asyncio.fixture()
+async def cache(target: Mock):
+    await target.clear()
+    target.reset_mock()
     cache = Cache()
     cache._add_backend(target)
     return cache

@@ -31,7 +31,7 @@ async def test_safe_redis(redis_backend):
     assert await redis.get_raw("test") is None
     assert await redis.get_many("test", "test2") == (None, None)
 
-    # await redis.set_many({"test": "test", "test2": "test2"}, expire=1)  # failed - need to fix
+    await redis.set_many({"test": "test", "test2": "test2"}, expire=1)  # failed - need to fix
     await redis.set_many({"test": "test", "test2": "test2"})
 
     assert await redis.get_expire("test") == 0

@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Iterable, Tuple, Type, TypeVar, Union
 
 try:
     from typing import Protocol
@@ -14,6 +14,14 @@ class CallableCacheCondition(Protocol):
     def __call__(self, result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> bool:  # pragma: no cover
         ...
 
+
+Key = str
+KeyTemplate = str
+KeyOrTemplate = Union[KeyTemplate, Key]
+Value = Any
+Tag = str
+Tags = Iterable[Tag]
+Exceptions = Union[Type[Exception], Iterable[Type[Exception]], None]
 
 CacheCondition = Union[CallableCacheCondition, str, None]
 
@@ -35,4 +43,13 @@ class Middleware(Protocol):
         *args,
         **kwargs,
     ) -> Awaitable[AsyncCallableResult_T]:  # pragma: no cover
+        ...
+
+
+class Callback(Protocol):
+    def __call__(
+        self,
+        keys: Iterable[Key],
+        backend: "Backend",
+    ) -> Awaitable:  # pragma: no cover
         ...

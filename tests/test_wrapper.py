@@ -60,7 +60,12 @@ async def test_auto_init(cache):
 
 async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
-    target.set.assert_called_once_with(key="key", value={"any": True}, expire=60, exist=None)
+    target.set.assert_called_once_with(
+        key="key",
+        value={"any": True},
+        expire=60,
+        exist=None,
+    )
 
     await cache.set_raw(key="key2", value="value", expire=60)
     target.set_raw.assert_called_once_with(key="key2", value="value", expire=60)
@@ -78,7 +83,7 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     target.get_many.assert_called_once_with("key1", "key2", default=None)
 
     await cache.incr("key_incr")  # -> int
-    target.incr.assert_called_once_with(key="key_incr")
+    target.incr.assert_called_once_with(key="key_incr", value=1, expire=None)
 
     await cache.delete("key")
     target.delete.assert_called_once_with(key="key")
@@ -113,11 +118,11 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.exists("key")
     target.exists.assert_called_once_with(key="key")
 
-    await cache.get_bits("key", 1, 2, 3, size=2)
-    target.get_bits.assert_called_once_with("key", 1, 2, 3, size=2)
+    await cache.get_bits("bits_key", 1, 2, 3, size=2)
+    target.get_bits.assert_called_once_with("bits_key", 1, 2, 3, size=2)
 
-    await cache.incr_bits("key", 1, 2, 3, size=2)
-    target.incr_bits.assert_called_once_with("key", 1, 2, 3, size=2, by=1)
+    await cache.incr_bits("bits_key", 1, 2, 3, size=2)
+    target.incr_bits.assert_called_once_with("bits_key", 1, 2, 3, size=2, by=1)
 
     await cache.set("key", "value")
     assert [key async for key in cache.scan("key*")] == ["key"]
@@ -202,12 +207,10 @@ async def test_cache_decor_register(cache: Cache):
     assert next(get_templates_for_func(my_func)) == "test:key:{val}"
 
 
-async def test_cache_lock():
+async def test_cache_lock(cache: Cache):
     m = Mock()
-    cache = Cache()
-    cache.setup("mem://")
 
-    @cache(ttl=5, lock=True)
+    @cache(ttl=3, lock=True)
     async def my_func(val=1):
         await asyncio.sleep(0)  # for task switching
         m(val)

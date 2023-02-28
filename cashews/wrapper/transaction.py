@@ -66,6 +66,9 @@ class TransactionContextDecorator:
         _transaction.set(tx)
         return tx
 
+    def close(self):
+        _transaction.set(None)
+
     async def __aexit__(self, exc_type, exc_value, exc_tb):
         if not self.current_tx or self._inner:
             self._inner = False
@@ -74,7 +77,7 @@ class TransactionContextDecorator:
             await self.commit()
         else:
             await self.rollback()
-        _transaction.set(None)
+        self.close()
 
     def __call__(self, func: AsyncCallable_T) -> AsyncCallable_T:
         @wraps(func)
@@ -102,7 +105,9 @@ class Transaction:
         self._backends = {}
 
     def wrap(self, backend: Backend) -> Backend:
-        return self._backends.setdefault(backend, self._get_tx_backend(backend))
+        if id(backend) not in self._backends:
+            self._backends[id(backend)] = self._get_tx_backend(backend)
+        return self._backends[id(backend)]
 
     def _get_tx_backend(self, backend: Backend) -> "TransactionBackend":
         if self._mode == TransactionMode.FAST:

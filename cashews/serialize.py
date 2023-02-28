@@ -2,18 +2,19 @@ import hashlib
 import hmac
 from typing import Any, Mapping, Optional, Tuple, Union
 
+from ._typing import Key, Value
 from .exceptions import SignIsMissingError, UnSecureDataError
 from .picklers import DEFAULT_PICKLE, get_pickler
 
 
 def get_signer(digestmod):
-    def sign(key: bytes, value: bytes):
+    def sign(key: bytes, value: bytes) -> bytes:
         return hmac.new(key, value, digestmod).hexdigest().encode()
 
     return sign
 
 
-def simple_sign(key: bytes, value: bytes):
+def simple_sign(key: bytes, value: bytes) -> bytes:
     s = sum(key) + sum(value)
     return f"{s:x}".encode()
 
@@ -41,11 +42,11 @@ class PickleSerializerMixin:
         self._check_repr = check_repr
         self._pickler = get_pickler(pickle_type)
 
-    async def get(self, key: str, default: Any = None):
-        return await self._serialize_value(await super().get(key), key, default=default)
+    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
+        return self._serialize_value(await super().get(key), key, default=default)
 
-    async def _serialize_value(self, value: Union[None, int, bytes], key: str, default=None) -> Any:
-        if value is None:
+    def _serialize_value(self, value: Union[None, int, bytes], key: Key, default=None) -> Value:
+        if value is None or value is default:
             return default
         if isinstance(value, int):
             return value
@@ -56,7 +57,7 @@ class PickleSerializerMixin:
         except (self._pickler.PickleError, AttributeError):
             return default
 
-    def _process_value(self, value: bytes, key: str, default=None) -> Any:
+    def _process_value(self, value: bytes, key: Key, default=None) -> Value:
         if not self._hash_key:
             try:
                 return self._process_only_value(value)
@@ -68,13 +69,13 @@ class PickleSerializerMixin:
             return default
         return self._process_only_value(value)
 
-    def _process_only_value(self, value: bytes) -> Any:
+    def _process_only_value(self, value: bytes) -> Value:
         value = self._pickler.loads(value)
         if self._check_repr:
             repr(value)
         return value
 
-    def _get_value_without_signature(self, value: bytes, key: str) -> bytes:
+    def _get_value_without_signature(self, value: bytes, key: Key) -> bytes:
         try:
             sign, value = value.split(b"_", 1)
         except ValueError as exc:
@@ -95,19 +96,21 @@ class PickleSerializerMixin:
             raise UnSecureDataError()
         return sign, digestmod
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Any:
+    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Value:
+        encoded_values = await super().get_many(*keys, default=default)
         values = []
-        for key, value in zip(keys, await super().get_many(*keys, default=default) or [None] * len(keys)):
-            values.append(await self._serialize_value(value, key))
+        for key, value in zip(keys, encoded_values):
+            desired_value = self._serialize_value(value, key, default=default)
+            values.append(desired_value)
         return tuple(values)
 
-    async def set(self, key: str, value: Any, *args: Any, **kwargs: Any):
+    async def set(self, key: Key, value: Value, *args: Any, **kwargs: Any) -> bool:
         if isinstance(value, int) and not isinstance(value, bool):
             return await super().set(key, value, *args, **kwargs)
         value = self._pickler.dumps(value)
         return await super().set(key, self._prepend_sign_to_value(key, value), *args, **kwargs)
 
-    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
         transformed_pairs = {}
         for key, value in pairs.items():
             if isinstance(value, int) and not isinstance(value, bool):
@@ -117,13 +120,13 @@ class PickleSerializerMixin:
             transformed_pairs[key] = self._prepend_sign_to_value(key, value)
         return await super().set_many(transformed_pairs, expire=expire)
 
-    def _prepend_sign_to_value(self, key: str, value: bytes) -> bytes:
+    def _prepend_sign_to_value(self, key: Key, value: Value) -> bytes:
         sign = self._gen_sign(key, value, self._digestmod)
         if not sign:
             return value
         return self._digestmod + b":" + sign + b"_" + value
 
-    def _gen_sign(self, key: str, value: bytes, digestmod: bytes) -> bytes:
+    def _gen_sign(self, key: Key, value: bytes, digestmod: bytes) -> bytes:
         if self._hash_key is None:
             return b""
         value = key.encode() + value

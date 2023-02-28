@@ -3,8 +3,9 @@ import re
 import time
 from collections import OrderedDict
 from contextlib import suppress
-from typing import Any, AsyncIterator, Mapping, Optional, Tuple
+from typing import Any, AsyncIterator, Iterable, Mapping, Optional, Tuple
 
+from cashews._typing import Key, Value
 from cashews.utils import Bitarray, get_obj_size
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
@@ -32,8 +33,9 @@ class Memory(Backend):
 
     async def init(self):
         self.__is_init = True
-        self.__remove_expired_stop = asyncio.Event()
-        self.__remove_expired_task = asyncio.create_task(self._remove_expired())
+        if self._check_interval:
+            self.__remove_expired_stop = asyncio.Event()
+            self.__remove_expired_task = asyncio.create_task(self._remove_expired())
 
     @property
     def is_init(self) -> bool:
@@ -51,8 +53,8 @@ class Memory(Backend):
 
     async def set(
         self,
-        key: str,
-        value: Any,
+        key: Key,
+        value: Value,
         expire: Optional[float] = None,
         exist: Optional[bool] = None,
     ) -> bool:
@@ -62,67 +64,81 @@ class Memory(Backend):
         self._set(key, value, expire)
         return True
 
-    async def set_raw(self, key: str, value: Any, **kwargs: Any):
+    async def set_raw(self, key: Key, value: Value, **kwargs: Any):
         self.store[key] = value
 
-    async def get(self, key: str, default: Optional[Any] = None) -> Any:
-        return self._get(key, default=default)
+    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
+        return await self._get(key, default=default)
 
-    async def get_raw(self, key: str):
+    async def get_raw(self, key: Key) -> Value:
         return self.store.get(key)
 
-    async def get_many(self, *keys: str, default: Optional[Any] = None) -> Tuple[Any, ...]:
-        return tuple(self._get(key, default=default) for key in keys)
+    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
+        values = []
+        for key in keys:
+            val = await self._get(key, default=default)
+            if isinstance(val, Bitarray):
+                continue
+            values.append(val)
+        return values
 
-    async def set_many(self, pairs: Mapping[str, Any], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
         for key, value in pairs.items():
             self._set(key, value, expire)
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[str]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
         pattern = pattern.replace("*", ".*")
         regexp = re.compile(pattern)
         for key in dict(self.store):
             if regexp.fullmatch(key):
                 yield key
 
-    async def incr(self, key: str):
-        value = int(self._get(key, 0)) + 1  # type: ignore
-        self._set(key=key, value=value)
+    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+        value += int(await self._get(key, 0))  # type: ignore
+        _expire = None if value != 1 else expire
+        self._set(key=key, value=value, expire=_expire)
         return value
 
-    async def exists(self, key: str):
-        return self._key_exist(key)
+    async def exists(self, key: Key) -> bool:
+        return await self._key_exist(key)
 
-    async def delete(self, key: str):
-        return self._delete(key)
+    async def delete(self, key: Key):
+        return await self._delete(key)
 
-    def _delete(self, key: str) -> bool:
+    async def _delete(self, key: Key) -> bool:
         if key in self.store:
             del self.store[key]
+            await self._call_on_remove_callbacks(key)
             return True
         return False
 
-    async def delete_many(self, *keys: str):
+    async def delete_many(self, *keys: Key):
         for key in keys:
-            self._delete(key)
+            await self._delete(key)
 
-    async def delete_match(self, pattern: str):
+    async def delete_match(self, pattern: Key):
         async for key in self.scan(pattern):
-            self._delete(key)
+            await self._delete(key)
 
-    async def get_match(self, pattern: str, batch_size: int = None) -> AsyncIterator[Tuple[str, Any]]:  # type: ignore
+    async def get_match(
+        self,
+        pattern: str,
+        batch_size: int = None,
+    ) -> AsyncIterator[Tuple[Key, Value]]:  # type: ignore
         async for key in self.scan(pattern):
-            yield key, self._get(key)
+            value = await self._get(key)
+            if not isinstance(value, Bitarray):
+                yield key, value
 
-    async def expire(self, key: str, timeout: float):
-        if not self._key_exist(key):
+    async def expire(self, key: Key, timeout: float):
+        if not await self._key_exist(key):
             return
-        value = self._get(key, default=_missed)
+        value = await self._get(key, default=_missed)
         if value is _missed:
             return
         self._set(key, value, timeout)
 
-    async def get_expire(self, key: str) -> int:
+    async def get_expire(self, key: Key) -> int:
         if key not in self.store:
             return NOT_EXIST
         expire_at, _ = self.store[key]
@@ -133,12 +149,12 @@ class Memory(Backend):
     async def ping(self, message: Optional[bytes] = None) -> bytes:
         return b"PONG" if message in (None, b"PING") else message  # type: ignore[return-value]
 
-    async def get_bits(self, key: str, *indexes: int, size: int = 1) -> Tuple[int, ...]:
-        array: Bitarray = self._get(key, default=Bitarray("0"))  # type: ignore
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+        array: Bitarray = await self._get(key, default=Bitarray("0"))  # type: ignore
         return tuple(array.get(index, size) for index in indexes)
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
-        array: Optional[Bitarray] = self._get(key)
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+        array: Optional[Bitarray] = await self._get(key)
         if array is None:
             array = Bitarray("0")
             self._set(key, array)
@@ -148,7 +164,7 @@ class Memory(Backend):
             result.append(array.get(index, size))
         return tuple(result)
 
-    def _set(self, key: str, value: Any, expire: Optional[float] = None):
+    def _set(self, key: Key, value: Value, expire: Optional[float] = None):
         expire = time.time() + expire if expire else None
         if expire is None and key in self.store:
             expire, _ = self.store[key]
@@ -157,42 +173,39 @@ class Memory(Backend):
         if len(self.store) > self.size:
             self.store.popitem(last=False)
 
-    def _get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
+    async def _get(self, key: Key, default: Optional[Value] = None) -> Optional[Value]:
         if key not in self.store:
             return default
         self.store.move_to_end(key)
         expire_at, value = self.store[key]
         if expire_at and expire_at < time.time():
-            self._delete(key)
+            await self._delete(key)
             return default
         return value
 
-    def _key_exist(self, key):
-        return self._get(key, default=_missed) is not _missed
+    async def _key_exist(self, key: Key) -> bool:
+        return (await self._get(key, default=_missed)) is not _missed
 
-    async def set_lock(self, key: str, value: Any, expire: float) -> bool:
-        return await self.set(key, value, expire=expire, exist=False)
-
-    async def is_locked(self, key: str, wait: Optional[float] = None, step: float = 0.1) -> bool:
+    async def is_locked(self, key: Key, wait: Optional[float] = None, step: float = 0.1) -> bool:
         if wait is None:
-            return self._key_exist(key)
+            return await self._key_exist(key)
         while wait > 0:
-            if not self._key_exist(key):
+            if not await self._key_exist(key):
                 return False
             wait -= step
             await asyncio.sleep(step)
-        return self._key_exist(key)
+        return await self._key_exist(key)
 
-    async def unlock(self, key: str, value: Any) -> bool:
-        return self._delete(key)
+    async def unlock(self, key: Key, value: Value) -> bool:
+        return await self._delete(key)
 
-    async def get_size(self, key: str) -> int:
+    async def get_size(self, key: Key) -> int:
         if key in self.store:
             return get_obj_size(self.store[key])
         return 0
 
-    async def slice_incr(self, key: str, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
-        val_list = self._get(key)
+    async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+        val_list = await self._get(key)
         count = 0
         new_val = []
         if val_list:
@@ -205,6 +218,27 @@ class Memory(Backend):
             new_val.append(end)
         self._set(key, new_val, expire=expire)
         return count
+
+    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+        val = await self._get(key, default=set())
+        val.update(values)
+        self._set(key, val, expire=expire)
+
+    async def set_remove(self, key: Key, *values: str):
+        val = await self._get(key, default=set())
+        val.difference_update(values)
+        self._set(key, val)
+
+    async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
+        values = await self._get(key, default=set())
+        _values = []
+        for _ in range(count):
+            if not values:
+                break
+            _values.append(values.pop())
+
+        self._set(key, values)
+        return _values
 
     async def close(self):
         self.__remove_expired_stop.set()

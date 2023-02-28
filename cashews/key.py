@@ -1,7 +1,8 @@
 import inspect
 from functools import lru_cache
-from typing import Any, Callable, Container, Dict, Optional, Tuple
+from typing import Any, Callable, Container, Dict, Iterable, Optional, Tuple
 
+from ._typing import Decorator, Key, KeyOrTemplate, KeyTemplate
 from .exceptions import WrongKeyError
 from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
 
@@ -14,10 +15,10 @@ Kwargs = Dict[str, Any]
 
 def get_cache_key(
     func: Callable,
-    template: Optional[str] = None,
+    template: Optional[KeyTemplate] = None,
     args: Args = (),
     kwargs: Optional[Kwargs] = None,
-) -> str:
+) -> Key:
     """
     Get cache key name for function (:param func) called with args and kwargs
     if func_args is passed key build with parameters are included in func_args dict or tuple otherwise use all of them
@@ -34,7 +35,7 @@ def get_cache_key(
     return template_to_pattern(_key_template, _formatter=default_formatter, **key_values)
 
 
-def get_func_params(func: Callable):
+def get_func_params(func: Callable) -> Iterable[str]:
     signature = _get_func_signature(func)
     for param_name, param in signature.parameters.items():
         if param.kind == inspect.Parameter.VAR_KEYWORD:
@@ -47,8 +48,8 @@ def get_func_params(func: Callable):
 
 @lru_cache(maxsize=10000)
 def get_cache_key_template(
-    func: Callable, key: Optional[str] = None, prefix: str = "", exclude_parameters: Container = ()
-) -> str:
+    func: Callable, key: Optional[KeyOrTemplate] = None, prefix: str = "", exclude_parameters: Container = ()
+) -> KeyOrTemplate:
     """
     Get cache key name for function (:param func) called with args and kwargs
     Used function module and name as prefix if key parameter not passed
@@ -63,13 +64,13 @@ def get_cache_key_template(
     if key is None:
         key = generate_key_template(func, exclude_parameters)
     else:
-        _check_key_params(key, list(get_func_params(func)))
+        _check_key_params(key, get_func_params(func))
     if prefix:
         key = f"{prefix}:{key}"
     return key
 
 
-def generate_key_template(func: Callable, exclude_parameters: Container = ()):
+def generate_key_template(func: Callable, exclude_parameters: Container = ()) -> KeyTemplate:
     """
     Generate template for function (:param func) called with args and kwargs
     Used function module and name as prefix if key parameter not passed
@@ -100,7 +101,7 @@ class _Star:
         return _Star()
 
 
-def _check_key_params(key, func_params):
+def _check_key_params(key: KeyOrTemplate, func_params: Iterable[str]):
     func_params = {param: _Star() for param in func_params}
     errors = []
 
@@ -157,7 +158,7 @@ def _get_call_values(func: Callable, args: Args, kwargs: Kwargs):
     return result
 
 
-def noself(decor_func):
+def noself(decor_func: Decorator) -> Decorator:
     def _decor(*args, **kwargs):
         def outer(method):
             if "key" not in kwargs:

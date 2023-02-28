@@ -28,6 +28,10 @@ class Command(Enum):
 
     SLICE_INCR = "slice_incr"
 
+    SET_ADD = "set_add"
+    SET_REMOVE = "set_remove"
+    SET_POP = "set_pop"
+
     PING = "ping"
     GET_SIZE = "get_size"
 

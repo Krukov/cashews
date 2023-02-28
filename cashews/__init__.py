@@ -4,7 +4,7 @@ from .decorators import context_cache_detect, fast_condition  # noqa
 from .exceptions import CacheBackendInteractionError, CircuitBreakerOpen, LockedError, RateLimitError  # noqa
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key  # noqa
 from .helpers import add_prefix, all_keys_lower, memory_limit  # noqa
-from .key import noself  # noqa
+from .key import get_cache_key_template, noself  # noqa
 from .validation import invalidate_further  # noqa
 from .wrapper import Cache, TransactionMode, register_backend  # noqa
 
