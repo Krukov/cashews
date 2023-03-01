@@ -247,6 +247,7 @@ with cache.disabling():
 - [Hit cache](#hit-cache)
 - [Early](#early)
 - [Soft](#soft)
+- [Async Iterators](#iterators)
 - [Locked](#locked)
 - [Rate limit](#rate-limit)
 - [Circuit breaker](#circuit-breaker)
@@ -334,6 +335,24 @@ cache.setup("mem://")
 async def get(name):
     value = await api_call()
     return {"status": value}
+```
+
+#### Iterators
+
+All upper decorators can be use only with coroutines. Cashing async iterators works differently.
+To cache async iterators use `iterator` decorator
+
+```python
+from cashews import cache
+
+cache.setup("mem://")
+
+
+@cache.iterator(ttl="10m", key="get:{name}")
+async def get(name):
+    async for item in get_pages(name):
+        yield ...
+
 ```
 
 #### Locked
