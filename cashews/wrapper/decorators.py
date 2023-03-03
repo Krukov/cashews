@@ -35,7 +35,12 @@ class DecoratorsWrapper(Wrapper):
                 if self.is_full_disable:
                     return await func(*args, **kwargs)
                 if lock:
-                    _locked = decorators.locked(self, key=decor_kwargs.get("key"), ttl=decor_kwargs["ttl"])
+                    _locked = decorators.locked(
+                        backend=self,
+                        key=decor_kwargs.get("key"),
+                        ttl=decor_kwargs["ttl"],
+                        min_wait_time=decor_kwargs["ttl"] or 10,
+                    )
                     return await _locked(decorator)(*args, **kwargs)
                 else:
                     return await decorator(*args, **kwargs)
@@ -311,6 +316,7 @@ class DecoratorsWrapper(Wrapper):
         key: Optional[KeyOrTemplate] = None,
         step: Union[int, float] = 0.1,
         prefix: str = "locked",
+        min_wait_time: Optional[TTL] = None,
     ):
         return decorators.locked(
             backend=self,
@@ -318,6 +324,7 @@ class DecoratorsWrapper(Wrapper):
             key=key,
             step=step,
             prefix=prefix,
+            min_wait_time=min_wait_time,
         )
 
     def bloom(

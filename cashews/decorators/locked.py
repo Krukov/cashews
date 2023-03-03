@@ -16,6 +16,7 @@ def locked(
     key: Optional[KeyOrTemplate] = None,
     ttl: Optional[TTL] = None,
     max_lock_ttl: int = 10,
+    min_wait_time: Optional[TTL] = None,
     step: Union[float, int] = 0.1,
     prefix: str = "lock",
 ) -> Decorator:
@@ -28,6 +29,7 @@ def locked(
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param ttl: duration to lock wrapped function call
     :param max_lock_ttl: default ttl if it not set
+    :param min_wait_time: minimum time to wait till lock is released (if ttl not set)
     :param step: duration between lock check
     :param prefix: custom prefix for key, default 'lock'
     """
@@ -35,9 +37,10 @@ def locked(
 
     def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
+        _min_wait_time = ttl_to_seconds(min_wait_time)
         if inspect.isasyncgenfunction(func):
-            return _asyncgen_lock(func, backend, ttl, _key_template, max_lock_ttl, step)
-        return _coroutine_lock(func, backend, ttl, _key_template, max_lock_ttl, step)
+            return _asyncgen_lock(func, backend, ttl, _key_template, max_lock_ttl, _min_wait_time, step)
+        return _coroutine_lock(func, backend, ttl, _key_template, max_lock_ttl, _min_wait_time, step)
 
     return _decor
 
@@ -48,6 +51,7 @@ def _coroutine_lock(
     ttl: Optional[TTL],
     key_template: KeyOrTemplate,
     max_lock_ttl: int,
+    min_wait_time: Optional[int],
     step: Union[float, int],
 ) -> AsyncCallable_T:
     @wraps(func)
@@ -58,7 +62,7 @@ def _coroutine_lock(
             async with backend.lock(_cache_key, _ttl or max_lock_ttl):
                 return await func(*args, **kwargs)
         except LockedError:
-            if not await backend.is_locked(_cache_key, wait=_ttl, step=step):
+            if not await backend.is_locked(_cache_key, wait=_ttl or min_wait_time, step=step):
                 return await func(*args, **kwargs)
             raise
 
@@ -71,6 +75,7 @@ def _asyncgen_lock(
     ttl: Optional[TTL],
     key_template: KeyOrTemplate,
     max_lock_ttl: int,
+    min_wait_time: Optional[int],
     step: Union[float, int],
 ) -> AsyncCallable_T:
     @wraps(func)
@@ -83,7 +88,7 @@ def _asyncgen_lock(
                     yield chunk
                 return
         except LockedError:
-            if not await backend.is_locked(_cache_key, wait=_ttl, step=step):
+            if not await backend.is_locked(_cache_key, wait=_ttl or min_wait_time, step=step):
                 async for chunk in func(*args, **kwargs):
                     yield chunk
                 return

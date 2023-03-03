@@ -23,6 +23,34 @@ async def test_lock_cache_parallel(cache):
     assert mock.call_count == 2
 
 
+async def test_lock_cache_parallel_with_ttl(cache):
+    mock = Mock()
+
+    @cache.locked(key="key", step=0.01, ttl=1)
+    async def func():
+        await asyncio.sleep(0.1)
+        mock()
+
+    for _ in range(2):
+        await asyncio.gather(*[func() for _ in range(10)])
+
+    assert mock.call_count == 20
+
+
+async def test_lock_cache_parallel_with_min(cache):
+    mock = Mock()
+
+    @cache.locked(key="key", step=0.01, min_wait_time=1)
+    async def func():
+        await asyncio.sleep(0.1)
+        mock()
+
+    for _ in range(2):
+        await asyncio.gather(*[func() for _ in range(10)])
+
+    assert mock.call_count == 20
+
+
 async def test_lock_cache_parallel_ttl(cache):
     mock = Mock()
 

@@ -127,12 +127,11 @@ class _Redis(Backend):
     ) -> bool:
         if wait is None:
             return await self.exists(key)
-        async with self._client.client() as conn:
-            while wait > 0.0:
-                if not await conn.exists(key):
-                    return False
-                wait -= step
-                await asyncio.sleep(step)
+        while wait > 0.0:
+            if not await self.exists(key):
+                return False
+            wait -= step
+            await asyncio.sleep(step)
         return True
 
     async def unlock(self, key: Key, value: Value) -> bool:
