@@ -16,7 +16,7 @@ def test_register_tags(cache: Cache):
     assert cache.get_key_tags("key1:test") == ["tag_template", "tag_test:1"]
     assert cache.get_key_tags("keyanytest") == ["tag_template"]
     assert cache.get_key_tags("keytest") == ["tag_template"]
-    assert cache.get_key_tags("key") == ["tag"]
+    assert cache.get_key_tags("key") == ["tag", "tag_template"]
     assert cache.get_key_tags("k") == []
     assert cache.get_key_tags("prefixkey") == []
     assert cache.get_key_tags(":key") == []
@@ -106,8 +106,8 @@ async def test_tags_gte_100(cache: Cache):
 
 
 async def test_tag_decorator(cache: Cache):
-    @cache(ttl="1m", key="key:{a}", tags=["all", "tag:{a}"])
-    async def func(a):
+    @cache(ttl="1m", key="key:{a}:{b}", tags=["all", "tag:{a}"])
+    async def func(a, b=None):
         return random()
 
     first = await func(1)
