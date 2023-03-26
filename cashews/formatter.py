@@ -154,7 +154,7 @@ def _re_legacy(field_name):
 
 
 def _re_default(field_name):
-    return f"(?P<{field_name.replace('.', '_')}>.+)"
+    return f"(?P<{field_name.replace('.', '_')}>.+)?"
 
 
 _re_formatter = _ReplaceFormatter(default=_re_default)
