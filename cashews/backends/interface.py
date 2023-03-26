@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from abc import ABCMeta, abstractmethod
 from contextlib import asynccontextmanager
@@ -6,7 +7,7 @@ from typing import Any, AsyncIterator, Iterable, List, Mapping, Optional, Set, T
 
 from cashews._typing import Callback, Key, Value
 from cashews.commands import ALL, Command
-from cashews.exceptions import LockedError
+from cashews.exceptions import CacheBackendInteractionError, LockedError
 
 NOT_EXIST = -2
 UNLIMITED = -1
@@ -148,23 +149,31 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @asynccontextmanager
-    async def lock(self, key: Key, expire: float):
+    async def lock(self, key: Key, expire: float, wait=False):
         identifier = str(uuid.uuid4())
-        lock = await self.set_lock(key, identifier, expire=expire)
-        if not lock:
-            # we need to check the connection by ping because
-            # if for example a redis unavailable and a backend have flag `safe`
-            # we will have a brake lock
+        while True:
+            lock = await self.set_lock(key, identifier, expire=expire)
+            if not lock:
+                # we need to check the connection by ping because
+                # if redis unavailable and a backend have flag `safe`
+                # we will have a brake lock
+                try:
+                    if await self.ping(b"LOCK") is None:
+                        yield
+                        return
+                except CacheBackendInteractionError:
+                    yield
+                    return
+
+                if wait:
+                    await asyncio.sleep(0)
+                    continue
+                raise LockedError(f"Key {key} is already locked")
             try:
-                await self.ping(b"TEST")
-            except Exception:
-                pass
-            else:
-                raise LockedError(f"Key {key} already locked")
-        try:
-            yield
-        finally:
-            await self.unlock(key, identifier)
+                yield
+            finally:
+                await self.unlock(key, identifier)
+            return
 
 
 class ControlMixin:
