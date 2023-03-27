@@ -16,12 +16,15 @@ class DecoratorsWrapper(Wrapper):
     def set_default_fail_exceptions(self, *exc: Type[Exception]) -> None:
         self._default_fail_exceptions = exc
 
-    def _wrap_on(self, decorator_fabric, upper: bool, **decor_kwargs):
+    def _wrap_on(self, decorator_fabric, upper: bool, protected=False, **decor_kwargs):
+        if decor_kwargs.get("lock") and "ttl" in decor_kwargs and decor_kwargs["ttl"] is None:
+            raise ValueError("ttl can't be None with lock")
+
         if upper:
             return self._wrap_with_condition(decorator_fabric, **decor_kwargs)
-        return self._wrap(decorator_fabric, **decor_kwargs)
+        return self._wrap(decorator_fabric, protected=protected, **decor_kwargs)
 
-    def _wrap(self, decorator_fabric, lock=False, time_condition=None, **decor_kwargs):
+    def _wrap(self, decorator_fabric, lock=False, time_condition=None, protected=False, **decor_kwargs):
         def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
             if time_condition is not None:
                 condition, _decor = create_time_condition(time_condition)
@@ -29,6 +32,9 @@ class DecoratorsWrapper(Wrapper):
                 decor_kwargs["condition"] = condition
 
             decorator = decorator_fabric(self, **decor_kwargs)(func)
+            thunder_protection = lambda func: func
+            if protected:
+                thunder_protection = decorators.thunder_protection(key=decor_kwargs.get("key"))
 
             @wraps(func)
             async def _call(*args, **kwargs):
@@ -39,11 +45,11 @@ class DecoratorsWrapper(Wrapper):
                         backend=self,
                         key=decor_kwargs.get("key"),
                         ttl=decor_kwargs["ttl"],
-                        min_wait_time=decor_kwargs["ttl"] or 10,
+                        wait=True,
                     )
-                    return await _locked(decorator)(*args, **kwargs)
+                    return await thunder_protection(_locked(decorator))(*args, **kwargs)
                 else:
-                    return await decorator(*args, **kwargs)
+                    return await thunder_protection(decorator)(*args, **kwargs)
 
             return _call
 
@@ -70,7 +76,12 @@ class DecoratorsWrapper(Wrapper):
 
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
                     if lock:
-                        _locked = decorators.locked(self, key=decor_kwargs.get("key"), ttl=decor_kwargs["ttl"])
+                        _locked = decorators.locked(
+                            backend=self,
+                            key=decor_kwargs.get("key"),
+                            ttl=decor_kwargs["ttl"],
+                            wait=True,
+                        )
                         _result = await _locked(decorator(func))(*args, **kwargs)
                     else:
                         _result = await decorator(func)(*args, **kwargs)
@@ -91,6 +102,7 @@ class DecoratorsWrapper(Wrapper):
         upper: bool = False,
         lock: bool = False,
         tags: Tags = (),
+        protected: bool = True,
     ):
         return self._wrap_on(
             decorators.cache,
@@ -102,6 +114,7 @@ class DecoratorsWrapper(Wrapper):
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
             tags=tags,
+            protected=protected,
         )
 
     cache = __call__
@@ -136,6 +149,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "early",
         upper: bool = False,
         tags: Tags = (),
+        protected: bool = True,
     ):
         return self._wrap_on(
             decorators.early,
@@ -147,6 +161,7 @@ class DecoratorsWrapper(Wrapper):
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
             tags=tags,
+            protected=protected,
         )
 
     def soft(
@@ -160,6 +175,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "soft",
         upper: bool = False,
         tags: Tags = (),
+        protected: bool = True,
     ):
         return self._wrap_on(
             decorators.soft,
@@ -172,6 +188,7 @@ class DecoratorsWrapper(Wrapper):
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
             tags=tags,
+            protected=protected,
         )
 
     def hit(
@@ -314,17 +331,15 @@ class DecoratorsWrapper(Wrapper):
         self,
         ttl: Optional[TTL] = None,
         key: Optional[KeyOrTemplate] = None,
-        step: Union[int, float] = 0.1,
+        wait: bool = True,
         prefix: str = "locked",
-        min_wait_time: Optional[TTL] = None,
     ):
         return decorators.locked(
             backend=self,
             ttl=ttl,
             key=key,
-            step=step,
+            wait=wait,
             prefix=prefix,
-            min_wait_time=min_wait_time,
         )
 
     def bloom(

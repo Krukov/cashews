@@ -1,10 +1,10 @@
+import asyncio
 import inspect
-from functools import wraps
-from typing import Optional, Union
+from functools import partial, wraps
+from typing import Dict, Optional
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator, KeyOrTemplate
+from cashews._typing import TTL, AsyncCallable_T, Decorator, Key, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
-from cashews.exceptions import LockedError
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
@@ -15,9 +15,7 @@ def locked(
     backend: _BackendInterface,
     key: Optional[KeyOrTemplate] = None,
     ttl: Optional[TTL] = None,
-    max_lock_ttl: int = 10,
-    min_wait_time: Optional[TTL] = None,
-    step: Union[float, int] = 0.1,
+    wait: bool = True,
     prefix: str = "lock",
 ) -> Decorator:
     """
@@ -28,19 +26,16 @@ def locked(
     :param backend: cache backend
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param ttl: duration to lock wrapped function call
-    :param max_lock_ttl: default ttl if it not set
-    :param min_wait_time: minimum time to wait till lock is released (if ttl not set)
-    :param step: duration between lock check
+    :param wait: if true - wait till lock is released
     :param prefix: custom prefix for key, default 'lock'
     """
     ttl = ttl_to_seconds(ttl)
 
     def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
-        _min_wait_time = ttl_to_seconds(min_wait_time)
         if inspect.isasyncgenfunction(func):
-            return _asyncgen_lock(func, backend, ttl, _key_template, max_lock_ttl, _min_wait_time, step)
-        return _coroutine_lock(func, backend, ttl, _key_template, max_lock_ttl, _min_wait_time, step)
+            return _asyncgen_lock(func, backend, ttl, _key_template, wait)
+        return _coroutine_lock(func, backend, ttl, _key_template, wait)
 
     return _decor
 
@@ -50,21 +45,14 @@ def _coroutine_lock(
     backend: _BackendInterface,
     ttl: Optional[TTL],
     key_template: KeyOrTemplate,
-    max_lock_ttl: int,
-    min_wait_time: Optional[int],
-    step: Union[float, int],
+    wait: bool,
 ) -> AsyncCallable_T:
     @wraps(func)
     async def _wrap(*args, **kwargs):
         _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
         _cache_key = get_cache_key(func, key_template, args, kwargs)
-        try:
-            async with backend.lock(_cache_key, _ttl or max_lock_ttl):
-                return await func(*args, **kwargs)
-        except LockedError:
-            if not await backend.is_locked(_cache_key, wait=_ttl or min_wait_time, step=step):
-                return await func(*args, **kwargs)
-            raise
+        async with backend.lock(_cache_key, _ttl, wait=wait):
+            return await func(*args, **kwargs)
 
     return _wrap
 
@@ -74,24 +62,44 @@ def _asyncgen_lock(
     backend: _BackendInterface,
     ttl: Optional[TTL],
     key_template: KeyOrTemplate,
-    max_lock_ttl: int,
-    min_wait_time: Optional[int],
-    step: Union[float, int],
+    wait: bool,
 ) -> AsyncCallable_T:
     @wraps(func)
     async def _wrap(*args, **kwargs):
         _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
         _cache_key = get_cache_key(func, key_template, args, kwargs)
-        try:
-            async with backend.lock(_cache_key, _ttl or max_lock_ttl):
-                async for chunk in func(*args, **kwargs):
-                    yield chunk
-                return
-        except LockedError:
-            if not await backend.is_locked(_cache_key, wait=_ttl or min_wait_time, step=step):
-                async for chunk in func(*args, **kwargs):
-                    yield chunk
-                return
-            raise
+        async with backend.lock(_cache_key, _ttl, wait=wait):
+            async for chunk in func(*args, **kwargs):
+                yield chunk
+            return
 
     return _wrap
+
+
+def thunder_protection(key: Optional[KeyOrTemplate] = None) -> Decorator:
+    futures: Dict[str, asyncio.Future] = {}
+
+    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+        _key_template = get_cache_key_template(func, key=key)
+
+        def done_callback(_key: Key, task: asyncio.Task):
+            future = futures[_key]
+            if task.exception():
+                future.set_exception(task.exception())
+            else:
+                future.set_result(task.result())
+            del futures[_key]
+
+        @wraps(func)
+        async def _wrapper(*args, **kwargs):
+            _key = get_cache_key(func, _key_template, args, kwargs)
+            if _key in futures:
+                return await futures[_key]
+            task = asyncio.create_task(func(*args, **kwargs))
+            futures[_key] = asyncio.Future()
+            task.add_done_callback(partial(done_callback, _key))
+            return await task
+
+        return _wrapper
+
+    return _decor

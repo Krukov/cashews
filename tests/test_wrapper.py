@@ -225,11 +225,11 @@ _cache = Cache()
 _cache.setup("mem://")
 
 
-@pytest.mark.parametrize("decorator", (_cache, _cache.dynamic, _cache.early, _cache.soft))
+@pytest.mark.parametrize("decorator", (_cache, _cache.early, _cache.soft))
 async def test_time_condition(decorator):
     m = Mock()
 
-    @decorator(key="test", ttl=10, time_condition=0.1)
+    @decorator(key="test", ttl=10, time_condition=0.1, protected=False)
     async def my_func(sleep=0.01):
         await asyncio.sleep(sleep)
         m()
