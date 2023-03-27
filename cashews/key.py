@@ -64,7 +64,8 @@ def get_cache_key_template(
     if key is None:
         key = generate_key_template(func, exclude_parameters)
     else:
-        _check_key_params(key, get_func_params(func))
+        if "{" in key:
+            _check_key_params(key, get_func_params(func))
     if prefix:
         key = f"{prefix}:{key}"
     return key

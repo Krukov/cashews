@@ -20,6 +20,7 @@ except ImportError:
 
 class Pickler:
     PickleError = pickle.PickleError
+    UnpicklingError = (pickle.UnpicklingError, TypeError)
 
     @staticmethod
     def loads(value: bytes) -> Value:
@@ -52,11 +53,24 @@ class DillPickler(Pickler):
         return dill.dumps(value)
 
 
+class NonPickler(Pickler):
+    @staticmethod
+    def loads(value: bytes) -> Value:
+        return value
+
+    @staticmethod
+    def dumps(value: Value) -> bytes:
+        return value
+
+
 DEFAULT_PICKLE = "default"
+NULL_PICKLE = "null"
+
 _picklers = {
     DEFAULT_PICKLE: Pickler,
     "sqlalchemy": SQLAlchemyPickler,
     "dill": DillPickler,
+    NULL_PICKLE: NonPickler,
 }
 
 

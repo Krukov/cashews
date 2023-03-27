@@ -69,7 +69,7 @@ def settings_url_parse(url: str) -> Tuple[BackendOrFabric, Dict[str, Any]]:
 
 def serialize_params(params: Dict[str, str]) -> Dict[str, Union[str, int, bool, float]]:
     new_params = {}
-    bool_keys = ("safe", "enable", "disable", "client_side")
+    bool_keys = ("safe", "suppress", "enable", "disable", "client_side")
     true_values = (
         "1",
         "true",

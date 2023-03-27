@@ -73,18 +73,20 @@ async def _backend(request, redis_dsn, backend_factory):
     elif request.param == "redis":
         from cashews.backends.redis import Redis
 
-        backend = backend_factory(Redis, redis_dsn, hash_key=None, max_connections=20, safe=False, socket_timeout=10)
+        backend = backend_factory(
+            Redis, redis_dsn, hash_key=None, max_connections=20, suppress=False, socket_timeout=10
+        )
     elif request.param == "redis_hash":
         from cashews.backends.redis import Redis
 
         backend = backend_factory(
-            Redis, redis_dsn, hash_key=uuid4().hex, max_connections=20, safe=False, socket_timeout=10
+            Redis, redis_dsn, hash_key=uuid4().hex, max_connections=20, suppress=False, socket_timeout=10
         )
     elif request.param == "redis_cs":
         from cashews.backends.redis.client_side import BcastClientSide
 
         backend = backend_factory(
-            BcastClientSide, redis_dsn, hash_key=None, max_connections=5, safe=False, socket_timeout=10
+            BcastClientSide, redis_dsn, hash_key=None, max_connections=5, suppress=False, socket_timeout=10
         )
         backend._expire_for_recently_update = 0.1
     elif request.param == "transactional":

@@ -6,12 +6,13 @@ from typing import Any, AsyncIterator, Dict, Iterable, List, Mapping, Optional, 
 from diskcache import Cache, FanoutCache
 
 from cashews._typing import Key, Value
+from cashews.serialize import SerializerMixin
 from cashews.utils import Bitarray
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
 
 
-class DiskCache(Backend):
+class _DiskCache(Backend):
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         self.__is_init = False
         self._set_locks: Dict[str, asyncio.Lock] = {}
@@ -20,7 +21,7 @@ class DiskCache(Backend):
             self._cache = Cache(directory=directory, **kwargs)
         else:
             self._cache = FanoutCache(directory=directory, shards=shards, **kwargs)
-        super().__init__()
+        super().__init__(**kwargs)
 
     async def init(self):
         self.__is_init = True
@@ -167,7 +168,7 @@ class DiskCache(Backend):
         if self._sharded:
             return
         for key in await self._run_in_executor(self._scan, pattern):
-            value = await self._run_in_executor(self._cache.get, key)
+            value = await self.get(key)
             if isinstance(value, Bitarray):
                 continue
             yield key, value
@@ -255,3 +256,7 @@ class DiskCache(Backend):
 
         await self.set(key, values)
         return _values
+
+
+class DiskCache(SerializerMixin, _DiskCache):
+    pass

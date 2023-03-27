@@ -1,4 +1,5 @@
 import asyncio
+import warnings
 from typing import Any, AsyncIterator, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
 
 from redis.asyncio import BlockingConnectionPool
@@ -44,7 +45,14 @@ class _Redis(Backend):
     _client: Union[Redis, SafeRedis]
     _client_class: Union[Type[Redis], Type[SafeRedis]]
 
-    def __init__(self, address, safe: bool = True, **kwargs: Any) -> None:
+    def __init__(self, address, safe: bool = _empty, suppress: bool = True, **kwargs: Any) -> None:
+        if safe is not _empty:
+            warnings.warn(
+                "`safe` property was renamed to `suppress` and will be removed in next release",
+                DeprecationWarning,
+            )
+            suppress = safe
+
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)
         kwargs.setdefault("client_name", "cashews")
@@ -59,7 +67,7 @@ class _Redis(Backend):
         if self._pool_class == BlockingConnectionPool:
             kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 10)
         self._sha: Dict[str, Any] = {}
-        if not safe:
+        if not suppress:
             self._client_class = Redis
             self._pipeline_class = Pipeline
         else:
@@ -198,7 +206,8 @@ class _Redis(Backend):
         return int(size)
 
     async def get(self, key: Key, default: Optional[Value] = None) -> Value:
-        return await self._client.get(key)
+        value = await self._client.get(key)
+        return self._transform_value(value, default)
 
     async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
         if not keys:
@@ -206,7 +215,15 @@ class _Redis(Backend):
         values = await self._client.mget(*keys)
         if values is None:
             return tuple([default] * len(keys))
-        return tuple(value if value is not None else default for value in values)
+        return tuple(self._transform_value(value, default) for value in values)
+
+    @staticmethod
+    def _transform_value(value: Optional[bytes], default: Optional[Value]):
+        if value is None:
+            return default
+        if value.isdigit():
+            return int(value)
+        return value
 
     async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
         if not expire:

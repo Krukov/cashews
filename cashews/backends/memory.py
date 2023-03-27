@@ -6,6 +6,7 @@ from contextlib import suppress
 from typing import Any, AsyncIterator, Iterable, Mapping, Optional, Tuple
 
 from cashews._typing import Key, Value
+from cashews.serialize import SerializerMixin
 from cashews.utils import Bitarray, get_obj_size
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
@@ -15,21 +16,21 @@ __all__ = ["Memory"]
 _missed = object()
 
 
-class Memory(Backend):
+class _Memory(Backend):
     """
     Inmemory backend lru with ttl
     """
 
     __slots__ = ["store", "_check_interval", "size", "__is_init", "__remove_expired_stop", "__remove_expired_task"]
 
-    def __init__(self, size: int = 1000, check_interval: float = 1):
+    def __init__(self, size: int = 1000, check_interval: float = 1, **kwargs):
         self.store: OrderedDict = OrderedDict()
         self._check_interval = check_interval
         self.size = size
         self.__is_init = False
         self.__remove_expired_stop = asyncio.Event()
         self.__remove_expired_task = None
-        super().__init__()
+        super().__init__(**kwargs)
 
     async def init(self):
         self.__is_init = True
@@ -126,7 +127,7 @@ class Memory(Backend):
         batch_size: int = None,
     ) -> AsyncIterator[Tuple[Key, Value]]:  # type: ignore
         async for key in self.scan(pattern):
-            value = await self._get(key)
+            value = await self.get(key)
             if not isinstance(value, Bitarray):
                 yield key, value
 
@@ -246,3 +247,7 @@ class Memory(Backend):
             await self.__remove_expired_task
             self.__remove_expired_task = None
         self.__is_init = False
+
+
+class Memory(SerializerMixin, _Memory):
+    pass
