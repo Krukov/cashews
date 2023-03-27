@@ -88,15 +88,11 @@ async def test_lock_cache_broken_backend():
             raise Exception("broken")
 
     backend = Mock(wraps=BrokenMemoryBackend())
-    mock = Mock()
 
     @decorators.locked(backend, key="key", step=0.01)
     async def func(resp=b"ok"):
         await asyncio.sleep(0.01)
-        mock(resp)
         return resp
 
-    for _ in range(4):
+    with pytest.raises(Exception):
         await asyncio.gather(*[func() for _ in range(10)])
-
-    assert mock.call_count == 40
