@@ -60,7 +60,7 @@ def circuit_breaker(
                 return await func(*args, **kwargs)
             except exceptions:
                 fails = await _get_requests_count(backend, _cache_key + ":fails", period)
-                if not total < min_calls and fails * 100 / total >= errors_rate:
+                if total and not total < min_calls and fails * 100 / total >= errors_rate:
                     await backend.set_lock(_cache_key + ":open", value=1, expire=ttl)
                 raise
 
