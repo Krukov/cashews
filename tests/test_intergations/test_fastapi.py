@@ -35,7 +35,7 @@ def _app(request, redis_dsn):
     async def root(q: str = "q", x_name: str = Header("test")):
         return {"name": x_name, "q": q}
 
-    async def iterator():
+    def iterator():
         for i in range(10):
             yield f"{i}"
 

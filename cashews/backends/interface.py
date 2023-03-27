@@ -149,7 +149,7 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @asynccontextmanager
-    async def lock(self, key: Key, expire: float, wait=False):
+    async def lock(self, key: Key, expire: float, wait=True):
         identifier = str(uuid.uuid4())
         while True:
             lock = await self.set_lock(key, identifier, expire=expire)

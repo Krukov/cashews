@@ -33,7 +33,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Bloom filters
 - Different cache invalidation techniques (time-based or tags)
 - Cache any objects securely with pickle (use [hash key](#redis))
-- 2x faster then `aiocache`
+- 2x faster then `aiocache` (with client side caching)
 
 ## Usage Example
 
@@ -53,6 +53,8 @@ async def cache_using_function(request):
     ...
 ```
 
+More examples [here](https://github.com/Krukov/cashews/tree/master/examples)
+
 ## Table of Contents
 
 - [Configuration](#configuration)
@@ -63,6 +65,7 @@ async def cache_using_function(request):
   - [Cache condition](#cache-condition)
   - [Keys templating](#template-keys)
   - [TTL](#ttl)
+  - [What can be cached](#what-can-be-cached)
 - [Cache Invalidation](#cache-invalidation)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
@@ -130,11 +133,11 @@ This will use Redis as a storage.
 This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to serialize
 values, but the cashes can store values with sha1-keyed hash.
 
-Use `hash_key` and `digestmod` parameter to protect your application from security vulnerabilities.
+Use `secret` and `digestmod` parameter to protect your application from security vulnerabilities.
 
 The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`
 
-The `hash_key` is a salt for a hash - it can be a secret string.
+The `secret` is a salt for a hash.
 
 Pickle can't serialize any type of objects. In case you need to store more complex types
 
@@ -369,7 +372,7 @@ from cashews import cache
 
 cache.setup("mem://")
 
-@cache.locked(ttl="10m")
+@cache.locked(ttl="10s")
 async def get(name):
     value = await api_call()
     return {"status": value}
@@ -662,6 +665,26 @@ async def get(item_id: int) -> Item:
     pass
 ```
 
+### What can be cached
+
+Cashews mostly use built-in pickle to store a data, but also support others pickle like serialization like dill.
+Some types of objects are not picklable, in this case cashews have api to define custom encoding/decoding:
+
+```python
+from cashews.serialize import register_type
+
+
+async def my_encoder(value: CustomType, *args, **kwargs) -> bytes:
+    ...
+
+
+async def my_decoder(value: bytes, *args, **kwargs) -> CustomType:
+    ...
+
+
+register_type(CustomType, my_encoder, my_decoder)
+```
+
 ### Cache invalidation
 
 Cache invalidation - one of the main Computer Science well known problem.
@@ -808,9 +831,9 @@ from cashews import cache
 
 with cache.detect as detector:
     response = await something_that_use_cache()
-    keys = detector.get()
+    calls = detector.calls
 
-print(keys)
+print(calls)
 # >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": 10, "exc": RateLimit}, "name": "fail", "backend": "mem"],}
 ```
 
