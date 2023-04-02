@@ -45,7 +45,7 @@ class _Redis(Backend):
     _client: Union[Redis, SafeRedis]
     _client_class: Union[Type[Redis], Type[SafeRedis]]
 
-    def __init__(self, address, safe: bool = _empty, suppress: bool = True, **kwargs: Any) -> None:
+    def __init__(self, address: str, safe: bool = _empty, suppress: bool = True, **kwargs: Any) -> None:
         if safe is not _empty:
             warnings.warn(
                 "`safe` property was renamed to `suppress` and will be removed in next release",
@@ -58,9 +58,10 @@ class _Redis(Backend):
         kwargs.setdefault("client_name", "cashews")
         kwargs.setdefault("health_check_interval", 10)
         kwargs.setdefault("max_connections", 10)
-        kwargs.setdefault("socket_keepalive", True)
         kwargs.setdefault("retry_on_timeout", False)
         kwargs.setdefault("socket_timeout", 1)
+        if not address.startswith("unix"):
+            kwargs.setdefault("socket_keepalive", True)
         kwargs["decode_responses"] = False
 
         self._pool_class = kwargs.pop("connection_pool_class", BlockingConnectionPool)

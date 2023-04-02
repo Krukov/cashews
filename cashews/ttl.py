@@ -5,6 +5,8 @@ from cashews._typing import TTL
 
 
 def ttl_to_seconds(ttl: Union[float, None, TTL], *args, with_callable=False, **kwargs) -> Union[int, None, float]:
+    if ttl is None:
+        return None
     _type = type(ttl)
     if _type == int:
         return ttl
