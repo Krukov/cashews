@@ -73,12 +73,12 @@ async def _aiter(num=0):  # pragma: no cover
 async def _invalidate_middleware(call, cmd: Command, backend: _BackendInterface, *args, **kwargs):
     if _INVALIDATE_FURTHER.get() and cmd in RETRIEVE_CMDS:
         if "key" in kwargs:
-            asyncio.create_task(backend.delete(kwargs["key"]))
+            await backend.delete(kwargs["key"])
             return kwargs.get("default")
         if cmd == Command.GET_MATCH:
-            asyncio.create_task(backend.delete_match(kwargs["pattern"]))
+            await backend.delete_match(kwargs["pattern"])
             return _aiter()
         if cmd == Command.GET_MANY:
-            asyncio.create_task(backend.delete_many(*args))
+            await backend.delete_many(*args)
             return ()
     return await call(*args, **kwargs)
