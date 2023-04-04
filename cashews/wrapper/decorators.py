@@ -10,6 +10,10 @@ from .time_condition import create_time_condition
 from .wrapper import Wrapper
 
 
+def _thunder_protection(func: Callable) -> Callable:
+    return func
+
+
 class DecoratorsWrapper(Wrapper):
     _default_fail_exceptions: Tuple[Type[Exception], ...] = (Exception,)
 
@@ -32,7 +36,7 @@ class DecoratorsWrapper(Wrapper):
                 decor_kwargs["condition"] = condition
 
             decorator = decorator_fabric(self, **decor_kwargs)(func)
-            thunder_protection = lambda func: func
+            thunder_protection = _thunder_protection
             if protected:
                 thunder_protection = decorators.thunder_protection(key=decor_kwargs.get("key"))
 
