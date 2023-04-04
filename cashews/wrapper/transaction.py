@@ -117,9 +117,9 @@ class Transaction:
         return LockTransactionBackend(backend, serializable=False, timeout=self._timeout)
 
     async def commit(self):
-        for tx_backend in self._backends.values():
+        for tx_backend in list(self._backends.values()):
             await tx_backend.commit()
 
     async def rollback(self):
-        for tx_backend in self._backends.values():
+        for tx_backend in list(self._backends.values()):
             await tx_backend.rollback()

@@ -136,6 +136,13 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
 
     await cache.slice_incr("key_slice", 0, 10, maxvalue=10)
     target.slice_incr.assert_called_once_with(key="key_slice", start=0, end=10, maxvalue=10, expire=None)
+
+    await cache.set_pop("key_set", count=10)
+    target.set_pop.assert_called_once_with(key="key_set", count=10)
+
+    await cache.set_add("key_set", "val1", "val2")
+    target.set_add.assert_called_once_with("key_set", "val1", "val2", expire=None)
+
     await cache.close()
 
 
