@@ -1,5 +1,6 @@
 import asyncio
 from random import random
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -198,3 +199,17 @@ async def test_double_decorator(cache: Cache):
 
     assert await func(2) != second
     assert await func(5) != one_more
+
+
+@pytest.mark.redis
+async def test_delete_tags_separate_backend(cache: Cache, redis_dsn: str):
+    tag_backend = cache.setup_tags_backend(redis_dsn)
+    tag_backend.set_pop = AsyncMock(side_effect=[["key", "key2"], []])
+    tag_backend.init = AsyncMock(wraps=tag_backend.init)
+
+    cache.register_tag(tag="tag", key_template="key")
+
+    await cache.delete_tags("tag")
+
+    tag_backend.set_pop.assert_awaited_with(key="_tag:tag", count=100)
+    tag_backend.init.assert_awaited_once()

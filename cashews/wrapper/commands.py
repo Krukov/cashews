@@ -146,8 +146,8 @@ class CommandWrapper(Wrapper):
     ) -> bool:
         return await self._with_middlewares(Command.IS_LOCKED, key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
-    async def set_add(self, key: Key, *values: str):
-        return await self._with_middlewares(Command.SET_ADD, key)(key, *values)
+    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+        return await self._with_middlewares(Command.SET_ADD, key)(key, *values, expire=expire)
 
     async def set_remove(self, key: Key, *values: str):
         return await self._with_middlewares(Command.SET_REMOVE, key)(key, *values)

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Dict, Iterable, List, Match, Optional, Pattern
+from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
 
 from cashews._typing import TTL, Key, KeyOrTemplate, Tag, Tags, Value
 from cashews.backends.interface import Backend, Callback
@@ -50,6 +50,9 @@ class CommandsTagsWrapper(CommandWrapper):
         self._tags_key_prefix = "_tag:"
         self._on_remove_cb = self._on_remove_callback()
 
+    def setup_tags_backend(self, settings_url: str, middlewares: Tuple = (), **kwargs) -> Backend:
+        return self.setup(settings_url, middlewares=middlewares, prefix=self._tags_key_prefix, **kwargs)
+
     @lru_cache(maxsize=1)
     def _get_tags_backend(self):
         return self._get_backend(self._tags_key_prefix)
@@ -88,7 +91,7 @@ class CommandsTagsWrapper(CommandWrapper):
 
     async def _delete_tag(self, tag: Tag):
         while True:
-            keys = await self.tags_backend.set_pop(self._tags_key_prefix + tag, 100)
+            keys = await self.set_pop(key=self._tags_key_prefix + tag, count=100)
             if not keys:
                 break
             await self.delete_many(*keys)
@@ -105,7 +108,7 @@ class CommandsTagsWrapper(CommandWrapper):
         if _set and tags:
             self._tags_registry.check_tags_registered(key, tags)
             for tag in tags:
-                await self.tags_backend.set_add(self._tags_key_prefix + tag, key, expire=expire)
+                await self.set_add(self._tags_key_prefix + tag, key, expire=expire)
         return _set
 
     async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None, tags: Tags = ()) -> int:
@@ -113,5 +116,5 @@ class CommandsTagsWrapper(CommandWrapper):
         if _set and tags:
             self._tags_registry.check_tags_registered(key, tags)
             for tag in tags:
-                await self.tags_backend.set_add(self._tags_key_prefix + tag, key, expire=expire)
+                await self.set_add(self._tags_key_prefix + tag, key, expire=expire)
         return _set
