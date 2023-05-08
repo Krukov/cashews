@@ -24,7 +24,7 @@ class Klass:
     data = {"test": 1}
 
     def method(self, a, k=None):
-        ...
+        return a
 
 
 TEPLATE_FUNC1 = "func1:{a}"
@@ -35,6 +35,11 @@ TEPLATE_FUNC3 = "func3:{k:len}"
 @default_formatter.type_format(Klass)
 def _some(value: Klass):
     return "hoho"
+
+
+@default_formatter.register("call_method", preformat=False)
+def call_method(value: Klass, a):
+    return value.method(a)
 
 
 @pytest.mark.parametrize(
@@ -182,6 +187,18 @@ def test_cache_func_key_dict():
             {"kwarg1": "test"},
             "{kwarg1:hash(md5)}",
             "098f6bcd4621d373cade4e832627b4f6",
+        ),
+        (
+            ("a1", "a2"),
+            {"kwarg1": "test", "kwarg2": "md5"},
+            "{kwarg1:hash({kwarg2})}",
+            "098f6bcd4621d373cade4e832627b4f6",
+        ),
+        (
+            ("a1", "a2"),
+            {"kwarg1": Klass(), "kwarg2": "expect"},
+            "{kwarg1:call_method({kwarg2})}",
+            "expect",
         ),
         (
             ("a1", "a2"),
