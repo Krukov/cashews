@@ -37,12 +37,12 @@ class ControlWrapper(Wrapper):
         finally:
             self.enable(*cmds, prefix=prefix)
 
-    def is_disable(self, *cmds: Command, prefix: str = ""):
+    def is_disable(self, *cmds: Command, prefix: str = "") -> bool:
         return self._get_backend(prefix).is_disable(*cmds)
 
-    def is_enable(self, *cmds: Command, prefix: str = ""):
+    def is_enable(self, *cmds: Command, prefix: str = "") -> bool:
         return not self.is_disable(*cmds, prefix=prefix)
 
     @property
-    def is_full_disable(self):
+    def is_full_disable(self) -> bool:
         return all([backend.is_full_disable for backend, _ in self._backends.values()])

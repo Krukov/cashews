@@ -24,6 +24,7 @@ _STR_TO_DELTA = {
     "m": timedelta(minutes=1),
     "s": timedelta(seconds=1),
     "d": timedelta(days=1),
+    "w": timedelta(weeks=1),
 }
 
 

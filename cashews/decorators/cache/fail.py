@@ -1,7 +1,7 @@
 from functools import wraps
-from typing import Optional, Tuple, Type, Union
+from typing import Optional
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, KeyOrTemplate
+from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, Exceptions, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
@@ -26,7 +26,7 @@ def fast_condition(getter, setter=None):
 def failover(
     backend: _BackendInterface,
     ttl: TTL,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
+    exceptions: Exceptions = Exception,
     key: Optional[KeyOrTemplate] = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "fail",

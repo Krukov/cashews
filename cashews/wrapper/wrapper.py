@@ -16,7 +16,7 @@ class Wrapper:
 
     def __init__(self, name: str = ""):
         self._backends: Dict[str, Tuple[Backend, Tuple[Middleware, ...]]] = {}
-        self._default_middlewares: List[Middleware, ...] = [
+        self._default_middlewares: List[Middleware] = [
             create_auto_init(),
             validation._invalidate_middleware,
         ]
@@ -32,6 +32,7 @@ class Wrapper:
                 return self._backends[prefix]
         if self.default_prefix not in self._backends:
             raise NotConfiguredError("run `cache.setup(...)` before using cache")
+        return self._backends[self.default_prefix]
 
     def _get_backend(self, key: Key) -> Backend:
         backend, _ = self._get_backend_and_config(key)

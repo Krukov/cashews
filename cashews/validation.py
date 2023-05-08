@@ -5,7 +5,7 @@ from contextvars import ContextVar
 from functools import wraps
 from typing import Any, Callable, Dict, Optional, Union
 
-from ._typing import AsyncCallable_T
+from ._typing import AsyncCallable_T, Decorator
 from .backends.interface import _BackendInterface
 from .commands import RETRIEVE_CMDS, Command
 from .formatter import get_templates_for_func, template_to_pattern
@@ -27,7 +27,7 @@ def invalidate(
     target: Union[str, Callable],
     args_map: Optional[Dict[str, str]] = None,
     defaults: Optional[Dict[str, Any]] = None,
-):
+) -> Decorator:
     args_map = args_map or {}
     defaults = defaults or {}
 

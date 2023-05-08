@@ -2,7 +2,7 @@ from functools import wraps
 from typing import Callable, Dict, Optional, Tuple, Type, Union
 
 from cashews import decorators, validation
-from cashews._typing import TTL, AsyncCallable_T, CacheCondition, Exceptions, KeyOrTemplate, Tags
+from cashews._typing import TTL, AsyncCallable_T, CacheCondition, Decorator, Exceptions, KeyOrTemplate, Tags
 from cashews.cache_condition import get_cache_condition
 from cashews.ttl import ttl_to_seconds
 
@@ -107,7 +107,7 @@ class DecoratorsWrapper(Wrapper):
         lock: bool = False,
         tags: Tags = (),
         protected: bool = True,
-    ):
+    ) -> Decorator:
         return self._wrap_on(
             decorators.cache,
             upper,
@@ -131,7 +131,7 @@ class DecoratorsWrapper(Wrapper):
         condition: CacheCondition = None,
         time_condition: Optional[TTL] = None,
         prefix: str = "fail",
-    ):
+    ) -> Decorator:
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_with_condition(
             decorators.failover,
@@ -154,7 +154,7 @@ class DecoratorsWrapper(Wrapper):
         upper: bool = False,
         tags: Tags = (),
         protected: bool = True,
-    ):
+    ) -> Decorator:
         return self._wrap_on(
             decorators.early,
             upper,
@@ -180,7 +180,7 @@ class DecoratorsWrapper(Wrapper):
         upper: bool = False,
         tags: Tags = (),
         protected: bool = True,
-    ):
+    ) -> Decorator:
         return self._wrap_on(
             decorators.soft,
             upper,
@@ -206,7 +206,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "hit",
         upper: bool = False,
         tags: Tags = (),
-    ):
+    ) -> Decorator:
         return self._wrap_on(
             decorators.hit,
             upper,
@@ -229,7 +229,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "dynamic",
         upper: bool = False,
         tags: Tags = (),
-    ):
+    ) -> Decorator:
         return self._wrap_on(
             decorators.hit,
             upper,
@@ -248,7 +248,7 @@ class DecoratorsWrapper(Wrapper):
         ttl: TTL,
         key: Optional[str] = None,
         condition: CacheCondition = None,
-    ):
+    ) -> Decorator:
         return decorators.iterator(
             self,
             ttl=ttl,
@@ -258,10 +258,10 @@ class DecoratorsWrapper(Wrapper):
 
     def invalidate(
         self,
-        func,
+        func: AsyncCallable_T,
         args_map: Optional[Dict[str, str]] = None,
         defaults: Optional[Dict] = None,
-    ):
+    ) -> Decorator:
         return validation.invalidate(
             backend=self,
             target=func,
@@ -281,7 +281,7 @@ class DecoratorsWrapper(Wrapper):
         key: Optional[KeyOrTemplate] = None,
         min_calls: int = 1,
         prefix: str = "circuit_breaker",
-    ):
+    ) -> Decorator:
         _exceptions = exceptions or self._default_fail_exceptions
         return decorators.circuit_breaker(
             backend=self,
@@ -303,7 +303,7 @@ class DecoratorsWrapper(Wrapper):
         action: Optional[Callable] = None,
         prefix="rate_limit",
         key: Optional[KeyOrTemplate] = None,
-    ):  # pylint: disable=too-many-arguments
+    ) -> Decorator:  # pylint: disable=too-many-arguments
         return decorators.rate_limit(
             backend=self,
             limit=limit,
@@ -321,7 +321,7 @@ class DecoratorsWrapper(Wrapper):
         key: Optional[KeyOrTemplate] = None,
         action: Optional[Callable] = None,
         prefix="srl",
-    ):
+    ) -> Decorator:
         return decorators.slice_rate_limit(
             backend=self,
             limit=limit,
@@ -337,7 +337,7 @@ class DecoratorsWrapper(Wrapper):
         key: Optional[KeyOrTemplate] = None,
         wait: bool = True,
         prefix: str = "locked",
-    ):
+    ) -> Decorator:
         return decorators.locked(
             backend=self,
             ttl=ttl,
@@ -351,10 +351,10 @@ class DecoratorsWrapper(Wrapper):
         *,
         capacity: int,
         name: Optional[KeyOrTemplate] = None,
-        false_positives: Optional[Union[float, int]] = 1,
+        false_positives: Union[float, int] = 1,
         check_false_positive: bool = True,
         prefix: str = "bloom",
-    ):
+    ) -> Decorator:
         return decorators.bloom(
             backend=self,
             name=name,
@@ -369,10 +369,10 @@ class DecoratorsWrapper(Wrapper):
         *,
         capacity: int,
         name: Optional[KeyOrTemplate] = None,
-        false: Optional[Union[float, int]] = 1,
+        false: Union[None, int, Tuple[int, int]] = 1,
         no_collisions: bool = False,
         prefix: str = "dual_bloom",
-    ):
+    ) -> Decorator:
         return decorators.dual_bloom(
             backend=self,
             name=name,

@@ -7,7 +7,7 @@ except ImportError:  # 3.7 python
     from typing_extensions import Protocol
 
 _TTLTypes = Union[int, float, str, timedelta, None]
-TTL = Union[_TTLTypes, Callable[[Any], _TTLTypes]]
+TTL = Union[_TTLTypes, Callable[..., _TTLTypes]]
 
 
 class CallableCacheCondition(Protocol):

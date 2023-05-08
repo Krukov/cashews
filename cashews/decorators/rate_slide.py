@@ -21,8 +21,8 @@ def slice_rate_limit(
     limit: int,
     period: TTL,
     key: Optional[KeyOrTemplate] = None,
-    action: Callable = _default_action,
-    prefix: str = "srate",
+    action: Optional[Callable] = _default_action,
+    prefix: str = "srl",
 ) -> Decorator:  # pylint: disable=too-many-arguments
     """
     Rate limit for function call. Do not call function if rate limit is reached, and call given action

@@ -1,6 +1,6 @@
-from typing import Any, Callable, Dict, Tuple
+from typing import Any
 
-from ._typing import CacheCondition
+from ._typing import CacheCondition, CallableCacheCondition
 
 
 def _not_none_store_condition(result, args, kwargs, key=None) -> bool:
@@ -16,7 +16,7 @@ _ALL_CONDITIONS = {Any, "all", any, "any", None}
 _NOT_NONE_CONDITIONS = {NOT_NONE, "skip_none"}
 
 
-def get_cache_condition(condition: CacheCondition) -> Callable[[Any, Tuple, Dict], bool]:
+def get_cache_condition(condition: CacheCondition) -> CallableCacheCondition:
     if condition in _ALL_CONDITIONS:
         return _store_all
     if condition in _NOT_NONE_CONDITIONS:

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
+from typing import Any, Dict, Iterable, List, Match, Optional, Pattern, Tuple, Union
 
 from cashews._typing import TTL, Key, KeyOrTemplate, Tag, Tags, Value
 from cashews.backends.interface import Backend, Callback
@@ -10,7 +10,7 @@ from .commands import CommandWrapper
 
 
 class TagsRegistry:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self._registry_template: Dict[Tag, List[Pattern]] = {}
 
@@ -54,11 +54,11 @@ class CommandsTagsWrapper(CommandWrapper):
         return self.setup(settings_url, middlewares=middlewares, prefix=self._tags_key_prefix, **kwargs)
 
     @lru_cache(maxsize=1)
-    def _get_tags_backend(self):
+    def _get_tags_backend(self) -> Backend:
         return self._get_backend(self._tags_key_prefix)
 
     @property
-    def tags_backend(self):
+    def tags_backend(self) -> Backend:
         return self._get_tags_backend()
 
     def register_tag(self, tag: Tag, key_template: KeyOrTemplate):
@@ -69,14 +69,14 @@ class CommandsTagsWrapper(CommandWrapper):
         backend.on_remove_callback(self._on_remove_cb)
 
     def _on_remove_callback(self) -> Callback:
-        async def _callback(keys: Iterable[Key], **kwargs):
+        async def _callback(keys: Iterable[Key], backend: Backend):
             for tag, _keys in self._group_by_tags(keys).items():
                 await self.tags_backend.set_remove(self._tags_key_prefix + tag, *_keys)
 
         return _callback
 
     def _group_by_tags(self, keys: Iterable[Key]) -> Dict[Tag, List[Key]]:
-        tags = {}
+        tags: Dict[Tag, List[Key]] = {}
         for key in keys:
             for tag in self.get_key_tags(key):
                 tags.setdefault(tag, []).append(key)
@@ -100,7 +100,7 @@ class CommandsTagsWrapper(CommandWrapper):
         self,
         key: Key,
         value: Value,
-        expire: Optional[TTL] = None,
+        expire: Union[float, TTL, None] = None,
         exist: Optional[bool] = None,
         tags: Tags = (),
     ) -> bool:
