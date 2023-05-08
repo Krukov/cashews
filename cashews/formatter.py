@@ -89,28 +89,30 @@ class _ReplaceFormatter(Formatter):
 
 class _FuncFormatter(_ReplaceFormatter):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self._functions = {}
+        self._functions: Dict[str, Tuple[Callable, bool]] = {}
         super().__init__(*args, **kwargs)
 
-    def _register(self, alias, function) -> None:
-        self._functions[alias] = function
+    def _register(self, alias: str, function: Callable, preformat: bool = True) -> None:
+        self._functions[alias] = (function, preformat)
 
-    def register(self, alias):
+    def register(self, alias: str, preformat: bool = True):
         def _decorator(func):
-            self._register(alias, func)
+            self._register(alias, func, preformat=preformat)
             return func
 
         return _decorator
 
-    def format_field(self, value, format_spec):
+    def format_field(self, value: Any, format_spec: str) -> TemplateValue:
         format_spec, args = self.parse_format_spec(format_spec)
-        value = super().format_field(value, format_spec if format_spec not in self._functions else "")
-        if format_spec in self._functions:
-            value = self._functions[format_spec](value, *args)
-        return value
+        if format_spec not in self._functions:
+            return super().format_field(value, format_spec)
+        func, preformat = self._functions[format_spec]
+        if preformat:
+            value = super().format_field(value, "")
+        return func(value, *args)
 
     @staticmethod
-    def parse_format_spec(format_spec):
+    def parse_format_spec(format_spec: str):
         if not format_spec or "(" not in format_spec:
             return format_spec, ()
         format_spec, args = format_spec.split("(", 1)
@@ -118,7 +120,11 @@ class _FuncFormatter(_ReplaceFormatter):
 
 
 default_formatter = _FuncFormatter(lambda name: "")
-default_formatter._register("len", lambda x: str(len(x)))
+
+
+@default_formatter.register("len")
+def _len(value: TemplateValue):
+    return str(len(value))
 
 
 @default_formatter.register("jwt")
