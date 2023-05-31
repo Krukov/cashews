@@ -77,26 +77,21 @@ def _asyncgen_lock(
 
 
 def thunder_protection(key: Optional[KeyOrTemplate] = None) -> Decorator:
-    futures: Dict[str, asyncio.Future] = {}
+    tasks: Dict[str, asyncio.Task] = {}
 
     def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key)
 
-        def done_callback(_key: Key, task: asyncio.Task):
-            future = futures[_key]
-            if task.exception():
-                future.set_exception(task.exception())
-            else:
-                future.set_result(task.result())
-            del futures[_key]
+        def done_callback(_key: Key, _: asyncio.Task):
+            del tasks[_key]
 
         @wraps(func)
         async def _wrapper(*args, **kwargs):
             _key = get_cache_key(func, _key_template, args, kwargs)
-            if _key in futures:
-                return await futures[_key]
+            if _key in tasks:
+                return await tasks[_key]
             task = asyncio.create_task(func(*args, **kwargs))
-            futures[_key] = asyncio.Future()
+            tasks[_key] = task
             task.add_done_callback(partial(done_callback, _key))
             return await task
 
