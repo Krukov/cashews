@@ -6,6 +6,7 @@ from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
+from ._exception import RaiseException, return_or_raise
 from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -50,10 +51,21 @@ def cache(
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
                 context_cache_detect._set(_cache_key, ttl=_ttl, name="simple", template=_key_template)
-                return cached
-            result = await func(*args, **kwargs)
-            if condition(result, args, kwargs, key=_cache_key):
+                return return_or_raise(cached)
+            _exc = None
+            try:
+                result = await func(*args, **kwargs)
+            except Exception as exc:
+                _exc = exc
+                result = exc
+
+            cond_result = condition(result, args, kwargs, key=_cache_key)
+            if isinstance(cond_result, bool) and cond_result and not isinstance(result, Exception):
                 await backend.set(_cache_key, result, expire=_ttl, tags=_tags)
+            elif isinstance(cond_result, Exception):
+                await backend.set(_cache_key, RaiseException(result), expire=_ttl, tags=_tags)
+            if _exc:
+                raise _exc
             return result
 
         return _wrap

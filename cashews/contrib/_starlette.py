@@ -4,8 +4,10 @@ from cashews.backends.interface import Backend
 from cashews.serialize import register_type
 
 
-async def encode_streaming_response(value: StreamingResponse, backend: Backend, key: str, ttl) -> bytes:
-    value.body_iterator = set_iterator(backend, key, value.body_iterator, ttl)
+async def encode_streaming_response(
+    value: StreamingResponse, backend: Backend, key: str, expire: int, **kwargs
+) -> bytes:
+    value.body_iterator = set_iterator(backend, key, value.body_iterator, expire)
     serialized_value = b""
     serialized_value += bytes(str(value.status_code), "utf-8") + b":"
     for header, header_value in value.raw_headers:
@@ -13,7 +15,7 @@ async def encode_streaming_response(value: StreamingResponse, backend: Backend, 
     return serialized_value
 
 
-async def decode_streaming_response(value: bytes, backend: Backend, key) -> StreamingResponse:
+async def decode_streaming_response(value: bytes, backend: Backend, key: str, **kwargs) -> StreamingResponse:
     status_code, headers = value.split(b":")
     status_code = int(status_code)
     raw_headers = []
@@ -29,10 +31,10 @@ async def decode_streaming_response(value: bytes, backend: Backend, key) -> Stre
     return resp
 
 
-async def set_iterator(backend: Backend, key: str, iterator, ttl):
+async def set_iterator(backend: Backend, key: str, iterator, expire: int):
     chunk_number = 0
     async for chunk in iterator:
-        await backend.set(f"{key}:chunk:{chunk_number}", chunk, expire=ttl)
+        await backend.set(f"{key}:chunk:{chunk_number}", chunk, expire=expire)
         yield chunk
         chunk_number += 1
 
