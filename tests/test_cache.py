@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews import decorators, noself
+from cashews import Cache, decorators, noself
 from cashews.formatter import _REGISTER, get_templates_for_func
 
 pytestmark = pytest.mark.asyncio
@@ -15,7 +15,7 @@ class CustomError(Exception):
     pass
 
 
-async def test_fail_cache_simple(cache):
+async def test_fail_cache_simple(cache: Cache):
     @cache.failover(ttl=EXPIRE, exceptions=CustomError, key="fail")
     async def func(fail=False):
         if fail:
@@ -30,7 +30,7 @@ async def test_fail_cache_simple(cache):
         await func(fail=True)
 
 
-async def test_fail_cache_fast_condition(cache):
+async def test_fail_cache_fast_condition(cache: Cache):
     mem = set()
 
     def getter(key):
@@ -53,7 +53,7 @@ async def test_fail_cache_fast_condition(cache):
     assert "fail" in mem
 
 
-async def test_cache_simple(cache):
+async def test_cache_simple(cache: Cache):
     @cache.cache(ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         return resp
@@ -67,7 +67,7 @@ async def test_cache_simple(cache):
     assert await func(b"notok") == b"notok"
 
 
-async def test_cache_simple_none(cache):
+async def test_cache_simple_none(cache: Cache):
     mock = Mock()
 
     @cache(ttl=EXPIRE, key="key")
@@ -82,7 +82,7 @@ async def test_cache_simple_none(cache):
     assert mock.call_count == 1
 
 
-async def test_cache_simple_key(cache):
+async def test_cache_simple_key(cache: Cache):
     _REGISTER.clear()
 
     @cache(ttl=1, key="key:{some}")
@@ -100,7 +100,7 @@ async def test_cache_simple_key(cache):
     assert next(get_templates_for_func(func2)) == "tests.test_cache:func2:resp:{resp}:some:{some}"
 
 
-async def test_cache_self_noself_key(cache):
+async def test_cache_self_noself_key(cache: Cache):
     _REGISTER.clear()
 
     _noself = noself(cache)
@@ -135,7 +135,7 @@ async def test_cache_self_noself_key(cache):
     assert next(get_templates_for_func(obj.stat)) == "tests.test_cache:stat:resp:{resp}"
 
 
-async def test_cache_simple_cond(cache):
+async def test_cache_simple_cond(cache: Cache):
     mock = Mock()
 
     @cache(ttl=EXPIRE, key="key", condition=lambda x, *args, **kwargs: x == b"hit")
@@ -155,7 +155,7 @@ async def test_cache_simple_cond(cache):
     assert mock.call_count == 3
 
 
-async def test_cache_simple_ttl(cache):
+async def test_cache_simple_ttl(cache: Cache):
     mock = Mock()
 
     def _ttl(resp=b"ok"):
@@ -185,7 +185,7 @@ async def test_cache_simple_ttl(cache):
     assert mock.call_count == 3
 
 
-async def test_early_cache_simple(cache):
+async def test_early_cache_simple(cache: Cache):
     @cache.early(ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         return resp
@@ -199,7 +199,7 @@ async def test_early_cache_simple(cache):
     assert await func(b"notok") == b"notok"
 
 
-async def test_soft_cache_simple(cache):
+async def test_soft_cache_simple(cache: Cache):
     mock = Mock()
 
     @cache.soft(ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
@@ -219,7 +219,7 @@ async def test_soft_cache_simple(cache):
     assert mock.call_count == 2
 
 
-async def test_soft_cache_on_exc(cache):
+async def test_soft_cache_on_exc(cache: Cache):
     mock = Mock()
 
     @cache.soft(ttl=4 * EXPIRE, soft_ttl=EXPIRE, key="key")
@@ -247,7 +247,7 @@ async def test_soft_cache_on_exc(cache):
 
 
 @pytest.mark.xfail
-async def test_early_cache_parallel(cache):
+async def test_early_cache_parallel(cache: Cache):
     mock = Mock()
 
     @cache.early(ttl=0.1, early_ttl=0.05, key="key")
@@ -267,7 +267,7 @@ async def test_early_cache_parallel(cache):
     assert mock.call_count in (2, 3, 4)  # depends on backend
 
 
-async def test_hit_cache(cache):
+async def test_hit_cache(cache: Cache):
     mock = Mock()
 
     @cache.hit(ttl=1000, cache_hits=10, key="test")
@@ -285,7 +285,7 @@ async def test_hit_cache(cache):
     assert mock.call_count in [2, 3, 4]
 
 
-async def test_hit_cache_early(cache):
+async def test_hit_cache_early(cache: Cache):
     mock = Mock()
 
     @cache.hit(ttl=10, cache_hits=5, key="test", update_after=1)
@@ -306,7 +306,7 @@ async def test_hit_cache_early(cache):
     assert mock.call_count == 3
 
 
-async def test_context_cache_detect_simple(cache):
+async def test_context_cache_detect_simple(cache: Cache):
     @cache(ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):
         return resp
@@ -328,7 +328,7 @@ async def test_context_cache_detect_simple(cache):
     assert decorators.context_cache_detect._levels == {}
 
 
-async def test_context_cache_detect_deep(cache):
+async def test_context_cache_detect_deep(cache: Cache):
     @cache(ttl=EXPIRE, key="key1")
     async def func1():
         return 1
@@ -353,7 +353,7 @@ async def test_context_cache_detect_deep(cache):
     assert decorators.context_cache_detect._levels == {}
 
 
-async def test_context_cache_detect_context(cache):
+async def test_context_cache_detect_context(cache: Cache):
     @cache(ttl=EXPIRE, key="key1")
     async def func1():
         return 1

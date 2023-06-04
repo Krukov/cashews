@@ -18,6 +18,10 @@ def _decode_bytes(value: bytes):
         return value.hex()
 
 
+def _decode_exception(value: Exception):
+    return f"{value.__class__.__name__}:{value}"
+
+
 def _get_decode_array(format_value):
     def _decode_array(values: Iterable[str]) -> TemplateValue:
         return ":".join([format_value(value) for value in values])
@@ -49,6 +53,7 @@ class _ReplaceFormatter(Formatter):
             str: _decode_direct,
             bool: _decoded_bool,
             bytes: _decode_bytes,
+            Exception: _decode_exception,
             tuple: _decode_array,
             list: _decode_array,
             set: _decode_array,

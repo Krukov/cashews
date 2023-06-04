@@ -7,6 +7,7 @@ from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
+from ._exception import RaiseException, return_or_raise
 from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -53,11 +54,11 @@ def hit(
 
             call_args = (func, args, kwargs, backend, _cache_key, _ttl, condition, _tags)
 
-            result, hits = await asyncio.gather(
+            cached, hits = await asyncio.gather(
                 backend.get(_cache_key, default=_empty),
                 backend.incr(_cache_key + ":counter", expire=_ttl, tags=_tags),
             )
-            if result is not _empty and hits and hits <= cache_hits:
+            if cached is not _empty and hits and hits <= cache_hits:
                 context_cache_detect._set(
                     _cache_key,
                     ttl=_ttl,
@@ -67,7 +68,7 @@ def hit(
                 )
                 if update_after and hits == update_after:
                     asyncio.create_task(_get_and_save(*call_args))
-                return result
+                return return_or_raise(cached)
             return await _get_and_save(*call_args)
 
         return _wrap
@@ -76,11 +77,25 @@ def hit(
 
 
 async def _get_and_save(func, args, kwargs, backend: "Cache", key: Key, ttl, store, tags):
-    result = await func(*args, **kwargs)
-    if store(result, args, kwargs, key=key):
+    _exc = None
+    try:
+        result = await func(*args, **kwargs)
+    except Exception as exc:
+        _exc = exc
+        result = exc
+
+    cond_result = store(result, args, kwargs, key=key)
+    to_cache = None
+    if isinstance(cond_result, bool) and cond_result and not isinstance(result, Exception):
+        to_cache = (result,)
+    elif isinstance(cond_result, Exception):
+        to_cache = (RaiseException(result),)
+
+    if to_cache is not None:
         await asyncio.gather(
             backend.delete(key + ":counter"),
-            backend.set(key, result, expire=ttl, tags=tags),
+            backend.set(key, to_cache[0], expire=ttl, tags=tags),
         )
-
+    if _exc:
+        raise _exc
     return result

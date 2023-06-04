@@ -11,7 +11,9 @@ TTL = Union[_TTLTypes, Callable[[Any], _TTLTypes]]
 
 
 class CallableCacheCondition(Protocol):
-    def __call__(self, result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> bool:  # pragma: no cover
+    def __call__(
+        self, result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = ""
+    ) -> Union[bool, Exception]:  # pragma: no cover
         ...
 
 

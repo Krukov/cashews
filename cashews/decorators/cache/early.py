@@ -9,6 +9,7 @@ from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
+from ._exception import RaiseException, return_or_raise
 from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -77,17 +78,17 @@ def early(
             )
             early_expire_at, result = cached
             if early_expire_at >= datetime.utcnow():
-                return result
+                return return_or_raise(result)
             lock_key = _cache_key + _LOCK_SUFFIX
             if not await backend.set(lock_key, "1", expire=_early_ttl, exist=False):
-                return result
+                return return_or_raise(result)
             logger.info(
                 "Recalculate cache for %s (exp_at %s)",
                 _cache_key,
                 early_expire_at,
             )
             asyncio.create_task(_get_result_for_early(*args_to_call, unlock=True))
-            return result
+            return return_or_raise(result)
 
         return _wrap
 
@@ -98,11 +99,21 @@ async def _get_result_for_early(
     backend: "Cache", func, args, kwargs, key, ttl: int, early_ttl: int, condition, tags, unlock=False
 ):
     try:
-        result = await func(*args, **kwargs)
-        if condition(result, args, kwargs, key):
-            early_expire_at = datetime.utcnow() + timedelta(seconds=early_ttl)
+        _exc = None
+        try:
+            result = await func(*args, **kwargs)
+        except Exception as exc:
+            _exc = exc
+            result = exc
+        cond_result = condition(result, args, kwargs, key=key)
+        early_expire_at = datetime.utcnow() + timedelta(seconds=early_ttl)
+        if isinstance(cond_result, bool) and cond_result and not isinstance(result, Exception):
             await backend.set(key, [early_expire_at, result], expire=ttl, tags=tags)
-        return result
+        elif isinstance(cond_result, Exception):
+            await backend.set(key, [early_expire_at, RaiseException(result)], expire=ttl, tags=tags)
+        if _exc:
+            raise _exc
+        return return_or_raise(result)
     finally:
         if unlock:
             asyncio.create_task(backend.delete(key + _LOCK_SUFFIX))
