@@ -134,6 +134,15 @@ class CommandWrapper(Wrapper):
         message = b"PING" if message is None else message
         return await self._with_middlewares(Command.PING, message.decode())(message=message)
 
+    async def get_keys_count(self) -> int:
+        result = 0
+        for backend, _ in self._backends.values():
+            count = await self._with_middlewares_for_backend(
+                Command.GET_KEYS_COUNT, backend, self._default_middlewares
+            )()
+            result += count
+        return result
+
     async def clear(self):
         for backend, _ in self._backends.values():
             await self._with_middlewares_for_backend(Command.CLEAR, backend, self._default_middlewares)()

@@ -34,6 +34,7 @@ class Command(Enum):
 
     PING = "ping"
     GET_SIZE = "get_size"
+    GET_KEYS_COUNT = "get_keys_count"
 
 
 ALL = set(Command)

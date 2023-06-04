@@ -222,6 +222,7 @@ async with cache.lock("key", expire=10):
 await cache.set_lock("key", value="value", expire=60)  # -> bool
 await cache.unlock("key", "value")  # -> bool
 
+await cache.get_keys_count()  # -> int - total number of keys in cache
 await cache.close()
 ```
 
@@ -452,10 +453,10 @@ await email_exists("example@example.com")
 
 ### Cache condition
 
-By default, any result of function call is stored, even it is a `None`.
-Caching decorators have parameter `condition`, that can be:
+By default, any successful result of function call is stored, even it is a `None`.
+Caching decorators have the parameter - `condition`, that can be:
 
-- a callable object that receive result of function call, args, kwargs and a cache key
+- a callable object that receive a result of function call or an exception, args, kwargs and a cache key
 - a string: "not_none" or "skip_none" to do not cache `None` values in
 
 ```python
@@ -469,9 +470,27 @@ async def get():
 
 
 def skit_test_result(result, args, kwargs, key=None) -> bool:
-    return result != "test"
+    return result and result != "test"
 
 @cache(ttl="1h", condition=skit_test_result)
+async def get():
+    ...
+
+```
+
+It is also possible to cache an exception that function can raise, to do so use special conditions (only for simple, hit and early)
+
+```python
+from cashews import cache, with_exceptions, only_exceptions
+
+cache.setup("mem://")
+
+@cache(ttl="1h", condition=with_exceptions(MyException, TimeoutError))
+async def get():
+    ...
+
+
+@cache(ttl="1h", condition=only_exceptions(MyException, TimeoutError))
 async def get():
     ...
 

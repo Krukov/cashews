@@ -257,6 +257,9 @@ class _DiskCache(Backend):
         await self.set(key, values)
         return _values
 
+    async def get_keys_count(self) -> int:
+        return await self._run_in_executor(lambda: len(self._cache))
+
 
 class DiskCache(SerializerMixin, _DiskCache):
     pass

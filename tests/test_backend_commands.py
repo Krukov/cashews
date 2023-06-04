@@ -209,6 +209,11 @@ async def test_get_size(cache: Backend):
     assert isinstance(await cache.get_size("test"), int)
 
 
+async def test_get_keys_count(cache: Backend):
+    await cache.set("test", b"1")
+    assert await cache.get_keys_count() == 1
+
+
 async def test_get_bits(cache: Backend):
     assert await cache.get_bits("test", 0, 2, 10, 50000, size=1) == (0, 0, 0, 0)
     assert await cache.get_bits("test", 0, 1, 3, size=15) == (

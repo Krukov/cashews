@@ -241,6 +241,9 @@ class _Memory(Backend):
         self._set(key, values)
         return _values
 
+    async def get_keys_count(self) -> int:
+        return len(self.store)
+
     async def close(self):
         self.__remove_expired_stop.set()
         if self.__remove_expired_task:
