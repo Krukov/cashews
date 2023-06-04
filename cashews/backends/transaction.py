@@ -174,6 +174,8 @@ class TransactionBackend(Backend):
         return await self._backend.exists(key)
 
     # non transaction - proxy methods
+    async def get_keys_count(self) -> int:
+        return await self._backend.get_keys_count() + await self._local_cache.get_keys_count()
 
     @property
     def is_init(self) -> bool:

@@ -125,6 +125,13 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
+    async def get_keys_count(self) -> int:
+        """
+        Return count keys in cache
+        """
+        ...
+
+    @abstractmethod
     async def ping(self, message: Optional[bytes] = None) -> bytes:
         ...
 

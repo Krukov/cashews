@@ -282,6 +282,9 @@ class _Redis(Backend):
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
         return [value.decode() for value in await self._client.spop(key, count)]
 
+    async def get_keys_count(self) -> int:
+        return await self._client.dbsize()
+
     async def close(self):
         await self._client.close()
         self.__is_init = False
