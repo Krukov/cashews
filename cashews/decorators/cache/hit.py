@@ -48,20 +48,19 @@ def hit(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             _tags = [get_cache_key(func, tag, args, kwargs) for tag in tags]
 
-            call_args = (func, args, kwargs, backend, _cache_key, _ttl, condition, _tags)
+            call_args = (func, args, kwargs, backend, _cache_key, ttl, condition, _tags)
 
             cached, hits = await asyncio.gather(
                 backend.get(_cache_key, default=_empty),
-                backend.incr(_cache_key + ":counter", expire=_ttl, tags=_tags),
+                backend.incr(_cache_key + ":counter", expire=ttl, tags=_tags),
             )
             if cached is not _empty and hits and hits <= cache_hits:
                 context_cache_detect._set(
                     _cache_key,
-                    ttl=_ttl,
+                    ttl=ttl,
                     cache_hits=cache_hits,
                     name="hit",
                     template=_key_template,
@@ -84,6 +83,7 @@ async def _get_and_save(func, args, kwargs, backend: "Cache", key: Key, ttl, sto
         _exc = exc
         result = exc
 
+    ttl = ttl_to_seconds(ttl, *args, result=result, **kwargs, with_callable=True)
     cond_result = store(result, args, kwargs, key=key)
     to_cache = None
     if isinstance(cond_result, bool) and cond_result and not isinstance(result, Exception):

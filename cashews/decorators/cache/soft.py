@@ -51,9 +51,7 @@ def soft(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _tags = [get_cache_key(func, tag, args, kwargs) for tag in tags]
-            _soft_ttl = ttl_to_seconds(soft_ttl, *args, **kwargs) or _ttl * 0.33
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
@@ -61,8 +59,8 @@ def soft(
                 if soft_expire_at > datetime.utcnow():
                     context_cache_detect._set(
                         _cache_key,
-                        ttl=_ttl,
-                        soft_ttl=_soft_ttl,
+                        ttl=ttl,
+                        soft_ttl=soft_ttl,
                         name="soft",
                         template=_key_template,
                     )
@@ -75,8 +73,8 @@ def soft(
                     _, result = cached
                     context_cache_detect._set(
                         _cache_key,
-                        ttl=_ttl,
-                        soft_ttl=_soft_ttl,
+                        ttl=ttl,
+                        soft_ttl=soft_ttl,
                         name="soft",
                         template=_key_template,
                     )
@@ -84,6 +82,8 @@ def soft(
                 raise
             else:
                 if condition(result, args, kwargs, _cache_key):
+                    _ttl = ttl_to_seconds(ttl, *args, result=result, **kwargs, with_callable=True)
+                    _soft_ttl = ttl_to_seconds(soft_ttl, *args, result=result, **kwargs) or _ttl * 0.33
                     soft_expire_at = datetime.utcnow() + timedelta(seconds=_soft_ttl)
                     await backend.set(_cache_key, [soft_expire_at, result], expire=_ttl, tags=_tags)
                 return result

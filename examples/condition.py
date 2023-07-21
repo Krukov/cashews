@@ -1,6 +1,6 @@
 import asyncio
 
-from cashews import NOT_NONE, cache
+from cashews import NOT_NONE, cache, with_exceptions
 
 cache.setup("redis://")
 
@@ -19,6 +19,11 @@ def _only_none_foo_more_1000(result, args, kwargs, key=None) -> bool:
 async def cache_only_none_more_1000(foo):
     await asyncio.sleep(0.1)
     return foo if foo < 100 else None
+
+
+@cache(ttl="10m", condition=with_exceptions())
+async def cache_exception():
+    raise Exception()
 
 
 @cache(ttl="10m", time_condition="1s")

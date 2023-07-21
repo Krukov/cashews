@@ -185,6 +185,37 @@ async def test_cache_simple_ttl(cache: Cache):
     assert mock.call_count == 3
 
 
+async def test_cache_simple_ttl_with_result(cache: Cache):
+    mock = Mock()
+
+    def _ttl(result, resp=b"ok"):
+        if result == b"ok":
+            return 0.01
+        return "2h"
+
+    @cache(ttl=_ttl)
+    async def func(resp=b"ok"):
+        mock()
+        return resp
+
+    await func()
+    await func()
+
+    assert mock.call_count == 1
+    await asyncio.sleep(0.02)
+
+    await func()
+    assert mock.call_count == 2
+
+    await func(b"notok")
+    await func(resp=b"notok")
+    assert mock.call_count == 3
+
+    await asyncio.sleep(0.02)
+    await func(b"notok")
+    assert mock.call_count == 3
+
+
 async def test_early_cache_simple(cache: Cache):
     @cache.early(ttl=EXPIRE, key="key")
     async def func(resp=b"ok"):

@@ -16,7 +16,7 @@ async def function_with_limit(foo):
 
 @cache.failover(ttl="1m", prefix="fast:failover")
 @cache.failover(ttl="10m", exceptions=(CircuitBreakerOpen,))
-@cache.circuit_breaker(errors_rate=10, period="10m", ttl="5m", half_open_ttl="1m")
+@cache.circuit_breaker(errors_rate=10, period="10m", ttl="5m", half_open_ttl="1m", min_calls=4)
 async def function_that_may_fail(foo):
     await asyncio.sleep(0.1)
     if random.choice([0, 0, 0, 1]):
