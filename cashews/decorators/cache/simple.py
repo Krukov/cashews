@@ -44,13 +44,12 @@ def cache(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _tags = [get_cache_key(func, tag, args, kwargs) for tag in tags]
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
 
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                context_cache_detect._set(_cache_key, ttl=_ttl, name="simple", template=_key_template)
+                context_cache_detect._set(_cache_key, ttl=ttl, name="simple", template=_key_template)
                 return return_or_raise(cached)
             _exc = None
             try:
@@ -59,6 +58,7 @@ def cache(
                 _exc = exc
                 result = exc
 
+            _ttl = ttl_to_seconds(ttl, *args, **kwargs, result=result, with_callable=True)
             cond_result = condition(result, args, kwargs, key=_cache_key)
             if isinstance(cond_result, bool) and cond_result and not isinstance(result, Exception):
                 await backend.set(_cache_key, result, expire=_ttl, tags=_tags)

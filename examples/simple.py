@@ -10,7 +10,6 @@ async def basic():
     await cache.clear()
 
     await cache.set("key", 1)
-    print(await cache.get("key"))
     assert await cache.get("key") == 1
     await cache.set("key1", value={"any": True}, expire="1m")
 
@@ -36,6 +35,7 @@ async def basic():
         print("Locked: ", await cache.is_locked("lock"))
 
     print("Ping: ", await cache.ping())  # -> bytes
+    print("Count: ", await cache.get_keys_count())
 
     await cache.close()
 
