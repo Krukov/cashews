@@ -30,8 +30,8 @@ class Wrapper:
         for prefix in sorted(self._backends.keys(), reverse=True):
             if key.startswith(prefix):
                 return self._backends[prefix]
-        if self.default_prefix not in self._backends:
-            raise NotConfiguredError("run `cache.setup(...)` before using cache")
+        self._check_setup()
+        raise NotConfiguredError("Backend for given key not configured")
 
     def _get_backend(self, key: Key) -> Backend:
         backend, _ = self._get_backend_and_config(key)
@@ -61,6 +61,13 @@ class Wrapper:
             backend.disable()
         self._add_backend(backend, middlewares, prefix)
         return backend
+
+    def is_setup(self) -> bool:
+        return bool(self._backends)
+
+    def _check_setup(self):
+        if not self._backends:
+            raise NotConfiguredError("run `cache.setup(...)` before using cache")
 
     def _add_backend(self, backend: Backend, middlewares=(), prefix: str = default_prefix):
         self._backends[prefix] = (

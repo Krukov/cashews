@@ -10,7 +10,7 @@ from .time_condition import create_time_condition
 from .wrapper import Wrapper
 
 
-def _thunder_protection(func: Callable) -> Callable:
+def _skip_thunder_protection(func: Callable) -> Callable:
     return func
 
 
@@ -36,12 +36,13 @@ class DecoratorsWrapper(Wrapper):
                 decor_kwargs["condition"] = condition
 
             decorator = decorator_fabric(self, **decor_kwargs)(func)
-            thunder_protection = _thunder_protection
+            thunder_protection = _skip_thunder_protection
             if protected:
                 thunder_protection = decorators.thunder_protection(key=decor_kwargs.get("key"))
 
             @wraps(func)
             async def _call(*args, **kwargs):
+                self._check_setup()
                 if self.is_full_disable:
                     return await func(*args, **kwargs)
                 if lock:
@@ -69,12 +70,13 @@ class DecoratorsWrapper(Wrapper):
 
             @wraps(func)
             async def _call(*args, **kwargs):
+                self._check_setup()
                 if self.is_full_disable:
                     return await func(*args, **kwargs)
                 with decorators.context_cache_detect as detect:
 
                     def new_condition(result, _args, _kwargs, key):
-                        if detect.keys:
+                        if detect.calls:
                             return False
                         return _condition(result, _args, _kwargs, key=key) if _condition else result is not None
 

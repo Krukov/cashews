@@ -9,13 +9,13 @@ def ttl_to_seconds(
 ) -> Union[int, None, float]:
     if ttl is None:
         return None
-    _type = type(ttl)
+    _type = type(ttl)  # isinstance is slow
+    if _type == str:
+        return _ttl_from_str(ttl)
     if _type == int:
         return ttl
     if _type == timedelta:
         return ttl.total_seconds()
-    if _type == str:
-        return _ttl_from_str(ttl)
     if callable(ttl) and with_callable:
         try:
             ttl = ttl(*args, result=result, **kwargs)

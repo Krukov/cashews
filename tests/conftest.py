@@ -74,13 +74,25 @@ async def _backend(request, redis_dsn, backend_factory):
         from cashews.backends.redis import Redis
 
         backend = backend_factory(
-            Redis, redis_dsn, hash_key=None, max_connections=20, suppress=False, socket_timeout=10
+            Redis,
+            redis_dsn,
+            hash_key=None,
+            max_connections=20,
+            suppress=False,
+            socket_timeout=10,
+            wait_for_connection_timeout=1,
         )
     elif request.param == "redis_hash":
         from cashews.backends.redis import Redis
 
         backend = backend_factory(
-            Redis, redis_dsn, hash_key=uuid4().hex, max_connections=20, suppress=False, socket_timeout=10
+            Redis,
+            redis_dsn,
+            hash_key=uuid4().hex,
+            max_connections=20,
+            suppress=False,
+            socket_timeout=10,
+            wait_for_connection_timeout=1,
         )
     elif request.param == "redis_cs":
         from cashews.backends.redis.client_side import BcastClientSide
