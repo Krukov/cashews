@@ -279,3 +279,14 @@ async def test_no_setup():
 
     with pytest.raises(NotConfiguredError):
         await cache.get("test")
+
+
+async def test_no_setup_decor():
+    cache = Cache()
+
+    @cache(ttl=0.1, key="key")
+    async def func():
+        return None
+
+    with pytest.raises(NotConfiguredError):
+        await func()

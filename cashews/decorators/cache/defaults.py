@@ -11,21 +11,23 @@ class CacheDetect:
     __slots__ = ("_value", "_unset_token", "_previous_level")
 
     def __init__(self, previous_level=0, unset_token=None):
-        self._value = {}
+        self._value = []
         self._unset_token = unset_token
         self._previous_level = previous_level
 
     def _set(self, key: Key, **kwargs: Any) -> None:
-        self._value.setdefault(key, []).append(kwargs)
+        self._value.append((key, [kwargs]))
 
     @property
     def calls(self):
         return dict(self._value)
 
-    keys = calls  # backward compatibility
+    @property
+    def calls_list(self):
+        return self._value.copy()
 
     def clear(self):
-        self._value = {}
+        self._value = []
 
 
 _level = ContextVar("level", default=0)

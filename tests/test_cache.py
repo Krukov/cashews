@@ -344,17 +344,17 @@ async def test_context_cache_detect_simple(cache: Cache):
 
     with decorators.context_cache_detect as detector:
         assert await func() == b"ok"
-        assert detector.keys == {}
+        assert detector.calls == {}
 
         await asyncio.sleep(0)
         assert await func(b"notok") == b"ok"
-        assert list(detector.keys.keys()) == [
+        assert list(detector.calls.keys()) == [
             "key",
         ]
 
         await asyncio.sleep(EXPIRE * 1.1)
         assert await func(b"notok") == b"notok"
-        assert len(detector.keys) == 1
+        assert len(detector.calls) == 1
 
     assert decorators.context_cache_detect._levels == {}
 
@@ -373,14 +373,14 @@ async def test_context_cache_detect_deep(cache: Cache):
 
     with decorators.context_cache_detect as detector:
         await func()
-        assert detector.keys == {}
+        assert detector.calls == {}
 
         await asyncio.sleep(0)
         await func()
 
-        assert len(detector.keys) == 2
-        assert "key1" in detector.keys
-        assert "key2" in detector.keys
+        assert len(detector.calls) == 2
+        assert "key1" in detector.calls
+        assert "key2" in detector.calls
     assert decorators.context_cache_detect._levels == {}
 
 
@@ -396,7 +396,7 @@ async def test_context_cache_detect_context(cache: Cache):
     async def func(*funcs):
         with decorators.context_cache_detect as detector:
             await asyncio.gather(*funcs)
-            return len(detector.keys)
+            return len(detector.calls)
 
     await cache.set("key1", "test")
     await cache.set("key2", "test")
@@ -409,6 +409,6 @@ async def test_context_cache_detect_context(cache: Cache):
         assert await asyncio.create_task(func(func2())) == 1
         assert await asyncio.create_task(func(func2(), func2())) == 1
 
-        assert len(detector.keys) == 2
+        assert len(detector.calls) == 2
 
     assert decorators.context_cache_detect._levels == {}
