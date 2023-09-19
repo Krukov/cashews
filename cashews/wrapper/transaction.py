@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from contextvars import ContextVar
 from enum import Enum
 from functools import wraps
-from typing import Optional, Tuple
 
 from cashews._typing import AsyncCallable_T, Middleware
 from cashews.backends.interface import Backend
@@ -9,7 +10,7 @@ from cashews.backends.transaction import LockTransactionBackend, TransactionBack
 
 from .wrapper import Wrapper
 
-_transaction = ContextVar("transaction", default=None)
+_transaction: ContextVar[Transaction | None] = ContextVar("transaction", default=None)
 
 
 class TransactionMode(Enum):
@@ -28,16 +29,16 @@ class TransactionWrapper(Wrapper):
     def set_transaction_mode(self, mode: TransactionMode):
         self.transaction_mode = mode
 
-    def _get_backend_and_config(self, key: str) -> Tuple[Backend, Tuple[Middleware, ...]]:
+    def _get_backend_and_config(self, key: str) -> tuple[Backend, tuple[Middleware, ...]]:
         backend, config = super()._get_backend_and_config(key)
-        tx: Optional[Transaction] = _transaction.get()
+        tx: Transaction | None = _transaction.get()
         if not tx:
             return backend, config
         return tx.wrap(backend), config
 
     def transaction(
-        self, mode: Optional[TransactionMode] = None, timeout: Optional[float] = None
-    ) -> "TransactionContextDecorator":
+        self, mode: TransactionMode | None = None, timeout: float | None = None
+    ) -> TransactionContextDecorator:
         mode = mode or self.transaction_mode
         timeout = timeout or self.transaction_timeout
         return TransactionContextDecorator(mode, timeout)
@@ -46,22 +47,22 @@ class TransactionWrapper(Wrapper):
 class TransactionContextDecorator:
     __slots__ = ["_mode", "_timeout", "_inner"]
 
-    def __init__(self, mode: Optional[TransactionMode] = None, timeout: Optional[float] = None):
+    def __init__(self, mode: TransactionMode | None = None, timeout: float | None = None):
         self._mode = mode
         self._timeout = timeout
         self._inner = False
 
     @property
-    def current_tx(self) -> Optional["Transaction"]:
+    def current_tx(self) -> Transaction | None:
         return _transaction.get()
 
-    async def __aenter__(self) -> "Transaction":
+    async def __aenter__(self) -> Transaction:
         if self.current_tx:
             self._inner = True
             return self.current_tx
         return self.start()
 
-    def start(self) -> "Transaction":
+    def start(self) -> Transaction:
         tx = Transaction(self._mode, self._timeout)
         _transaction.set(tx)
         return tx
@@ -99,17 +100,17 @@ class TransactionContextDecorator:
 class Transaction:
     __slots__ = ["_mode", "_timeout", "_backends"]
 
-    def __init__(self, mode: Optional[TransactionMode] = None, timeout: Optional[float] = None):
+    def __init__(self, mode: TransactionMode | None = None, timeout: float | None = None):
         self._mode = mode
         self._timeout = timeout
-        self._backends = {}
+        self._backends: dict[int, TransactionBackend] = {}
 
     def wrap(self, backend: Backend) -> Backend:
         if id(backend) not in self._backends:
             self._backends[id(backend)] = self._get_tx_backend(backend)
         return self._backends[id(backend)]
 
-    def _get_tx_backend(self, backend: Backend) -> "TransactionBackend":
+    def _get_tx_backend(self, backend: Backend) -> TransactionBackend:
         if self._mode == TransactionMode.FAST:
             return TransactionBackend(backend)
         if self._mode == TransactionMode.SERIALIZABLE:

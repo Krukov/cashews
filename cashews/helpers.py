@@ -1,3 +1,5 @@
+from typing import Optional
+
 from ._typing import AsyncCallable_T, AsyncCallableResult_T, Middleware
 from .backends.interface import Backend
 from .commands import PATTERN_CMDS, Command
@@ -52,7 +54,7 @@ def all_keys_lower() -> Middleware:
 def memory_limit(min_bytes=0, max_bytes=None) -> Middleware:
     async def _middleware(
         call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs
-    ) -> AsyncCallableResult_T:
+    ) -> Optional[AsyncCallableResult_T]:
         if cmd != Command.SET:
             return await call(*args, **kwargs)
         call_values = get_call_values(call, args, kwargs)

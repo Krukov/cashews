@@ -288,5 +288,5 @@ class BcastClientSide(Redis):
         await super().close()
 
     async def _call_on_remove_callbacks(self, *keys: Key):
-        keys = [self._remove_prefix(key) for key in keys]
-        await super()._call_on_remove_callbacks(*keys)
+        keys_iter = (self._remove_prefix(key) for key in keys)
+        await super()._call_on_remove_callbacks(*keys_iter)

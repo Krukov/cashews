@@ -5,22 +5,6 @@ from cashews.backends.interface import Backend
 from cashews.backends.memory import Memory
 from cashews.exceptions import BackendNotAvailableError
 
-try:
-    import redis  # noqa: F401
-except ImportError:
-    BcastClientSide, Redis = None, None
-else:
-    from cashews.backends.redis import Redis
-    from cashews.backends.redis.client_side import BcastClientSide
-
-try:
-    import diskcache  # noqa: F401
-except ImportError:
-    DiskCache = None
-else:
-    from cashews.backends.diskcache import DiskCache
-
-
 _NO_REDIS_ERROR = "Redis backend requires `redis` to be installed."
 _CUSTOM_ERRORS = {
     "redis": _NO_REDIS_ERROR,
@@ -31,21 +15,37 @@ BackendOrFabric = Union[Type[Backend], Callable[..., Backend]]
 _BACKENDS: Dict[str, Tuple[BackendOrFabric, bool]] = {}
 
 
-def register_backend(alias: str, backend_class: BackendOrFabric, pass_uri: bool = False):
+def register_backend(alias: str, backend_class: BackendOrFabric, pass_uri: bool = False) -> None:
     _BACKENDS[alias] = (backend_class, pass_uri)
 
 
-def _redis_fabric(**params: Any) -> Union[Redis, BcastClientSide]:
-    if params.pop("client_side", None):
-        return BcastClientSide(**params)
-    return Redis(**params)
-
-
 register_backend("mem", Memory)
-if Redis:
+
+
+try:
+    import redis  # noqa: F401
+except ImportError:
+    pass
+else:
+    from cashews.backends.redis import Redis
+    from cashews.backends.redis.client_side import BcastClientSide
+
+    def _redis_fabric(**params: Any) -> Union[Redis, BcastClientSide]:
+        if params.pop("client_side", None):
+            return BcastClientSide(**params)
+        return Redis(**params)
+
     register_backend("redis", _redis_fabric, pass_uri=True)
     register_backend("rediss", _redis_fabric, pass_uri=True)
-if DiskCache:
+
+
+try:
+    import diskcache  # noqa: F401
+except ImportError:
+    pass
+else:
+    from cashews.backends.diskcache import DiskCache
+
     register_backend("disk", DiskCache)
 
 

@@ -1,13 +1,15 @@
 import random
 from datetime import datetime
 from functools import wraps
-from typing import Optional, Tuple, Type, Union
+from typing import Optional
 
 from cashews._typing import TTL, AsyncCallable_T, Decorator, Key, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import CircuitBreakerOpen
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
+
+from .._typing import Exceptions
 
 
 def circuit_breaker(
@@ -17,7 +19,7 @@ def circuit_breaker(
     ttl: TTL,
     half_open_ttl: Optional[TTL] = None,
     min_calls: int = 1,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
+    exceptions: Exceptions = Exception,
     key: Optional[KeyOrTemplate] = None,
     prefix: str = "circuit_breaker",
 ) -> Decorator:

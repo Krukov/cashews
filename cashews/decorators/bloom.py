@@ -73,7 +73,7 @@ def bloom(
             await backend.incr_bits(_cache_key, *indexes)
             return result
 
-        func.set = __set
+        func.set = __set  # type: ignore[attr-defined]
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
@@ -99,14 +99,14 @@ def dual_bloom(
     *,
     capacity: IntOrPair,
     name: Optional[KeyOrTemplate] = None,
-    false: Optional[IntOrPair] = 1,
+    false: IntOrPair = 1,
     no_collisions: bool = False,
     prefix: str = "dual_bloom",
 ) -> Decorator:
     """
     Decorator that can help you to use bloom filter algorithm
      this is  implementation with 2 bloom filters - one for true and another for false
-     That give as ability use bloom filter without pre-filling data
+     That give the ability use bloom filter without pre-filling data
      but with possible false positive and false negative results
 
     @dual_bloom(name="user_name:{name}", false=1, capacity=10_000)
@@ -158,13 +158,14 @@ def dual_bloom(
 
 
 def _get_params_for_filters(
-    false: Optional[IntOrPair] = 1,
+    false: IntOrPair = 1,
     capacity: Optional[IntOrPair] = None,
 ) -> Tuple[BloomParams, BloomParams]:
     assert false and capacity
-    assert 0 < false < 100
     capacity_true, capacity_false = _to_pair(capacity)
     false_true, false_false = _to_pair(false)
+    assert 0 < false_true < 100
+    assert 0 < false_false < 100
     return params_for(capacity_true, false_true / 100), params_for(capacity_false, false_false / 100)
 
 
@@ -194,7 +195,7 @@ def params_for(capacity: int, false_positives: float = 0.01) -> BloomParams:
     m = _count_m(capacity, false_positives)
     k = _count_k(m, capacity)
     assert k > 0, "too high false positive value"
-    return m, k
+    return BloomParams(m, k)
 
 
 def _count_k(m, n):

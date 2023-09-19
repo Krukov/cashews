@@ -1,6 +1,6 @@
 import asyncio
 import time
-from typing import Any, AsyncIterator, Iterable, Mapping, Optional, Tuple
+from typing import Any, AsyncIterator, Iterable, Mapping, Optional, Set, Tuple, Union
 from uuid import uuid4
 
 from cashews import LockedError
@@ -24,7 +24,7 @@ class TransactionBackend(Backend):
     def __init__(self, backend: Backend):
         self._backend = backend
         self._local_cache = Memory()
-        self._to_delete = set()
+        self._to_delete: Set[Key] = set()
         super().__init__()
 
     def _key_is_delete(self, key: Key) -> bool:
@@ -199,7 +199,9 @@ class TransactionBackend(Backend):
     async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
         return await self._backend.incr_bits(key, *indexes, size=size, by=by)
 
-    async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+    async def slice_incr(
+        self, key: Key, start: Union[int, float], end: Union[int, float], maxvalue: int, expire: Optional[float] = None
+    ) -> int:
         return await self._backend.slice_incr(key, start, end, maxvalue, expire)
 
     async def get_size(self, key: Key) -> int:
@@ -251,7 +253,7 @@ class LockTransactionBackend(TransactionBackend):
 
     def __init__(self, backend: Backend, serializable=False, timeout=10):
         super().__init__(backend)
-        self._locks = set()
+        self._locks: Set[Key] = set()
         self._lock_id = uuid4().hex
         self._serializable = serializable
         self._timeout = timeout

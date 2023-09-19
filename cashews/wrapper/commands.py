@@ -33,7 +33,7 @@ class CommandWrapper(Wrapper):
     async def get_raw(self, key: Key) -> Value:
         return await self._with_middlewares(Command.GET_RAW, key)(key=key)
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(pattern, batch_size):
@@ -44,7 +44,7 @@ class CommandWrapper(Wrapper):
         async for key in (await call(pattern=pattern, batch_size=batch_size)):
             yield key
 
-    async def get_match(  # type: ignore
+    async def get_match(
         self,
         pattern: str,
         batch_size: int = 100,
@@ -89,7 +89,12 @@ class CommandWrapper(Wrapper):
         return await self._with_middlewares(Command.INCR_BITS, key)(key, *indexes, size=size, by=by)
 
     async def slice_incr(
-        self, key: Key, start: int, end: int, maxvalue: int, expire: Union[float, TTL, None] = None
+        self,
+        key: Key,
+        start: Union[int, float],
+        end: Union[int, float],
+        maxvalue: int,
+        expire: Union[float, TTL, None] = None,
     ) -> int:
         return await self._with_middlewares(Command.SLICE_INCR, key)(
             key=key, start=start, end=end, maxvalue=maxvalue, expire=ttl_to_seconds(expire)
@@ -155,8 +160,8 @@ class CommandWrapper(Wrapper):
     ) -> bool:
         return await self._with_middlewares(Command.IS_LOCKED, key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
-    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
-        return await self._with_middlewares(Command.SET_ADD, key)(key, *values, expire=expire)
+    async def set_add(self, key: Key, *values: str, expire: TTL = None):
+        return await self._with_middlewares(Command.SET_ADD, key)(key, *values, expire=ttl_to_seconds(expire))
 
     async def set_remove(self, key: Key, *values: str):
         return await self._with_middlewares(Command.SET_REMOVE, key)(key, *values)

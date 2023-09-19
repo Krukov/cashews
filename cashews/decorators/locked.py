@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 import inspect
 from functools import partial, wraps
-from typing import Dict, Optional
+from typing import Any, AsyncIterator, Callable
 
 from cashews._typing import TTL, AsyncCallable_T, Decorator, Key, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
@@ -13,8 +15,8 @@ __all__ = ("locked",)
 
 def locked(
     backend: _BackendInterface,
-    key: Optional[KeyOrTemplate] = None,
-    ttl: Optional[TTL] = None,
+    key: KeyOrTemplate | None = None,
+    ttl: TTL | None = None,
     wait: bool = True,
     prefix: str = "lock",
 ) -> Decorator:
@@ -43,7 +45,7 @@ def locked(
 def _coroutine_lock(
     func: AsyncCallable_T,
     backend: _BackendInterface,
-    ttl: Optional[TTL],
+    ttl: TTL | None,
     key_template: KeyOrTemplate,
     wait: bool,
 ) -> AsyncCallable_T:
@@ -58,9 +60,9 @@ def _coroutine_lock(
 
 
 def _asyncgen_lock(
-    func: AsyncCallable_T,
+    func: Callable[..., AsyncIterator[Any]],
     backend: _BackendInterface,
-    ttl: Optional[TTL],
+    ttl: TTL | None,
     key_template: KeyOrTemplate,
     wait: bool,
 ) -> AsyncCallable_T:
@@ -76,8 +78,8 @@ def _asyncgen_lock(
     return _wrap
 
 
-def thunder_protection(key: Optional[KeyOrTemplate] = None) -> Decorator:
-    tasks: Dict[str, asyncio.Task] = {}
+def thunder_protection(key: KeyOrTemplate | None = None) -> Decorator:
+    tasks: dict[str, asyncio.Task] = {}
 
     def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
         _key_template = get_cache_key_template(func, key=key)

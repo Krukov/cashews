@@ -148,7 +148,7 @@ def _get_call_values(func: Callable, args: Args, kwargs: Kwargs):
     signature.apply_defaults()
     result = {}
     for _name, _value in signature.arguments.items():
-        parameter: inspect.Parameter = signature.signature.parameters[_name]
+        parameter: inspect.Parameter = signature.signature.parameters[_name]  # type: ignore[no-redef]
         if parameter.kind == inspect.Parameter.VAR_KEYWORD:
             result[_KWARGS] = _value
             result.update(_value)

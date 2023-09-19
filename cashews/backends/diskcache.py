@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 import re
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import Any, AsyncIterator, Iterable, Mapping
 
 from diskcache import Cache, FanoutCache
 
@@ -15,7 +17,7 @@ from .interface import NOT_EXIST, UNLIMITED, Backend
 class _DiskCache(Backend):
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         self.__is_init = False
-        self._set_locks: Dict[str, asyncio.Lock] = {}
+        self._set_locks: dict[str, asyncio.Lock] = {}
         self._sharded = shards > 1
         if not self._sharded:
             self._cache = Cache(directory=directory, **kwargs)
@@ -41,8 +43,8 @@ class _DiskCache(Backend):
         self,
         key: Key,
         value: Value,
-        expire: Optional[float] = None,
-        exist: Optional[bool] = None,
+        expire: float | None = None,
+        exist: bool | None = None,
     ) -> bool:
         future = self._run_in_executor(self._set, key, value, expire, exist)
         if exist is not None:
@@ -67,16 +69,16 @@ class _DiskCache(Backend):
     async def set_raw(self, key: Key, value: Any, **kwargs: Any):
         return self._cache.set(key, value, **kwargs)
 
-    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
+    async def get(self, key: Key, default: Value | None = None) -> Value:
         return await self._run_in_executor(self._cache.get, key, default)
 
     async def get_raw(self, key: Key) -> Value:
         return self._cache.get(key)
 
-    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Value]:
+    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value]:
         return await self._run_in_executor(self._get_many, keys, default)
 
-    def _get_many(self, keys: List[Key], default: Optional[Value] = None):
+    def _get_many(self, keys: list[Key], default: Value | None = None):
         values = []
         for key in keys:
             val = self._cache.get(key, default=default)
@@ -85,10 +87,10 @@ class _DiskCache(Backend):
             values.append(val)
         return values
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         return await self._run_in_executor(self._set_many, pairs, expire)
 
-    def _set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    def _set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         for key, value in pairs.items():
             self._set(key, value, expire=expire)
 
@@ -110,14 +112,14 @@ class _DiskCache(Backend):
             if regexp.fullmatch(key):
                 yield key
 
-    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         array = await self.get(key, default=Bitarray("0"))
         result = []
         for index in indexes:
             result.append(array.get(index, size))
         return tuple(result)
 
-    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def incr_bits(self, key: str, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
         array = await self.get(key, default=Bitarray("0"))
         result = []
         for index in indexes:
@@ -126,10 +128,10 @@ class _DiskCache(Backend):
         await self.set(key, array)
         return tuple(result)
 
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         return await self._run_in_executor(self._incr, key, value, expire)
 
-    def _incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    def _incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         res = self._cache.incr(key, delta=value, retry=True)
         if res == 1 and expire:
             self._cache.touch(key, expire)
@@ -147,7 +149,7 @@ class _DiskCache(Backend):
         finally:
             await self._call_on_remove_callbacks(*keys)
 
-    def _delete_many(self, keys: List[Key]):
+    def _delete_many(self, keys: list[Key]):
         for key in keys:
             self._cache.delete(key)
 
@@ -164,7 +166,7 @@ class _DiskCache(Backend):
         for key in self._scan(pattern):
             self._cache.delete(key)
 
-    async def get_match(self, pattern: str, batch_size: int = None) -> AsyncIterator[Tuple[Key, Value]]:
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         if self._sharded:
             return
         for key in await self._run_in_executor(self._scan, pattern):
@@ -190,8 +192,10 @@ class _DiskCache(Backend):
     async def get_size(self, key: Key) -> int:
         return -1
 
-    async def ping(self, message: Optional[bytes] = None) -> bytes:
-        return b"PONG" if message in (None, b"PING") else message
+    async def ping(self, message: bytes | None = None) -> bytes:
+        if message is None or message == b"PING":
+            return b"PONG"
+        return message
 
     async def clear(self):
         await self._run_in_executor(self._cache.clear)
@@ -199,7 +203,7 @@ class _DiskCache(Backend):
     async def is_locked(
         self,
         key: Key,
-        wait: Optional[float] = None,
+        wait: float | None = None,
         step: float = 0.1,
     ) -> bool:
         if wait is None:
@@ -220,7 +224,9 @@ class _DiskCache(Backend):
             return True
         return False
 
-    async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+    async def slice_incr(
+        self, key: Key, start: int | float, end: int | float, maxvalue: int, expire: float | None = None
+    ) -> int:
         val_set = await self.get(key)
         count = 0
         new_val = []
@@ -236,7 +242,7 @@ class _DiskCache(Backend):
         await self.set(key, new_val, expire=expire)
         return count
 
-    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+    async def set_add(self, key: Key, *values: str, expire: float | None = None):
         val = await self.get(key, default=set())
         val.update(values)
         await self.set(key, val, expire=expire)

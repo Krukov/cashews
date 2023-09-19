@@ -16,7 +16,7 @@ class Wrapper:
 
     def __init__(self, name: str = ""):
         self._backends: Dict[str, Tuple[Backend, Tuple[Middleware, ...]]] = {}
-        self._default_middlewares: List[Middleware, ...] = [
+        self._default_middlewares: List[Middleware] = [
             create_auto_init(),
             validation._invalidate_middleware,
         ]

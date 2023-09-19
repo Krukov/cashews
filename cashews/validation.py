@@ -16,7 +16,7 @@ async def invalidate_func(backend: _BackendInterface, func, kwargs: Optional[Dic
     warnings.warn(
         "invalidating by function object is deprecated. Use 'tags' feature instead", DeprecationWarning, stacklevel=2
     )
-    values = {**{param: "*" for param in get_func_params(func)}, **kwargs}
+    values = {**{param: "*" for param in get_func_params(func)}, **kwargs}  # type: ignore[dict-item]
     for template in get_templates_for_func(func):
         del_template = template_to_pattern(template, **values)
         await backend.delete_match(del_template)

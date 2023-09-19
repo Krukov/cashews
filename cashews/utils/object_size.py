@@ -1,10 +1,13 @@
+from __future__ import annotations
+
 import gc
 import sys
+from typing import Iterable
 
 
 def get_obj_size(obj) -> int:
     marked = {id(obj)}
-    obj_q = [obj]
+    obj_q: Iterable = [obj]
     size = 0
 
     while obj_q:

@@ -34,7 +34,7 @@ _level = ContextVar("level", default=0)
 
 
 class _ContextCacheDetect:
-    def __init__(self):
+    def __init__(self) -> None:
         self._levels: Dict[int, CacheDetect] = {}
 
     @property

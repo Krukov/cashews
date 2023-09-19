@@ -21,7 +21,7 @@ def rate_limit(
     period: TTL,
     ttl: Optional[TTL] = None,
     key: Optional[KeyOrTemplate] = None,
-    action: Callable = _default_action,
+    action: Optional[Callable] = _default_action,
     prefix: str = "rate_limit",
 ) -> Decorator:  # pylint: disable=too-many-arguments
     """

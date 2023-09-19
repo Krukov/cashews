@@ -21,7 +21,7 @@ def slice_rate_limit(
     limit: int,
     period: TTL,
     key: Optional[KeyOrTemplate] = None,
-    action: Callable = _default_action,
+    action: Optional[Callable] = _default_action,
     prefix: str = "srate",
 ) -> Decorator:  # pylint: disable=too-many-arguments
     """

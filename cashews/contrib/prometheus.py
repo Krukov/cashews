@@ -18,11 +18,12 @@ def create_metrics_middleware(latency_metric: Optional[Histogram] = None, with_t
 
     async def metrics_middleware(call, cmd: Command, backend: Backend, *args, **kwargs):
         with _latency_metric as metric:
-            metric.labels(operation=cmd.value, backend_class=backend.__name__)
+            metric.labels(operation=cmd.value, backend_class=backend.__class__.__name__)
             if with_tag and "key" in kwargs:
                 tags = cache.get_key_tags(kwargs["key"])
-                if tags:
-                    metric.labels(tag=tags[0])
+                tag = next((t for t in tags), None)
+                if tag:
+                    metric.labels(tag=tag)
             return await call(*args, **kwargs)
 
     return metrics_middleware

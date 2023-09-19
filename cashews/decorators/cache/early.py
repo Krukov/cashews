@@ -13,7 +13,7 @@ from ._exception import RaiseException, return_or_raise
 from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews.backends import Cache
+    from cashews import Cache
 
 __all__ = ("early",)
 

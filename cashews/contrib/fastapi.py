@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import contextlib
 from contextlib import nullcontext
 from contextvars import ContextVar
 from hashlib import blake2s
-from typing import List, Optional
+from typing import ContextManager, Sequence
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -11,7 +13,7 @@ from starlette.types import ASGIApp
 
 from cashews import Cache, Command, cache, invalidate_further
 
-_CACHE_MAX_AGE = ContextVar("cache_control_max_age")
+_CACHE_MAX_AGE: ContextVar[int] = ContextVar("cache_control_max_age")
 
 _CACHE_CONTROL_HEADER = "Cache-Control"
 _AGE_HEADER = "Age"
@@ -38,14 +40,14 @@ def cache_control_ttl():
 
 
 class CacheRequestControlMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, cache_instance: Cache = cache, methods: List[str] = ("get",), private=True):
+    def __init__(self, app: ASGIApp, cache_instance: Cache = cache, methods: Sequence[str] = ("get",), private=True):
         self._private = private
         self._cache = cache_instance
         self._methods = methods
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        context = nullcontext()
+        context: ContextManager = nullcontext()
         cache_control_value = request.headers.get(_CACHE_CONTROL_HEADER)
         if request.method.lower() not in self._methods:
             return await call_next(request)
@@ -68,7 +70,7 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
             return response
 
     @contextlib.contextmanager
-    def max_age(self, cache_control_value: Optional[str]):
+    def max_age(self, cache_control_value: str | None):
         if not cache_control_value:
             yield
             return
@@ -83,7 +85,7 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
                 _CACHE_MAX_AGE.reset(reset_token)
 
     @staticmethod
-    def _to_disable(cache_control_value: Optional[str]) -> tuple[Command]:
+    def _to_disable(cache_control_value: str | None) -> tuple[Command, ...]:
         if cache_control_value == _NO_CACHE:
             return (Command.GET,)
         if cache_control_value == _NO_STORE:

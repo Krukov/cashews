@@ -1,28 +1,28 @@
+from __future__ import annotations
+
 from datetime import timedelta
-from typing import Union
 
 from cashews._typing import TTL
 
 
-def ttl_to_seconds(
-    ttl: Union[float, None, TTL], *args, with_callable=False, result=None, **kwargs
-) -> Union[int, None, float]:
+def ttl_to_seconds(ttl: TTL, *args, with_callable: bool = False, result=None, **kwargs) -> int | float | None:
     if ttl is None:
         return None
     _type = type(ttl)  # isinstance is slow
     if _type == str:
-        return _ttl_from_str(ttl)
+        return _ttl_from_str(ttl)  # type: ignore[union-attr, arg-type]
     if _type == int:
-        return ttl
+        return ttl  # type: ignore[union-attr, return-value]
     if _type == timedelta:
-        return ttl.total_seconds()
+        return ttl.total_seconds()  # type: ignore[union-attr]
+
     if callable(ttl) and with_callable:
         try:
             ttl = ttl(*args, result=result, **kwargs)
         except TypeError:
-            ttl = ttl(*args, **kwargs)
+            ttl = ttl(*args, **kwargs)  # type: ignore[operator, misc]
         return ttl_to_seconds(ttl)
-    return ttl
+    return ttl  # type: ignore[return-value]
 
 
 _STR_TO_DELTA = {

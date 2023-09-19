@@ -1,7 +1,7 @@
 from functools import partial
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Dict, Tuple, Type, Union
 
-from ._typing import CacheCondition
+from ._typing import CacheCondition, CallableCacheCondition
 
 
 def _not_none_store_condition(result, args, kwargs, key=None) -> bool:
@@ -12,10 +12,10 @@ def _store_all(result, args, kwargs, key=None) -> bool:
     return True
 
 
-def _exceptions(*exceptions: Exception, default: bool = True) -> CacheCondition:
-    exceptions = exceptions or Exception
+def _exceptions(*exceptions: Type[Exception], default: bool = True) -> CacheCondition:
+    exceptions = exceptions or Exception  # type: ignore
 
-    def _cond(result, args, kwargs, key):
+    def _cond(result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> Union[bool, Exception]:
         if isinstance(result, exceptions):
             return result
         return default
@@ -32,9 +32,9 @@ _ALL_CONDITIONS = {Any, "all", any, "any", None}
 _NOT_NONE_CONDITIONS = {NOT_NONE, "skip_none"}
 
 
-def get_cache_condition(condition: CacheCondition) -> Callable[[Any, Tuple, Dict], bool]:
+def get_cache_condition(condition: CacheCondition) -> CallableCacheCondition:
     if condition in _ALL_CONDITIONS:
         return _store_all
     if condition in _NOT_NONE_CONDITIONS:
         return _not_none_store_condition
-    return condition
+    return condition  # type: ignore[return-value]

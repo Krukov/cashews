@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import asyncio
 import warnings
-from typing import Any, AsyncIterator, Dict, Iterable, Mapping, Optional, Tuple, Type, Union
+from typing import Any, AsyncIterator, Iterable, Mapping
 
 from redis.asyncio import BlockingConnectionPool
 from redis.asyncio.client import Pipeline
@@ -42,10 +44,16 @@ _empty = object()
 
 
 class _Redis(Backend):
-    _client: Union[Redis, SafeRedis]
-    _client_class: Union[Type[Redis], Type[SafeRedis]]
+    _client: Redis | SafeRedis
+    _client_class: type[Redis] | type[SafeRedis]
 
-    def __init__(self, address: str, safe: bool = _empty, suppress: bool = True, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        address: str,
+        safe: bool = _empty,  # type: ignore[assignment]
+        suppress: bool = True,
+        **kwargs: Any,
+    ) -> None:
         if safe is not _empty:
             warnings.warn(
                 "`safe` property was renamed to `suppress` and will be removed in next release",
@@ -67,7 +75,7 @@ class _Redis(Backend):
         self._pool_class = kwargs.pop("connection_pool_class", BlockingConnectionPool)
         if self._pool_class == BlockingConnectionPool:
             kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 10)
-        self._sha: Dict[str, Any] = {}
+        self._sha: dict[str, Any] = {}
         if not suppress:
             self._client_class = Redis
             self._pipeline_class = Pipeline
@@ -99,10 +107,10 @@ class _Redis(Backend):
         self,
         key: Key,
         value: Value,
-        expire: Optional[float] = None,
+        expire: float | None = None,
         exist=None,
     ) -> bool:
-        nx = xx = None
+        nx = xx = False
         if exist is True:
             xx = True
         elif exist is False:
@@ -111,7 +119,7 @@ class _Redis(Backend):
         _set = bool(await self._client.set(key, value, px=px, nx=nx, xx=xx))
         return _set
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         px = int(expire * 1000) if expire else None
         async with self._pipeline as pipe:
             for key, value in pairs.items():
@@ -131,7 +139,7 @@ class _Redis(Backend):
     async def is_locked(
         self,
         key: Key,
-        wait: Optional[float] = None,
+        wait: float | None = None,
         step: float = 0.1,
     ) -> bool:
         if wait is None:
@@ -146,7 +154,7 @@ class _Redis(Backend):
     async def unlock(self, key: Key, value: Value) -> bool:
         if "UNLOCK" not in self._sha:
             self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
-        return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
+        return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)  # type: ignore
 
     async def delete(self, key: Key) -> bool:
         try:
@@ -186,7 +194,7 @@ class _Redis(Backend):
             await self._client.unlink(*keys)
             await self._call_on_remove_callbacks(*[key.decode() for key in keys])
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:  # type: ignore
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:  # type: ignore
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -206,11 +214,11 @@ class _Redis(Backend):
         size = await self._client.memory_usage(key) or 0
         return int(size)
 
-    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
+    async def get(self, key: Key, default: Value | None = None) -> Value:
         value = await self._client.get(key)
         return self._transform_value(value, default)
 
-    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
+    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         if not keys:
             return tuple()
         values = await self._client.mget(*keys)
@@ -219,23 +227,23 @@ class _Redis(Backend):
         return tuple(self._transform_value(value, default) for value in values)
 
     @staticmethod
-    def _transform_value(value: Optional[bytes], default: Optional[Value]):
+    def _transform_value(value: bytes | None, default: Value | None):
         if value is None:
             return default
         if value.isdigit():
             return int(value)
         return value
 
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         if not expire:
             return await self._client.incr(key, amount=value)
         if "INCR_EXPIRE" not in self._sha:
             self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
         expire = expire or 0
         expire = int(expire * 1000)
-        return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)
+        return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)  # type: ignore
 
-    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         """
         https://redis.io/commands/bitfield
         """
@@ -244,15 +252,17 @@ class _Redis(Backend):
             bitops.get(fmt=f"u{size}", offset=f"#{index}")
         return tuple(await bitops.execute() or [])
 
-    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
         bitops = self._client.bitfield(key)
         for index in indexes:
             bitops.incrby(fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT")
         return tuple(await bitops.execute())
 
-    async def ping(self, message: Optional[bytes] = None) -> bytes:
+    async def ping(self, message: bytes | None = None) -> bytes:
         await self._client.ping()
-        return b"PONG" if message in (None, b"PING") else message
+        if message is None or message == b"PING":
+            return b"PONG"
+        return message
 
     async def set_raw(self, key: Key, value: Value, **kwargs: Any):
         return await self._client.set(key, value, **kwargs)
@@ -260,16 +270,20 @@ class _Redis(Backend):
     async def get_raw(self, key: Key) -> Value:
         return await self._client.get(key)
 
-    async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+    async def slice_incr(
+        self, key: Key, start: int | float, end: int | float, maxvalue: int, expire: float | None = None
+    ) -> int:
         expire = expire or 0
         expire = int(expire * 1000)
         if "INCR_SLICE" not in self._sha:
             self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
-        return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
+        return await self._client.evalsha(  # type: ignore[misc]
+            self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire  # type: ignore[arg-type]
+        )
 
-    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+    async def set_add(self, key: Key, *values: str, expire: float | None = None):
         if expire is None:
-            return await self._client.sadd(key, *values)
+            return await self._client.sadd(key, *values)  # type: ignore[misc]
         expire = int(expire * 1000)
         async with self._pipeline as pipe:
             await pipe.sadd(key, *values)
@@ -277,10 +291,10 @@ class _Redis(Backend):
             await pipe.execute()
 
     async def set_remove(self, key: Key, *values: str):
-        await self._client.srem(key, *values)
+        await self._client.srem(key, *values)  # type: ignore[misc]
 
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
-        return [value.decode() for value in await self._client.spop(key, count)]
+        return [value.decode() for value in await self._client.spop(key, count)]  # type: ignore[misc]
 
     async def get_keys_count(self) -> int:
         return await self._client.dbsize()
