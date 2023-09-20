@@ -100,7 +100,7 @@ class _Memory(Backend):
                 yield key
 
     async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
-        value += int(await self._get(key, 0))  # type: ignore
+        value += int(await self._get(key, 0))
         _expire = None if value != 1 else expire
         self._set(key=key, value=value, expire=_expire)
         return value
@@ -158,7 +158,7 @@ class _Memory(Backend):
         return message
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
-        array: Bitarray = await self._get(key, default=Bitarray("0"))  # type: ignore
+        array: Bitarray = await self._get(key, default=Bitarray("0"))
         return tuple(array.get(index, size) for index in indexes)
 
     async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:

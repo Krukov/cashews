@@ -10,9 +10,9 @@ def ttl_to_seconds(ttl: TTL, *args, with_callable: bool = False, result=None, **
         return None
     _type = type(ttl)  # isinstance is slow
     if _type == str:
-        return _ttl_from_str(ttl)  # type: ignore[union-attr, arg-type]
+        return _ttl_from_str(ttl)  # type: ignore[arg-type]
     if _type == int:
-        return ttl  # type: ignore[union-attr, return-value]
+        return ttl  # type: ignore[return-value]
     if _type == timedelta:
         return ttl.total_seconds()  # type: ignore[union-attr]
 

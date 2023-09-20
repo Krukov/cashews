@@ -35,3 +35,12 @@ repos:
     rev: 6.0.0
     hooks:
       - id: flake8
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: python3 -m mypy
+        exclude: (^tests/|^perf/|^examples/|setup.py)
+        language: system
+        types: [python]

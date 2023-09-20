@@ -154,7 +154,7 @@ class _Redis(Backend):
     async def unlock(self, key: Key, value: Value) -> bool:
         if "UNLOCK" not in self._sha:
             self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
-        return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)  # type: ignore
+        return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
 
     async def delete(self, key: Key) -> bool:
         try:
@@ -241,7 +241,7 @@ class _Redis(Backend):
             self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
         expire = expire or 0
         expire = int(expire * 1000)
-        return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)  # type: ignore
+        return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         """
@@ -249,14 +249,16 @@ class _Redis(Backend):
         """
         bitops = self._client.bitfield(key)
         for index in indexes:
-            bitops.get(fmt=f"u{size}", offset=f"#{index}")
-        return tuple(await bitops.execute() or [])
+            bitops.get(fmt=f"u{size}", offset=f"#{index}")  # type: ignore[attr-defined]
+        return tuple(await bitops.execute() or [])  # type: ignore[attr-defined]
 
     async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
         bitops = self._client.bitfield(key)
         for index in indexes:
-            bitops.incrby(fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT")
-        return tuple(await bitops.execute())
+            bitops.incrby(  # type: ignore[attr-defined]
+                fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT"
+            )
+        return tuple(await bitops.execute())  # type: ignore[attr-defined]
 
     async def ping(self, message: bytes | None = None) -> bytes:
         await self._client.ping()
@@ -277,13 +279,11 @@ class _Redis(Backend):
         expire = int(expire * 1000)
         if "INCR_SLICE" not in self._sha:
             self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
-        return await self._client.evalsha(  # type: ignore[misc]
-            self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire  # type: ignore[arg-type]
-        )
+        return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
 
     async def set_add(self, key: Key, *values: str, expire: float | None = None):
         if expire is None:
-            return await self._client.sadd(key, *values)  # type: ignore[misc]
+            return await self._client.sadd(key, *values)
         expire = int(expire * 1000)
         async with self._pipeline as pipe:
             await pipe.sadd(key, *values)
@@ -291,10 +291,10 @@ class _Redis(Backend):
             await pipe.execute()
 
     async def set_remove(self, key: Key, *values: str):
-        await self._client.srem(key, *values)  # type: ignore[misc]
+        await self._client.srem(key, *values)
 
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
-        return [value.decode() for value in await self._client.spop(key, count)]  # type: ignore[misc]
+        return [value.decode() for value in await self._client.spop(key, count)]  # type: ignore[union-attr]
 
     async def get_keys_count(self) -> int:
         return await self._client.dbsize()

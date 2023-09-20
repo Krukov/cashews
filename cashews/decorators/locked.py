@@ -77,7 +77,7 @@ def _asyncgen_lock(
                 yield chunk
             return
 
-    return _wrap  # type: ignore[return-value]
+    return _wrap
 
 
 def thunder_protection(key: KeyOrTemplate | None = None) -> Callable[[DecoratedFunc], DecoratedFunc]:
