@@ -5,12 +5,11 @@ import hmac
 import warnings
 from typing import TYPE_CHECKING, Any, Mapping
 
-from ._typing import Key, Value
 from .exceptions import SignIsMissingError, UnSecureDataError
 from .picklers import DEFAULT_PICKLE, NULL_PICKLE, Pickler, get_pickler
 
-if TYPE_CHECKING:
-    from ._typing import ICustomDecoder, ICustomEncoder
+if TYPE_CHECKING:  # pragma: no cover
+    from ._typing import ICustomDecoder, ICustomEncoder, Key, Value
     from .backends.interface import Backend
 
 _empty = object()

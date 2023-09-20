@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import inspect
 from functools import partial, wraps
-from typing import Any, AsyncIterator, Callable
+from typing import TYPE_CHECKING, Callable
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator, Key, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import TTL, DecoratedFunc, Key, KeyOrTemplate
 
 __all__ = ("locked",)
 
@@ -19,7 +21,7 @@ def locked(
     ttl: TTL | None = None,
     wait: bool = True,
     prefix: str = "lock",
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
     Lock following function calls till first one will be finished
@@ -33,7 +35,7 @@ def locked(
     """
     ttl = ttl_to_seconds(ttl)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func):
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         if inspect.isasyncgenfunction(func):
             return _asyncgen_lock(func, backend, ttl, _key_template, wait)
@@ -43,12 +45,12 @@ def locked(
 
 
 def _coroutine_lock(
-    func: AsyncCallable_T,
+    func: DecoratedFunc,
     backend: _BackendInterface,
     ttl: TTL | None,
     key_template: KeyOrTemplate,
     wait: bool,
-) -> AsyncCallable_T:
+) -> DecoratedFunc:
     @wraps(func)
     async def _wrap(*args, **kwargs):
         _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
@@ -56,16 +58,16 @@ def _coroutine_lock(
         async with backend.lock(_cache_key, _ttl, wait=wait):
             return await func(*args, **kwargs)
 
-    return _wrap
+    return _wrap  # type: ignore[return-value]
 
 
 def _asyncgen_lock(
-    func: Callable[..., AsyncIterator[Any]],
+    func,
     backend: _BackendInterface,
     ttl: TTL | None,
     key_template: KeyOrTemplate,
     wait: bool,
-) -> AsyncCallable_T:
+):
     @wraps(func)
     async def _wrap(*args, **kwargs):
         _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
@@ -75,13 +77,13 @@ def _asyncgen_lock(
                 yield chunk
             return
 
-    return _wrap
+    return _wrap  # type: ignore[return-value]
 
 
-def thunder_protection(key: KeyOrTemplate | None = None) -> Decorator:
+def thunder_protection(key: KeyOrTemplate | None = None) -> Callable[[DecoratedFunc], DecoratedFunc]:
     tasks: dict[str, asyncio.Task] = {}
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key)
 
         def done_callback(_key: Key, _: asyncio.Task):
@@ -97,6 +99,6 @@ def thunder_protection(key: KeyOrTemplate | None = None) -> Decorator:
             task.add_done_callback(partial(done_callback, _key))
             return await task
 
-        return _wrapper
+        return _wrapper  # type: ignore[return-value]
 
     return _decor

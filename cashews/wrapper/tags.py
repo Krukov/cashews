@@ -1,8 +1,8 @@
 from functools import lru_cache
 from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
 
-from cashews._typing import TTL, Key, KeyOrTemplate, Tag, Tags, Value
-from cashews.backends.interface import Backend, Callback
+from cashews._typing import TTL, Callback, Key, KeyOrTemplate, Tag, Tags, Value
+from cashews.backends.interface import Backend
 from cashews.exceptions import TagNotRegisteredError
 from cashews.formatter import template_to_re_pattern
 

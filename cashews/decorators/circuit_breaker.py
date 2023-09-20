@@ -1,15 +1,17 @@
+from __future__ import annotations
+
 import random
 from datetime import datetime
 from functools import wraps
-from typing import Optional
+from typing import TYPE_CHECKING, Callable
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator, Key, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import CircuitBreakerOpen
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
-from .._typing import Exceptions
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import TTL, DecoratedFunc, Exceptions, Key, KeyOrTemplate
 
 
 def circuit_breaker(
@@ -17,12 +19,12 @@ def circuit_breaker(
     errors_rate: int,
     period: TTL,
     ttl: TTL,
-    half_open_ttl: Optional[TTL] = None,
+    half_open_ttl: TTL | None = None,
     min_calls: int = 1,
     exceptions: Exceptions = Exception,
-    key: Optional[KeyOrTemplate] = None,
+    key: KeyOrTemplate | None = None,
     prefix: str = "circuit_breaker",
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Circuit breaker
     :param backend: cache backend
@@ -39,7 +41,7 @@ def circuit_breaker(
     half_open_ttl = ttl_to_seconds(half_open_ttl)
     assert 0 < errors_rate < 100
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key = ":".join([func.__module__, func.__name__])
         _key_template = get_cache_key_template(func, key=key or _key, prefix=prefix)
 
@@ -66,7 +68,7 @@ def circuit_breaker(
                     await backend.set_lock(_cache_key + ":open", value=1, expire=ttl)
                 raise
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor
 

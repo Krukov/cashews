@@ -1,7 +1,8 @@
-from functools import wraps
-from typing import TYPE_CHECKING, Optional
+from __future__ import annotations
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, KeyOrTemplate, Tags
+from functools import wraps
+from typing import TYPE_CHECKING, Callable
+
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
@@ -11,18 +12,19 @@ from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyOrTemplate, Tags
 
 __all__ = ("cache",)
 
 
 def cache(
-    backend: "Cache",
+    backend: Cache,
     ttl: TTL,
-    key: Optional[KeyOrTemplate] = None,
+    key: KeyOrTemplate | None = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "",
     tags: Tags = (),
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Simple cache strategy - trying to return cached result,
     execute wrapped call and store a result with ttl if condition return true
@@ -36,7 +38,7 @@ def cache(
 
     ttl = ttl_to_seconds(ttl)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
         for tag in tags:
@@ -68,6 +70,6 @@ def cache(
                 raise _exc
             return result
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor

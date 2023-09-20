@@ -3,6 +3,10 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Type, TypeVar, Union
 
+if TYPE_CHECKING:  # pragma: no cover
+    from . import Command
+    from .backends.interface import Backend
+
 try:
     from typing import Protocol
 except ImportError:  # 3.7 python
@@ -23,6 +27,7 @@ Key = str
 KeyTemplate = str
 KeyOrTemplate = Union[KeyTemplate, Key]
 Value = Any
+Default = TypeVar("Default")
 Tag = str
 Tags = Iterable[Tag]
 Exceptions = Union[Type[Exception], Iterable[Type[Exception]], None]
@@ -33,11 +38,6 @@ AsyncCallableResult_T = TypeVar("AsyncCallableResult_T")
 AsyncCallable_T = Callable[..., Awaitable[AsyncCallableResult_T]]
 
 DecoratedFunc = TypeVar("DecoratedFunc", bound=AsyncCallable_T)
-Decorator = Callable[[DecoratedFunc], DecoratedFunc]
-
-if TYPE_CHECKING:  # pragma: no cover
-    from . import Command
-    from .backends.interface import Backend
 
 
 class Middleware(Protocol):
@@ -62,10 +62,10 @@ class Callback(Protocol):
 
 
 class ICustomEncoder(Protocol):
-    async def __call__(self, value: Value, backend, key: Key, expire: float | None) -> bytes:
+    async def __call__(self, value: Value, backend, key: Key, expire: float | None) -> bytes:  # pragma: no cover
         ...
 
 
 class ICustomDecoder(Protocol):
-    async def __call__(self, value: bytes, backend, key: Key) -> Value:
+    async def __call__(self, value: bytes, backend, key: Key) -> Value:  # pragma: no cover
         ...

@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Callable
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, KeyOrTemplate, Tags
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
@@ -14,23 +15,23 @@ from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyOrTemplate, Tags
 
 __all__ = ("early",)
-
 
 logger = logging.getLogger(__name__)
 _LOCK_SUFFIX = ":lock"
 
 
 def early(
-    backend: "Cache",
+    backend: Cache,
     ttl: TTL,
-    key: Optional[KeyOrTemplate] = None,
-    early_ttl: Optional[TTL] = None,
+    key: KeyOrTemplate | None = None,
+    early_ttl: TTL | None = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "early",
     tags: Tags = (),
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
     With hot cache recalculate a result in background near expiration time
@@ -48,7 +49,7 @@ def early(
     ttl = ttl_to_seconds(ttl)
     early_ttl = ttl_to_seconds(early_ttl)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
         register_template(func, _key_template)
         for tag in tags:
@@ -90,13 +91,13 @@ def early(
             asyncio.create_task(_get_result_for_early(*args_to_call, unlock=True))
             return return_or_raise(result)
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor
 
 
 async def _get_result_for_early(
-    backend: "Cache", func, args, kwargs, key, ttl: int, early_ttl: int, condition, tags, unlock=False
+    backend: Cache, func, args, kwargs, key, ttl: int, early_ttl: int, condition, tags, unlock=False
 ):
     try:
         _exc = None

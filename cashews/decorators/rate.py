@@ -1,12 +1,16 @@
+from __future__ import annotations
+
 import logging
 from functools import wraps
-from typing import Any, Callable, NoReturn, Optional
+from typing import TYPE_CHECKING, Any, Callable, NoReturn
 
-from cashews._typing import TTL, AsyncCallable_T, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import RateLimitError
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import TTL, DecoratedFunc, KeyOrTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +23,11 @@ def rate_limit(
     backend: _BackendInterface,
     limit: int,
     period: TTL,
-    ttl: Optional[TTL] = None,
-    key: Optional[KeyOrTemplate] = None,
-    action: Optional[Callable] = _default_action,
+    ttl: TTL | None = None,
+    key: KeyOrTemplate | None = None,
+    action: Callable | None = _default_action,
     prefix: str = "rate_limit",
-) -> Decorator:  # pylint: disable=too-many-arguments
+) -> Callable[[DecoratedFunc], DecoratedFunc]:  # pylint: disable=too-many-arguments
     """
     Rate limit for function call. Do not call function if rate limit is reached, and call given action
 
@@ -39,7 +43,7 @@ def rate_limit(
     ttl = ttl_to_seconds(ttl) or period
     action = action or _default_action
 
-    def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
+    def decorator(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
 
         @wraps(func)
@@ -56,6 +60,6 @@ def rate_limit(
                 action(*args, **kwargs)
             return await func(*args, **kwargs)
 
-        return wrapped_func
+        return wrapped_func  # type: ignore[return-value]
 
     return decorator

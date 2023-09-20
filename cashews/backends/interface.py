@@ -5,11 +5,13 @@ import uuid
 from abc import ABCMeta, abstractmethod
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any, AsyncIterator, Iterable, Mapping
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Iterable, Mapping, overload
 
-from cashews._typing import Callback, Key, Value
 from cashews.commands import ALL, Command
 from cashews.exceptions import CacheBackendInteractionError, LockedError
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import Callback, Default, Key, Value
 
 NOT_EXIST = -2
 UNLIMITED = -1
@@ -40,15 +42,23 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None) -> None:
         ...
 
     @abstractmethod
-    async def set_raw(self, key: Key, value: Value, **kwargs: Any):
+    async def set_raw(self, key: Key, value: Value, **kwargs: Any) -> None:
+        ...
+
+    @overload
+    async def get(self, key: Key, default: Default) -> Value | Default:
+        ...
+
+    @overload
+    async def get(self, key: Key, default: None = None) -> Value | None:
         ...
 
     @abstractmethod
-    async def get(self, key: Key, default: Value | None = None) -> Value:
+    async def get(self, key: Key, default: Default | None = None) -> Value | Default | None:
         ...
 
     @abstractmethod
@@ -80,11 +90,11 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def delete_many(self, *keys: Key):
+    async def delete_many(self, *keys: Key) -> None:
         ...
 
     @abstractmethod
-    async def delete_match(self, pattern: str):
+    async def delete_match(self, pattern: str) -> None:
         ...
 
     @abstractmethod
@@ -110,11 +120,11 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def set_add(self, key: Key, *values: str, expire: float | None = None):
+    async def set_add(self, key: Key, *values: str, expire: float | None = None) -> None:
         ...
 
     @abstractmethod
-    async def set_remove(self, key: Key, *values: str):
+    async def set_remove(self, key: Key, *values: str) -> None:
         ...
 
     @abstractmethod
@@ -140,7 +150,7 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def clear(self):
+    async def clear(self) -> None:
         ...
 
     async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
@@ -160,7 +170,7 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @asynccontextmanager
-    async def lock(self, key: Key, expire: float, wait=True):
+    async def lock(self, key: Key, expire: float, wait: bool = True) -> AsyncGenerator[None, None]:
         identifier = str(uuid.uuid4())
         while True:
             lock = await self.set_lock(key, identifier, expire=expire)
@@ -212,7 +222,7 @@ class ControlMixin:
         return not self.is_disable(*cmds)
 
     @property
-    def is_full_disable(self):
+    def is_full_disable(self) -> bool:
         return self._disable == ALL
 
     def disable(self, *cmds: Command) -> None:

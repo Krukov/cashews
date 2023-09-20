@@ -4,15 +4,14 @@ from functools import wraps
 from typing import TYPE_CHECKING, Callable
 
 from cashews import decorators, validation
-from cashews._typing import TTL, AsyncCallable_T, CacheCondition, Exceptions, KeyOrTemplate, Tags
 from cashews.cache_condition import get_cache_condition
 from cashews.ttl import ttl_to_seconds
 
-from .._typing import DecoratedFunc, Decorator
 from .time_condition import create_time_condition
 from .wrapper import Wrapper
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import TTL, AsyncCallable_T, CacheCondition, DecoratedFunc, Exceptions, KeyOrTemplate, Tags
     from cashews.decorators.bloom import IntOrPair
 
 
@@ -34,7 +33,9 @@ class DecoratorsWrapper(Wrapper):
             return self._wrap_with_condition(decorator_fabric, **decor_kwargs)
         return self._wrap(decorator_fabric, protected=protected, **decor_kwargs)
 
-    def _wrap(self, decorator_fabric, lock=False, time_condition=None, protected=False, **decor_kwargs) -> Decorator:
+    def _wrap(
+        self, decorator_fabric, lock=False, time_condition=None, protected=False, **decor_kwargs
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         def _decorator(func: DecoratedFunc) -> DecoratedFunc:
             if time_condition is not None:
                 condition, _decor = create_time_condition(time_condition)
@@ -42,7 +43,7 @@ class DecoratorsWrapper(Wrapper):
                 decor_kwargs["condition"] = condition
 
             decorator = decorator_fabric(self, **decor_kwargs)(func)
-            thunder_protection: Decorator = _skip_thunder_protection
+            thunder_protection: Callable[[DecoratedFunc], DecoratedFunc] = _skip_thunder_protection
             if protected:
                 thunder_protection = decorators.thunder_protection(key=decor_kwargs.get("key"))
 
@@ -115,7 +116,7 @@ class DecoratorsWrapper(Wrapper):
         lock: bool = False,
         tags: Tags = (),
         protected: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.cache,
             upper,
@@ -139,7 +140,7 @@ class DecoratorsWrapper(Wrapper):
         condition: CacheCondition = None,
         time_condition: TTL | None = None,
         prefix: str = "fail",
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_with_condition(
             decorators.failover,
@@ -162,7 +163,7 @@ class DecoratorsWrapper(Wrapper):
         upper: bool = False,
         tags: Tags = (),
         protected: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.early,
             upper,
@@ -188,7 +189,7 @@ class DecoratorsWrapper(Wrapper):
         upper: bool = False,
         tags: Tags = (),
         protected: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.soft,
             upper,
@@ -214,7 +215,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "hit",
         upper: bool = False,
         tags: Tags = (),
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.hit,
             upper,
@@ -237,7 +238,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "dynamic",
         upper: bool = False,
         tags: Tags = (),
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.hit,
             upper,
@@ -256,7 +257,7 @@ class DecoratorsWrapper(Wrapper):
         ttl: TTL,
         key: str | None = None,
         condition: CacheCondition = None,
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.iterator(
             self,  # type: ignore[arg-type]
             ttl=ttl,
@@ -269,7 +270,7 @@ class DecoratorsWrapper(Wrapper):
         func,
         args_map: dict[str, str] | None = None,
         defaults: dict | None = None,
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return validation.invalidate(
             backend=self,  # type: ignore[arg-type]
             target=func,
@@ -289,7 +290,7 @@ class DecoratorsWrapper(Wrapper):
         key: KeyOrTemplate | None = None,
         min_calls: int = 1,
         prefix: str = "circuit_breaker",
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         _exceptions = exceptions or self._default_fail_exceptions
         return decorators.circuit_breaker(
             backend=self,  # type: ignore[arg-type]
@@ -311,7 +312,7 @@ class DecoratorsWrapper(Wrapper):
         action: Callable | None = None,
         prefix="rate_limit",
         key: KeyOrTemplate | None = None,
-    ) -> Decorator:  # pylint: disable=too-many-arguments
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:  # pylint: disable=too-many-arguments
         return decorators.rate_limit(
             backend=self,  # type: ignore[arg-type]
             limit=limit,
@@ -329,7 +330,7 @@ class DecoratorsWrapper(Wrapper):
         key: KeyOrTemplate | None = None,
         action: Callable | None = None,
         prefix="srl",
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.slice_rate_limit(
             backend=self,  # type: ignore[arg-type]
             limit=limit,
@@ -345,7 +346,7 @@ class DecoratorsWrapper(Wrapper):
         key: KeyOrTemplate | None = None,
         wait: bool = True,
         prefix: str = "locked",
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.locked(
             backend=self,  # type: ignore[arg-type]
             ttl=ttl,
@@ -362,7 +363,7 @@ class DecoratorsWrapper(Wrapper):
         false_positives: float | int = 1,
         check_false_positive: bool = True,
         prefix: str = "bloom",
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.bloom(
             backend=self,  # type: ignore[arg-type]
             name=name,
@@ -380,7 +381,7 @@ class DecoratorsWrapper(Wrapper):
         false: IntOrPair = 1,
         no_collisions: bool = False,
         prefix: str = "dual_bloom",
-    ) -> Decorator:
+    ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.dual_bloom(
             backend=self,  # type: ignore[arg-type]
             name=name,

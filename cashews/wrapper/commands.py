@@ -1,12 +1,16 @@
-from functools import partial
-from typing import AsyncIterator, Dict, Iterable, List, Mapping, Optional, Tuple, Union
+from __future__ import annotations
 
-from cashews._typing import TTL, Key, Value
+from functools import partial
+from typing import TYPE_CHECKING, AsyncIterator, Iterable, Mapping, overload
+
 from cashews.backends.interface import Backend
 from cashews.commands import Command
 from cashews.ttl import ttl_to_seconds
 
 from .wrapper import Wrapper
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import TTL, Default, Key, Value
 
 
 class CommandWrapper(Wrapper):
@@ -14,8 +18,8 @@ class CommandWrapper(Wrapper):
         self,
         key: Key,
         value: Value,
-        expire: Union[float, TTL, None] = None,
-        exist: Optional[bool] = None,
+        expire: TTL = None,
+        exist: bool | None = None,
     ) -> bool:
         return await self._with_middlewares(Command.SET, key)(
             key=key,
@@ -24,10 +28,18 @@ class CommandWrapper(Wrapper):
             exist=exist,
         )
 
-    async def set_raw(self, key: Key, value: Value, **kwargs):
+    async def set_raw(self, key: Key, value: Value, **kwargs) -> None:
         return await self._with_middlewares(Command.SET_RAW, key)(key=key, value=value, **kwargs)
 
-    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
+    @overload
+    async def get(self, key: Key, default: Default) -> Value | Default:
+        ...
+
+    @overload
+    async def get(self, key: Key, default: None = None) -> Value | None:
+        ...
+
+    async def get(self, key: Key, default: Default | None = None) -> Value | Default | None:
         return await self._with_middlewares(Command.GET, key)(key=key, default=default)
 
     async def get_raw(self, key: Key) -> Value:
@@ -48,7 +60,7 @@ class CommandWrapper(Wrapper):
         self,
         pattern: str,
         batch_size: int = 100,
-    ) -> AsyncIterator[Tuple[Key, Value]]:
+    ) -> AsyncIterator[tuple[Key, Value]]:
         backend, middlewares = self._get_backend_and_config(pattern)
 
         async def call(pattern, batch_size):
@@ -59,19 +71,19 @@ class CommandWrapper(Wrapper):
         async for key, value in (await call(pattern=pattern, batch_size=batch_size)):
             yield key, value
 
-    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
-        backends: Dict[Backend, List[str]] = {}
+    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
+        backends: dict[Backend, list[str]] = {}
         for key in keys:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
-        result: Dict[Key, Value] = {}
+        result: dict[Key, Value] = {}
         for _keys in backends.values():
             _values = await self._with_middlewares(Command.GET_MANY, _keys[0])(*_keys, default=default)
             result.update(dict(zip(_keys, _values)))
         return tuple(result.get(key) for key in keys)
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Union[float, TTL, None] = None):
-        backends: Dict[Backend, List[Key]] = {}
+    async def set_many(self, pairs: Mapping[Key, Value], expire: TTL = None):
+        backends: dict[Backend, list[Key]] = {}
         for key in pairs:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
@@ -82,39 +94,39 @@ class CommandWrapper(Wrapper):
                 expire=ttl_to_seconds(expire),
             )
 
-    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         return await self._with_middlewares(Command.GET_BITS, key)(key, *indexes, size=size)
 
-    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
         return await self._with_middlewares(Command.INCR_BITS, key)(key, *indexes, size=size, by=by)
 
     async def slice_incr(
         self,
         key: Key,
-        start: Union[int, float],
-        end: Union[int, float],
+        start: int | float,
+        end: int | float,
         maxvalue: int,
-        expire: Union[float, TTL, None] = None,
+        expire: TTL = None,
     ) -> int:
         return await self._with_middlewares(Command.SLICE_INCR, key)(
             key=key, start=start, end=end, maxvalue=maxvalue, expire=ttl_to_seconds(expire)
         )
 
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         return await self._with_middlewares(Command.INCR, key)(key=key, value=value, expire=expire)
 
     async def delete(self, key: Key) -> bool:
         return await self._with_middlewares(Command.DELETE, key)(key=key)
 
     async def delete_many(self, *keys: Key) -> None:
-        backends: Dict[Backend, List[Key]] = {}
+        backends: dict[Backend, list[Key]] = {}
         for key in keys:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
         for _keys in backends.values():
             await self._with_middlewares(Command.DELETE_MANY, _keys[0])(*_keys)
 
-    async def delete_match(self, pattern: str):
+    async def delete_match(self, pattern: str) -> None:
         return await self._with_middlewares(Command.DELETE_MATCH, pattern)(pattern=pattern)
 
     async def expire(self, key: Key, timeout: TTL):
@@ -135,7 +147,7 @@ class CommandWrapper(Wrapper):
     async def get_size(self, key: Key) -> int:
         return await self._with_middlewares(Command.GET_SIZE, key)(key=key)
 
-    async def ping(self, message: Optional[bytes] = None) -> bytes:
+    async def ping(self, message: bytes | None = None) -> bytes:
         message = b"PING" if message is None else message
         return await self._with_middlewares(Command.PING, message.decode())(message=message)
 
@@ -148,22 +160,22 @@ class CommandWrapper(Wrapper):
             result += count
         return result
 
-    async def clear(self):
+    async def clear(self) -> None:
         for backend, _ in self._backends.values():
             await self._with_middlewares_for_backend(Command.CLEAR, backend, self._default_middlewares)()
 
     async def is_locked(
         self,
         key: Key,
-        wait: Union[float, None, TTL] = None,
-        step: Union[int, float] = 0.1,
+        wait: TTL = None,
+        step: int | float = 0.1,
     ) -> bool:
         return await self._with_middlewares(Command.IS_LOCKED, key)(key=key, wait=ttl_to_seconds(wait), step=step)
 
-    async def set_add(self, key: Key, *values: str, expire: TTL = None):
+    async def set_add(self, key: Key, *values: str, expire: TTL = None) -> None:
         return await self._with_middlewares(Command.SET_ADD, key)(key, *values, expire=ttl_to_seconds(expire))
 
-    async def set_remove(self, key: Key, *values: str):
+    async def set_remove(self, key: Key, *values: str) -> None:
         return await self._with_middlewares(Command.SET_REMOVE, key)(key, *values)
 
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:

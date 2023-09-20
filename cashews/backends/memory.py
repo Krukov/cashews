@@ -5,19 +5,20 @@ import re
 import time
 from collections import OrderedDict
 from contextlib import suppress
-from typing import Any, AsyncIterator, Iterable, Mapping, TypeVar, overload
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Mapping, overload
 
-from cashews._typing import Key, Value
 from cashews.serialize import SerializerMixin
 from cashews.utils import Bitarray, get_obj_size
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
 
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import Default, Key, Value
+
+
 __all__ = ["Memory"]
 
 _missed = object()
-
-Default = TypeVar("Default")
 
 
 class _Memory(Backend):
@@ -69,7 +70,7 @@ class _Memory(Backend):
         self._set(key, value, expire)
         return True
 
-    async def set_raw(self, key: Key, value: Value, **kwargs: Any):
+    async def set_raw(self, key: Key, value: Value, **kwargs: Any) -> None:
         self.store[key] = value
 
     async def get(self, key: Key, default: Value | None = None) -> Value:

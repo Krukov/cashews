@@ -3,12 +3,15 @@ from __future__ import annotations
 from contextvars import ContextVar
 from enum import Enum
 from functools import wraps
+from typing import TYPE_CHECKING
 
-from cashews._typing import AsyncCallable_T, Middleware
 from cashews.backends.interface import Backend
 from cashews.backends.transaction import LockTransactionBackend, TransactionBackend
 
 from .wrapper import Wrapper
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import DecoratedFunc, Middleware
 
 _transaction: ContextVar[Transaction | None] = ContextVar("transaction", default=None)
 
@@ -23,10 +26,10 @@ class TransactionWrapper(Wrapper):
     transaction_mode = TransactionMode.LOCKED
     transaction_timeout = 10
 
-    def set_transaction_timeout(self, timeout: int):
+    def set_transaction_timeout(self, timeout: int) -> None:
         self.transaction_timeout = timeout
 
-    def set_transaction_mode(self, mode: TransactionMode):
+    def set_transaction_mode(self, mode: TransactionMode) -> None:
         self.transaction_mode = mode
 
     def _get_backend_and_config(self, key: str) -> tuple[Backend, tuple[Middleware, ...]]:
@@ -70,7 +73,7 @@ class TransactionContextDecorator:
     def close(self):
         _transaction.set(None)
 
-    async def __aexit__(self, exc_type, exc_value, exc_tb):
+    async def __aexit__(self, exc_type, exc_value, exc_tb) -> None:
         if not self.current_tx or self._inner:
             self._inner = False
             return
@@ -80,19 +83,19 @@ class TransactionContextDecorator:
             await self.rollback()
         self.close()
 
-    def __call__(self, func: AsyncCallable_T) -> AsyncCallable_T:
+    def __call__(self, func: DecoratedFunc) -> DecoratedFunc:
         @wraps(func)
         async def wrapper(*args, **kwargs):
             async with self:
                 return await func(*args, **kwargs)
 
-        return wrapper
+        return wrapper  # type: ignore[return-value]
 
-    async def commit(self):
+    async def commit(self) -> None:
         if self.current_tx:
             await self.current_tx.commit()
 
-    async def rollback(self):
+    async def rollback(self) -> None:
         if self.current_tx:
             await self.current_tx.rollback()
 
@@ -117,10 +120,10 @@ class Transaction:
             return LockTransactionBackend(backend, serializable=True, timeout=self._timeout)
         return LockTransactionBackend(backend, serializable=False, timeout=self._timeout)
 
-    async def commit(self):
+    async def commit(self) -> None:
         for tx_backend in list(self._backends.values()):
             await tx_backend.commit()
 
-    async def rollback(self):
+    async def rollback(self) -> None:
         for tx_backend in list(self._backends.values()):
             await tx_backend.rollback()
