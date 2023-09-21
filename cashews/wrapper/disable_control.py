@@ -1,16 +1,18 @@
-from contextlib import contextmanager
-from typing import TYPE_CHECKING
+from __future__ import annotations
 
-from cashews._typing import AsyncCallable_T
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Iterator
+
 from cashews.commands import Command
 
 from .wrapper import Wrapper
 
 if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import AsyncCallable_T
     from cashews.backends.interface import Backend
 
 
-async def _is_disable_middleware(call: AsyncCallable_T, cmd: Command, backend: "Backend", *args, **kwargs):
+async def _is_disable_middleware(call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs):
     if backend.is_disable(cmd):
         if cmd in (Command.GET, Command.GET_MANY):
             return kwargs.get("default", None)
@@ -30,19 +32,19 @@ class ControlWrapper(Wrapper):
         return self._get_backend(prefix).enable(*cmds)
 
     @contextmanager
-    def disabling(self, *cmds: Command, prefix: str = ""):
+    def disabling(self, *cmds: Command, prefix: str = "") -> Iterator[None]:
         self.disable(*cmds, prefix=prefix)
         try:
             yield
         finally:
             self.enable(*cmds, prefix=prefix)
 
-    def is_disable(self, *cmds: Command, prefix: str = ""):
+    def is_disable(self, *cmds: Command, prefix: str = "") -> bool:
         return self._get_backend(prefix).is_disable(*cmds)
 
-    def is_enable(self, *cmds: Command, prefix: str = ""):
+    def is_enable(self, *cmds: Command, prefix: str = "") -> bool:
         return not self.is_disable(*cmds, prefix=prefix)
 
     @property
-    def is_full_disable(self):
+    def is_full_disable(self) -> bool:
         return all([backend.is_full_disable for backend, _ in self._backends.values()])

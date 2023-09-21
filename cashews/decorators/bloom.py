@@ -1,13 +1,18 @@
+from __future__ import annotations
+
 import asyncio
 import math
 from collections import namedtuple
 from functools import wraps
-from typing import Any, Iterable, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Tuple, Union
 
-from cashews._typing import AsyncCallable_T, Decorator, KeyOrTemplate
 from cashews.backends.interface import _BackendInterface
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.utils import get_indexes
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import DecoratedFunc, KeyOrTemplate
+
 
 __all__ = ("bloom",)
 
@@ -30,11 +35,11 @@ def bloom(
     backend: _BackendInterface,
     *,
     capacity: int,
-    name: Optional[KeyOrTemplate] = None,
-    false_positives: Union[float, int] = 1,
+    name: KeyOrTemplate | None = None,
+    false_positives: float | int = 1,
     check_false_positive: bool = True,
     prefix: str = "bloom",
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Decorator that can help you to use bloom filter algorithm
 
@@ -53,7 +58,7 @@ def bloom(
     assert 0 < false_positives < 100
     index_size, number_of_buckets = params_for(capacity, false_positives / 100)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _name = get_cache_key_template(func, key=name)
         _cache_key = f"{_name}:{index_size}"
         if prefix:
@@ -73,7 +78,7 @@ def bloom(
             await backend.incr_bits(_cache_key, *indexes)
             return result
 
-        func.set = __set
+        func.set = __set  # type: ignore[attr-defined]
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
@@ -89,7 +94,7 @@ def bloom(
                 return True
             return False
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor
 
@@ -98,15 +103,15 @@ def dual_bloom(
     backend: _BackendInterface,
     *,
     capacity: IntOrPair,
-    name: Optional[KeyOrTemplate] = None,
-    false: Optional[IntOrPair] = 1,
+    name: KeyOrTemplate | None = None,
+    false: IntOrPair = 1,
     no_collisions: bool = False,
     prefix: str = "dual_bloom",
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Decorator that can help you to use bloom filter algorithm
      this is  implementation with 2 bloom filters - one for true and another for false
-     That give as ability use bloom filter without pre-filling data
+     That give the ability use bloom filter without pre-filling data
      but with possible false positive and false negative results
 
     @dual_bloom(name="user_name:{name}", false=1, capacity=10_000)
@@ -122,7 +127,7 @@ def dual_bloom(
     """
     filters_params = _get_params_for_filters(false, capacity)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _cache_key = get_cache_key_template(func, key=name)
         if prefix:
             _cache_key = f"{prefix}:{_cache_key}"
@@ -152,19 +157,20 @@ def dual_bloom(
                 return True  # can be false Positive
             return await func(*args, **kwargs)
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor
 
 
 def _get_params_for_filters(
-    false: Optional[IntOrPair] = 1,
-    capacity: Optional[IntOrPair] = None,
-) -> Tuple[BloomParams, BloomParams]:
+    false: IntOrPair = 1,
+    capacity: IntOrPair | None = None,
+) -> tuple[BloomParams, BloomParams]:
     assert false and capacity
-    assert 0 < false < 100
     capacity_true, capacity_false = _to_pair(capacity)
     false_true, false_false = _to_pair(false)
+    assert 0 < false_true < 100
+    assert 0 < false_false < 100
     return params_for(capacity_true, false_true / 100), params_for(capacity_false, false_false / 100)
 
 
@@ -194,7 +200,7 @@ def params_for(capacity: int, false_positives: float = 0.01) -> BloomParams:
     m = _count_m(capacity, false_positives)
     k = _count_k(m, capacity)
     assert k > 0, "too high false positive value"
-    return m, k
+    return BloomParams(m, k)
 
 
 def _count_k(m, n):

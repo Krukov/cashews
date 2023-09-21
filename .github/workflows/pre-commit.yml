@@ -12,4 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v4
+
+      - name: install extras for mypy
+        run: |
+          pip install -e ".[redis,diskcache,speedup,dill,lint]"
+
       - uses: pre-commit/action@v3.0.0

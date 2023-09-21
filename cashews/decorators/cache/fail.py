@@ -1,13 +1,17 @@
-from functools import wraps
-from typing import Optional, Tuple, Type, Union
+from __future__ import annotations
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, KeyOrTemplate
+from functools import wraps
+from typing import TYPE_CHECKING, Callable
+
 from cashews.backends.interface import _BackendInterface
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
 from .defaults import _empty, context_cache_detect
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyOrTemplate
 
 __all__ = ("failover", "fast_condition")
 
@@ -26,11 +30,11 @@ def fast_condition(getter, setter=None):
 def failover(
     backend: _BackendInterface,
     ttl: TTL,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception]]] = Exception,
-    key: Optional[KeyOrTemplate] = None,
+    exceptions: type[Exception] | tuple[type[Exception]] = Exception,
+    key: KeyOrTemplate | None = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "fail",
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Return cache result (at list 1 call of function call should be succeed) if call raised one of given exception,
     :param backend: cache backend
@@ -43,7 +47,7 @@ def failover(
 
     ttl = ttl_to_seconds(ttl)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
 
@@ -70,6 +74,6 @@ def failover(
                     await backend.set(_cache_key, result, expire=_ttl)
                 return result
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor

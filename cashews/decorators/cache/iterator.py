@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import time
 from functools import wraps
-from typing import Optional
+from typing import TYPE_CHECKING, Callable
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator
 from cashews.backends.interface import _BackendInterface
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
 from .defaults import context_cache_detect
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc
 
 __all__ = ("iterator",)
 
@@ -15,9 +19,9 @@ __all__ = ("iterator",)
 def iterator(
     backend: _BackendInterface,
     ttl: TTL,
-    key: Optional[str] = None,
+    key: str | None = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache decorator for iterators
     execute wrapped call and store a result with ttl if condition return true
@@ -29,7 +33,7 @@ def iterator(
 
     ttl = ttl_to_seconds(ttl)
 
-    def _decor(async_iterator: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(async_iterator: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(async_iterator, key=key)
 
         @wraps(async_iterator)
@@ -60,6 +64,6 @@ def iterator(
                 await backend.set(_cache_key, True, expire=_ttl - executing_time)
             return
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor

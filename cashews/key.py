@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import inspect
 from functools import lru_cache
-from typing import Any, Callable, Container, Dict, Iterable, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Container, Dict, Iterable, Tuple
 
-from ._typing import Decorator, Key, KeyOrTemplate, KeyTemplate
 from .exceptions import WrongKeyError
 from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ._typing import Key, KeyOrTemplate, KeyTemplate
 
 _KWARGS = "__kwargs__"
 _ARGS = "__args__"
@@ -15,9 +19,9 @@ Kwargs = Dict[str, Any]
 
 def get_cache_key(
     func: Callable,
-    template: Optional[KeyTemplate] = None,
+    template: KeyTemplate | None = None,
     args: Args = (),
-    kwargs: Optional[Kwargs] = None,
+    kwargs: Kwargs | None = None,
 ) -> Key:
     """
     Get cache key name for function (:param func) called with args and kwargs
@@ -48,7 +52,7 @@ def get_func_params(func: Callable) -> Iterable[str]:
 
 @lru_cache(maxsize=10000)
 def get_cache_key_template(
-    func: Callable, key: Optional[KeyOrTemplate] = None, prefix: str = "", exclude_parameters: Container = ()
+    func: Callable, key: KeyOrTemplate | None = None, prefix: str = "", exclude_parameters: Container = ()
 ) -> KeyOrTemplate:
     """
     Get cache key name for function (:param func) called with args and kwargs
@@ -116,7 +120,7 @@ def _check_key_params(key: KeyOrTemplate, func_params: Iterable[str]):
         raise WrongKeyError(f"Wrong parameter placeholder '{errors}' in the key ")
 
 
-def get_call_values(func: Callable, args: Args, kwargs: Kwargs) -> Dict:
+def get_call_values(func: Callable, args: Args, kwargs: Kwargs) -> dict:
     """
     Return dict with arguments and their values for function call with given positional and keywords arguments
     :param func: Target function
@@ -148,7 +152,7 @@ def _get_call_values(func: Callable, args: Args, kwargs: Kwargs):
     signature.apply_defaults()
     result = {}
     for _name, _value in signature.arguments.items():
-        parameter: inspect.Parameter = signature.signature.parameters[_name]
+        parameter: inspect.Parameter = signature.signature.parameters[_name]  # type: ignore[no-redef]
         if parameter.kind == inspect.Parameter.VAR_KEYWORD:
             result[_KWARGS] = _value
             result.update(_value)
@@ -159,7 +163,7 @@ def _get_call_values(func: Callable, args: Args, kwargs: Kwargs):
     return result
 
 
-def noself(decor_func: Decorator) -> Decorator:
+def noself(decor_func):
     def _decor(*args, **kwargs):
         def outer(method):
             if "key" not in kwargs:

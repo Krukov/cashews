@@ -8,7 +8,7 @@ try:
     from sqlalchemy.ext import serializer as sqlalchemy_pickle
 except ImportError:
     _SQLALC_PICKLE = False
-    sqlalchemy_pickle = pickle
+    sqlalchemy_pickle = pickle  # type: ignore[misc,unused-ignore]
 
 _DILL_PICKLE = True
 try:

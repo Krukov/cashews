@@ -1,7 +1,9 @@
-import zlib
-from typing import Set
+from __future__ import annotations
 
-algorithms = [
+import zlib
+from typing import MutableSequence
+
+algorithms: MutableSequence = [
     zlib.crc32,
 ]
 
@@ -20,7 +22,7 @@ else:
     )
 
 
-def get_indexes(key: str, number_of_buckets: int, max_index: int) -> Set[int]:
+def get_indexes(key: str, number_of_buckets: int, max_index: int) -> set[int]:
     """
     return array with bit indexes for given value (key) [23, 45, 15]
     """

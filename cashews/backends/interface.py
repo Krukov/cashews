@@ -1,13 +1,17 @@
+from __future__ import annotations
+
 import asyncio
 import uuid
 from abc import ABCMeta, abstractmethod
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
-from typing import Any, AsyncIterator, Iterable, List, Mapping, Optional, Set, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Iterable, Mapping, overload
 
-from cashews._typing import Callback, Key, Value
 from cashews.commands import ALL, Command
 from cashews.exceptions import CacheBackendInteractionError, LockedError
+
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import Callback, Default, Key, Value
 
 NOT_EXIST = -2
 UNLIMITED = -1
@@ -32,21 +36,29 @@ class _BackendInterface(metaclass=ABCMeta):
         self,
         key: Key,
         value: Value,
-        expire: Optional[float] = None,
-        exist: Optional[bool] = None,
+        expire: float | None = None,
+        exist: bool | None = None,
     ) -> bool:
         ...
 
     @abstractmethod
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None) -> None:
         ...
 
     @abstractmethod
-    async def set_raw(self, key: Key, value: Value, **kwargs: Any):
+    async def set_raw(self, key: Key, value: Value, **kwargs: Any) -> None:
+        ...
+
+    @overload
+    async def get(self, key: Key, default: Default) -> Value | Default:
+        ...
+
+    @overload
+    async def get(self, key: Key, default: None = None) -> Value | None:
         ...
 
     @abstractmethod
-    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
+    async def get(self, key: Key, default: Default | None = None) -> Value | Default | None:
         ...
 
     @abstractmethod
@@ -54,11 +66,11 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
+    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         ...
 
     @abstractmethod
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:
+    def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         ...
 
     @abstractmethod
@@ -66,11 +78,11 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
+    def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         ...
 
     @abstractmethod
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         ...
 
     @abstractmethod
@@ -78,11 +90,11 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def delete_many(self, *keys: Key):
+    async def delete_many(self, *keys: Key) -> None:
         ...
 
     @abstractmethod
-    async def delete_match(self, pattern: str):
+    async def delete_match(self, pattern: str) -> None:
         ...
 
     @abstractmethod
@@ -94,23 +106,25 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         ...
 
     @abstractmethod
-    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
         ...
 
     @abstractmethod
-    async def slice_incr(self, key: Key, start: int, end: int, maxvalue: int, expire: Optional[float] = None) -> int:
+    async def slice_incr(
+        self, key: Key, start: int | float, end: int | float, maxvalue: int, expire: float | None = None
+    ) -> int:
         ...
 
     @abstractmethod
-    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+    async def set_add(self, key: Key, *values: str, expire: float | None = None) -> None:
         ...
 
     @abstractmethod
-    async def set_remove(self, key: Key, *values: str):
+    async def set_remove(self, key: Key, *values: str) -> None:
         ...
 
     @abstractmethod
@@ -132,11 +146,11 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    async def ping(self, message: Optional[bytes] = None) -> bytes:
+    async def ping(self, message: bytes | None = None) -> bytes:
         ...
 
     @abstractmethod
-    async def clear(self):
+    async def clear(self) -> None:
         ...
 
     async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
@@ -146,7 +160,7 @@ class _BackendInterface(metaclass=ABCMeta):
     async def is_locked(
         self,
         key: Key,
-        wait: Optional[float] = None,
+        wait: float | None = None,
         step: float = 0.1,
     ) -> bool:
         ...
@@ -156,7 +170,7 @@ class _BackendInterface(metaclass=ABCMeta):
         ...
 
     @asynccontextmanager
-    async def lock(self, key: Key, expire: float, wait=True):
+    async def lock(self, key: Key, expire: float, wait: bool = True) -> AsyncGenerator[None, None]:
         identifier = str(uuid.uuid4())
         while True:
             lock = await self.set_lock(key, identifier, expire=expire)
@@ -185,14 +199,14 @@ class _BackendInterface(metaclass=ABCMeta):
 
 class ControlMixin:
     def __init__(self, *args, **kwargs) -> None:
-        self.__disable: ContextVar[Set[Command]] = ContextVar(str(id(self)), default=set())
+        self.__disable: ContextVar[set[Command]] = ContextVar(str(id(self)), default=set())
         super().__init__(*args, **kwargs)
 
     @property
-    def _disable(self) -> Set[Command]:
+    def _disable(self) -> set[Command]:
         return self.__disable.get()
 
-    def _set_disable(self, value: Set[Command]) -> None:
+    def _set_disable(self, value: set[Command]) -> None:
         self.__disable.set(value)
 
     def is_disable(self, *cmds: Command) -> bool:
@@ -208,7 +222,7 @@ class ControlMixin:
         return not self.is_disable(*cmds)
 
     @property
-    def is_full_disable(self):
+    def is_full_disable(self) -> bool:
         return self._disable == ALL
 
     def disable(self, *cmds: Command) -> None:
@@ -229,13 +243,13 @@ class ControlMixin:
 
 
 class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__()
-        self._on_remove_callbacks: List[Callback] = []
+        self._on_remove_callbacks: list[Callback] = []
 
-    def on_remove_callback(self, callback: Callback):
+    def on_remove_callback(self, callback: Callback) -> None:
         self._on_remove_callbacks.append(callback)
 
-    async def _call_on_remove_callbacks(self, *keys: Key):
+    async def _call_on_remove_callbacks(self, *keys: Key) -> None:
         for callback in self._on_remove_callbacks:
             await callback(keys, backend=self)

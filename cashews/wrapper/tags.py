@@ -1,8 +1,8 @@
 from functools import lru_cache
 from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
 
-from cashews._typing import TTL, Key, KeyOrTemplate, Tag, Tags, Value
-from cashews.backends.interface import Backend, Callback
+from cashews._typing import TTL, Callback, Key, KeyOrTemplate, Tag, Tags, Value
+from cashews.backends.interface import Backend
 from cashews.exceptions import TagNotRegisteredError
 from cashews.formatter import template_to_re_pattern
 
@@ -10,7 +10,7 @@ from .commands import CommandWrapper
 
 
 class TagsRegistry:
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._registry_template: Dict[Tag, List[Pattern]] = {}
 
@@ -69,14 +69,14 @@ class CommandsTagsWrapper(CommandWrapper):
         backend.on_remove_callback(self._on_remove_cb)
 
     def _on_remove_callback(self) -> Callback:
-        async def _callback(keys: Iterable[Key], **kwargs):
+        async def _callback(keys: Iterable[Key], backend: Backend) -> None:
             for tag, _keys in self._group_by_tags(keys).items():
                 await self.tags_backend.set_remove(self._tags_key_prefix + tag, *_keys)
 
         return _callback
 
     def _group_by_tags(self, keys: Iterable[Key]) -> Dict[Tag, List[Key]]:
-        tags = {}
+        tags: Dict[Tag, List[Key]] = {}
         for key in keys:
             for tag in self.get_key_tags(key):
                 tags.setdefault(tag, []).append(key)

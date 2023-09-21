@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 import hashlib
 import hmac
 import warnings
-from typing import TYPE_CHECKING, Any, Mapping, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Mapping
 
-from ._typing import Key, Value
 from .exceptions import SignIsMissingError, UnSecureDataError
 from .picklers import DEFAULT_PICKLE, NULL_PICKLE, Pickler, get_pickler
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
+    from ._typing import ICustomDecoder, ICustomEncoder, Key, Value
     from .backends.interface import Backend
 
 _empty = object()
@@ -31,11 +33,11 @@ class SerializerMixin:
     def __init__(
         self,
         *args,
-        hash_key: Union[str, bytes, None] = _empty,
-        secret: Union[str, bytes, None] = None,
-        digestmod: Union[str, bytes, None] = b"md5",
+        hash_key: str | bytes | None = _empty,  # type: ignore[assignment]
+        secret: str | bytes | None = None,
+        digestmod: str | bytes = b"md5",
         check_repr: bool = True,
-        pickle_type: Optional[str] = None,
+        pickle_type: str | None = None,
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
@@ -50,24 +52,26 @@ class SerializerMixin:
         if secret:
             self._serializer.set_signer(HashSigner(secret, digestmod))
 
-        self._serializer.set_pickler(self._get_pickler(pickle_type, secret))
+        self._serializer.set_pickler(self._get_pickler(pickle_type, bool(secret)))
 
     @classmethod
-    def _get_pickler(cls, pickle_type: Optional[str], hash_key: bool) -> Pickler:
+    def _get_pickler(cls, pickle_type: str | None, hash_key: bool) -> Pickler:
         pickle_type = pickle_type or cls.pickle_type
         if pickle_type is NULL_PICKLE and hash_key:
             pickle_type = DEFAULT_PICKLE
         return get_pickler(pickle_type)
 
-    async def get(self, key: Key, default: Optional[Value] = None):
-        raw_value = await super().get(key, default=default)
-        return await self._serializer.decode(self, key, raw_value, default=default)
+    async def get(self, key: Key, default: Value | None = None):
+        raw_value = await super().get(key, default=default)  # type: ignore[misc]
+        return await self._serializer.decode(self, key, raw_value, default=default)  # type: ignore[arg-type]
 
-    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Value:
-        encoded_values = await super().get_many(*keys, default=default)
+    async def get_many(self, *keys: Key, default: Value | None = None) -> Value:
+        encoded_values = await super().get_many(*keys, default=default)  # type: ignore[misc]
         values = []
         for key, value in zip(keys, encoded_values):
-            deserialized_value = await self._serializer.decode(self, key, value, default=default)
+            deserialized_value = await self._serializer.decode(
+                self, key, value, default=default  # type: ignore[arg-type]
+            )
             values.append(deserialized_value)
         return tuple(values)
 
@@ -75,28 +79,26 @@ class SerializerMixin:
         self,
         key: Key,
         value: Value,
-        expire: Optional[float] = None,
-        exist: Optional[bool] = None,
+        expire: float | None = None,
+        exist: bool | None = None,
     ):
-        value = await self._serializer.encode(self, key, value, expire=expire)
-        return await super().set(key, value, expire=expire, exist=exist)
+        value = await self._serializer.encode(self, key, value, expire=expire)  # type: ignore[arg-type]
+        return await super().set(key, value, expire=expire, exist=exist)  # type: ignore[misc]
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         transformed_pairs = {}
         for key, value in pairs.items():
-            transformed_pairs[key] = await self._serializer.encode(self, key, value, expire)
-        return await super().set_many(transformed_pairs, expire=expire)
+            transformed_pairs[key] = await self._serializer.encode(self, key, value, expire)  # type: ignore[arg-type]
+        return await super().set_many(transformed_pairs, expire=expire)  # type: ignore[misc]
 
     def set_raw(self, *args: Any, **kwargs: Any):
-        return super().set(*args, **kwargs)
+        return super().set(*args, **kwargs)  # type: ignore
 
     def get_raw(self, *args: Any, **kwargs: Any):
-        return super().get(*args, **kwargs)
+        return super().get(*args, **kwargs)  # type: ignore
 
 
-def _to_bytes(value: Union[str, bytes, None]) -> Optional[bytes]:
-    if value is None:
-        return None
+def _to_bytes(value: str | bytes) -> bytes:
     if isinstance(value, str):
         value = value.encode()
     return value
@@ -110,7 +112,7 @@ class HashSigner:
         b"sum": simple_sign,
     }
 
-    def __init__(self, secret: Union[str, bytes], digestmod: Union[str, bytes] = b"md5"):
+    def __init__(self, secret: str | bytes, digestmod: str | bytes = b"md5"):
         self._secret = _to_bytes(secret)
         self._digestmod = _to_bytes(digestmod)
 
@@ -134,7 +136,7 @@ class HashSigner:
         value = key.encode() + value
         return self._digestmods[digestmod](self._secret, value)
 
-    def _get_sign_and_digestmod(self, sign: bytes) -> Tuple[bytes, bytes]:
+    def _get_sign_and_digestmod(self, sign: bytes) -> tuple[bytes, bytes]:
         digestmod = self._digestmod
         if b":" in sign:
             digestmod, sign = sign.split(b":")
@@ -154,7 +156,7 @@ class NullSigner:
 
 
 class Serializer:
-    _type_mapping = {}
+    _type_mapping: dict[bytes, tuple[ICustomEncoder, ICustomDecoder]] = {}
 
     def __init__(self, check_repr=False):
         self._check_repr = check_repr
@@ -168,21 +170,21 @@ class Serializer:
         self._pickler = pickler
 
     @classmethod
-    def register_type(cls, klass: Type, encoder, decoder):
+    def register_type(cls, klass: type, encoder, decoder):
         cls._type_mapping[bytes(klass.__name__, "utf8")] = (encoder, decoder)
 
-    async def encode(self, backend: "Backend", key: Key, value: Value, expire: int) -> bytes:  # on SET
+    async def encode(self, backend: "Backend", key: Key, value: Value, expire: float | None) -> bytes:  # on SET
         if isinstance(value, int) and not isinstance(value, bool):
-            return value
+            return value  # type: ignore[return-value]
         _value = await self._custom_encode(backend, key, value, expire)
         if _value is not None:
             return self._signer.sign(key, _value)
         return self._signer.sign(key, self._pickler.dumps(value))
 
-    async def _custom_encode(self, backend, key: Key, value: Value, expire: int) -> Optional[bytes]:
+    async def _custom_encode(self, backend, key: Key, value: Value, expire: float | None) -> bytes | None:
         value_type = bytes(type(value).__name__, "utf8")
         if value_type not in self._type_mapping:
-            return
+            return None
         encoder, _ = self._type_mapping[value_type]
         encoded_value = await encoder(value, backend, key, expire)
         return value_type + b":" + encoded_value

@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import asyncio
 from functools import wraps
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Callable
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, Key, KeyOrTemplate, Tags
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
@@ -12,20 +13,21 @@ from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, Key, KeyOrTemplate, Tags
 
 __all__ = ("hit",)
 
 
 def hit(
-    backend: "Cache",
+    backend: Cache,
     ttl: TTL,
     cache_hits: int,
-    update_after: Optional[int] = None,
-    key: Optional[KeyOrTemplate] = None,
+    update_after: int | None = None,
+    key: KeyOrTemplate | None = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "hit",
     tags: Tags = (),
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache call results and drop cache after given numbers of call 'cache_hits'
     :param backend: cache backend
@@ -39,7 +41,7 @@ def hit(
     """
     ttl = ttl_to_seconds(ttl)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
         for tag in tags:
@@ -70,12 +72,12 @@ def hit(
                 return return_or_raise(cached)
             return await _get_and_save(*call_args)
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor
 
 
-async def _get_and_save(func, args, kwargs, backend: "Cache", key: Key, ttl, store, tags):
+async def _get_and_save(func, args, kwargs, backend: Cache, key: Key, ttl, store, tags):
     _exc = None
     try:
         result = await func(*args, **kwargs)

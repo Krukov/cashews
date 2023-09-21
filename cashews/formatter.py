@@ -206,7 +206,7 @@ def get_templates_for_func(func) -> Iterable[KeyTemplate]:
     return (template for template in _REGISTER[func_key].keys())
 
 
-def get_template_and_func_for(key: Key) -> Tuple[Optional[KeyTemplate], Optional[Callable]]:
+def get_template_and_func_for(key: Key) -> Tuple[Optional[KeyTemplate], Optional[FuncRegKey]]:
     warnings.warn(
         "Part of invalidation by function functionality that will be removed in 6.0. Use 'tags' feature instead",
         DeprecationWarning,

@@ -1,15 +1,18 @@
+from __future__ import annotations
+
 import time
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Dict, Tuple
+from typing import TYPE_CHECKING, Any, Callable
 
-from cashews._typing import AsyncCallable_T, CallableCacheCondition, Decorator
+if TYPE_CHECKING:  # pragma: no cover
+    from cashews._typing import CallableCacheCondition, DecoratedFunc
 
 _spent = ContextVar("spent", default=0.0)
 
 
-def create_time_condition(limit: float) -> Tuple[CallableCacheCondition, Decorator]:
-    def decorator(func: AsyncCallable_T) -> AsyncCallable_T:
+def create_time_condition(limit: float) -> tuple[CallableCacheCondition, Callable[[DecoratedFunc], DecoratedFunc]]:
+    def decorator(func: DecoratedFunc) -> DecoratedFunc:
         @wraps(func)
         async def _wrapper(*args, **kwargs):
             start = time.perf_counter()
@@ -18,9 +21,9 @@ def create_time_condition(limit: float) -> Tuple[CallableCacheCondition, Decorat
             finally:
                 _spent.set(time.perf_counter() - start)
 
-        return _wrapper
+        return _wrapper  # type: ignore[return-value]
 
-    def condition(result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> bool:
+    def condition(result: Any, args: tuple, kwargs: dict[str, Any], key: str = "") -> bool:
         return _spent.get() > limit
 
     return condition, decorator

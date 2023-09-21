@@ -5,3 +5,5 @@ build/
 *.egg-info
 .tox
 .hypothesis
+.pytest_cache
+.mypy_cache

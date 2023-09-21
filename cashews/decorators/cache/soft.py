@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import logging
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import TYPE_CHECKING, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Callable
 
-from cashews._typing import TTL, AsyncCallable_T, CallableCacheCondition, Decorator, KeyOrTemplate, Tags
 from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
@@ -12,6 +13,7 @@ from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyOrTemplate, Tags
 
 __all__ = ("soft",)
 
@@ -20,15 +22,15 @@ logger = logging.getLogger(__name__)
 
 
 def soft(
-    backend: "Cache",
+    backend: Cache,
     ttl: TTL,
-    key: Optional[KeyOrTemplate] = None,
-    soft_ttl: Optional[TTL] = None,
-    exceptions: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
+    key: KeyOrTemplate | None = None,
+    soft_ttl: TTL | None = None,
+    exceptions: type[Exception] | tuple[type[Exception], ...] = Exception,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "soft",
     tags: Tags = (),
-) -> Decorator:
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache strategy that allow to use pre-expiration
 
@@ -43,7 +45,7 @@ def soft(
     """
     ttl = ttl_to_seconds(ttl)
 
-    def _decor(func: AsyncCallable_T) -> AsyncCallable_T:
+    def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         register_template(func, _key_template)
         for tag in tags:
@@ -88,6 +90,6 @@ def soft(
                     await backend.set(_cache_key, [soft_expire_at, result], expire=_ttl, tags=_tags)
                 return result
 
-        return _wrap
+        return _wrap  # type: ignore[return-value]
 
     return _decor
