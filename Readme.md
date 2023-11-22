@@ -16,14 +16,14 @@ pip install cashews[speedup] # for bloom filters
 
 ## Why
 
-Cache plays a significant role in modern applications and everybody want to use all power of async programming and cache.
+Cache plays a significant role in modern applications and everybody wants to use all the power of async programming and cache.
 There are a few advanced techniques with cache and async programming that can help you build simple, fast,
 scalable and reliable applications. This library intends to make it easy to implement such techniques.
 
 ## Features
 
 - Easy to configure and use
-- Decorator-based API, just decorate and play
+- Decorator-based API, decorate and play
 - Different cache strategies out-of-the-box
 - Support for multiple storage backends ([In-memory](#in-memory), [Redis](#redis), [DiskCache](diskcache))
 - Set TTL as a string ("2h5m"), as `timedelta` or use a function in case TTL depends on key parameters
@@ -33,7 +33,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Bloom filters
 - Different cache invalidation techniques (time-based or tags)
 - Cache any objects securely with pickle (use [hash key](#redis))
-- 2x faster then `aiocache` (with client side caching)
+- 2x faster than `aiocache` (with client side caching)
 
 ## Usage Example
 
@@ -85,7 +85,7 @@ cache.setup("redis://0.0.0.0/?db=1&socket_connect_timeout=0.5&suppress=0&hash_ke
 cache.setup("redis://0.0.0.0/", db=1, wait_for_connection_timeout=0.5, suppress=False, hash_key=b"my_key", enable=True)
 ```
 
-Alternatively, you can create cache instance yourself:
+Alternatively, you can create a cache instance yourself:
 
 ```python
 from cashews import Cache
@@ -116,7 +116,7 @@ await cache.get("user:1")  # will use the memory backend
 
 #### In-memory
 
-In-memory cache uses fixed-sized LRU dict to store values. It checks expiration on `get`
+The in-memory cache uses fixed-sized LRU dict to store values. It checks expiration on `get`
 and periodically purge expired keys.
 
 ```python
@@ -133,19 +133,19 @@ This will use Redis as a storage.
 This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to serialize
 values, but the cashes can store values with sha1-keyed hash.
 
-Use `secret` and `digestmod` parameter to protect your application from security vulnerabilities.
+Use `secret` and `digestmod` parameters to protect your application from security vulnerabilities.
 
 The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`
 
 The `secret` is a salt for a hash.
 
-Pickle can't serialize any type of objects. In case you need to store more complex types
+Pickle can't serialize any type of object. In case you need to store more complex types
 
 you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`.
 Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 
-Any connections errors are suppressed, to disable it use `suppress=False` - a `CacheBackendInteractionError` will be raised
+Any connection errors are suppressed, to disable it use `suppress=False` - a `CacheBackendInteractionError` will be raised
 
 If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
 
@@ -170,9 +170,9 @@ _Requires [diskcache](https://github.com/grantjenks/python-diskcache) package._
 This will use local sqlite databases (with shards) as storage.
 
 It is a good choice if you don't want to use redis, but you need a shared storage, or your cache takes a lot of local memory.
-Also, it is good choice for client side local storage.
+Also, it is a good choice for client side local storage.
 
-You cat setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache)
+You can setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache)
 
 ** Warning ** `cache.scan` and `cache.get_match` does not work with this storage (works only if shards are disabled)
 
@@ -185,7 +185,7 @@ cache.setup("disk://", size_limit=3 * Gb, shards=12)
 
 ### Basic API
 
-There are few basic methods to work with cache:
+There are a few basic methods to work with cache:
 
 ```python
 from cashews import cache
@@ -258,7 +258,7 @@ with cache.disabling():
 
 #### Simple cache
 
-This is typical cache strategy: execute, store and return from cache until it expired.
+This is a typical cache strategy: execute, store and return from cache until it expires.
 
 ```python
 from datetime import timedelta
@@ -274,7 +274,7 @@ async def long_running_function(request):
 #### Fail cache (Failover cache)
 
 Return cache result, if one of the given exceptions is raised (at least one function
-call should be succeed prior that).
+call should succeed prior to that).
 
 ```python
 from cashews import cache
@@ -288,7 +288,7 @@ async def get_status(name):
     return {"status": value}
 ```
 
-If exceptions didn't get will catch all exceptions or use default if it set by:
+If exceptions didn't get will catch all exceptions or use default if it is set by:
 
 ```python
 cache.set_default_fail_exceptions(ValueError, MyException)
@@ -334,7 +334,7 @@ from cashews import cache
 cache.setup("mem://")
 
 # if you call this function after 7 min, cache will be updated and return a new result.
-# If it fail on recalculation will return current cached value (if it not more then 10 min old)
+# If it fail on recalculation will return current cached value (if it is not more than 10 min old)
 @cache.soft(ttl="10m", soft_ttl="7m")
 async def get(name):
     value = await api_call()
@@ -343,7 +343,7 @@ async def get(name):
 
 #### Iterators
 
-All upper decorators can be use only with coroutines. Cashing async iterators works differently.
+All upper decorators can be used only with coroutines. Cashing async iterators works differently.
 To cache async iterators use `iterator` decorator
 
 ```python
@@ -362,7 +362,7 @@ async def get(name):
 #### Locked
 
 Decorator that can help you to solve [Cache stampede problem](https://en.wikipedia.org/wiki/Cache_stampede).
-Lock following function calls until the first one will be finished.
+Lock the following function calls until the first one is finished.
 This guarantees exactly one function call for given ttl.
 
 > :warning: \*\*Warning: this decorator will not cache the result
@@ -410,7 +410,7 @@ async def get_next(name):
 
 #### Circuit breaker
 
-Circuit breaker pattern. Count number of failed calls and if error rate rich specified value will raise `CircuitBreakerOpen` exception
+Circuit breaker pattern. Count the number of failed calls and if the error rate reaches the specified value, it will raise `CircuitBreakerOpen` exception
 
 > :warning: \*\*Warning: this decorator will not cache the result
 > To do it you can combine this decorator with any cache failover decorator`
@@ -453,10 +453,10 @@ await email_exists("example@example.com")
 
 ### Cache condition
 
-By default, any successful result of function call is stored, even it is a `None`.
-Caching decorators have the parameter - `condition`, that can be:
+By default, any successful result of the function call is stored, even if it is a `None`.
+Caching decorators have the parameter - `condition`, which can be:
 
-- a callable object that receive a result of function call or an exception, args, kwargs and a cache key
+- a callable object that receives the result of a function call or an exception, args, kwargs and a cache key
 - a string: "not_none" or "skip_none" to do not cache `None` values in
 
 ```python
@@ -478,7 +478,7 @@ async def get():
 
 ```
 
-It is also possible to cache an exception that function can raise, to do so use special conditions (only for simple, hit and early)
+It is also possible to cache an exception that the function can raise, to do so use special conditions (only for simple, hit and early)
 
 ```python
 from cashews import cache, with_exceptions, only_exceptions
@@ -496,8 +496,8 @@ async def get():
 
 ```
 
-Also caching decorators have parameter `time_condition` - min latency in seconds (can be set like `ttl`)
-of getting a result of function call to be cached.
+Also caching decorators have the parameter `time_condition` - min latency in seconds (can be set like `ttl`)
+of getting the result of a function call to be cached.
 
 ```python
 from cashews import cache
@@ -651,10 +651,10 @@ await get_name(item)
 
 Cache time to live (`ttl`) is a required parameter for all cache decorators. TTL can be:
 
-- an integer as numbers of seconds
+- an integer as the number of seconds
 - a `timedelta`
 - a string like in golang e.g `1d2h3m50s`
-- a callable object like a function that receive `args` and `kwargs` of the decorated function and return one of previous format for TTL
+- a callable object like a function that receives `args` and `kwargs` of the decorated function and returns one of the previous format for TTL
 
 Examples:
 
@@ -686,8 +686,8 @@ async def get(item_id: int) -> Item:
 
 ### What can be cached
 
-Cashews mostly use built-in pickle to store a data, but also support others pickle like serialization like dill.
-Some types of objects are not picklable, in this case cashews have api to define custom encoding/decoding:
+Cashews mostly use built-in pickle to store data but also support other pickle-like serialization like dill.
+Some types of objects are not picklable, in this case, cashews has API to define custom encoding/decoding:
 
 ```python
 from cashews.serialize import register_type
@@ -706,7 +706,7 @@ register_type(CustomType, my_encoder, my_decoder)
 
 ### Cache invalidation
 
-Cache invalidation - one of the main Computer Science well known problem.
+Cache invalidation - one of the main Computer Science well-known problems.
 
 Sometimes, you want to invalidate the cache after some action is triggered.
 Consider this example:
@@ -728,7 +728,7 @@ async def create_item(item):
 Here, the cache for `items` will be invalidated every time `create_item` is called
 There are two problems:
 
-1. with redis backend you cashews will scan a full database to get a keys that match a pattern (`items:page:*`) - not good for performance reasons
+1. with redis backend you cashews will scan a full database to get a key that match a pattern (`items:page:*`) - not good for performance reasons
 2. what if we do not specify a key for cache:
 
 ```python
@@ -738,7 +738,7 @@ async def items(page=1):
 ```
 
 Cashews provide the tag system: you can tag cache keys, so they will be stored in a separate [SET](https://redis.io/docs/data-types/sets/)
-to avoid high load on redis storage. To use the tags in a more efficient ways please use it with the client side feature
+to avoid high load on redis storage. To use the tags in a more efficient way please use it with the client side feature
 
 ```python
 from cashews import cache
@@ -776,7 +776,7 @@ async def add_item(item: Item) -> List[Item]:
 
 #### Cache invalidation on code change
 
-Often, you may face a problem with invalid cache after code is changed. For example:
+Often, you may face a problem with an invalid cache after the code is changed. For example:
 
 ```python
 @cache(ttl=timedelta(days=1), key="user:{user_id}")
@@ -784,14 +784,14 @@ async def get_user(user_id):
     return {"name": "Dmitry", "surname": "Krykov"}
 ```
 
-Then, returned value was changed to:
+Then, the returned value was changed to:
 
 ```bash
 -    return {"name": "Dmitry", "surname": "Krykov"}
 +    return {"full_name": "Dmitry Krykov"}
 ```
 
-Since function returning a dict, there is no way simple way to automatically detect
+Since the function returns a dict, there is no simple way to automatically detect
 that kind of cache invalidity
 
 One way to solve the problem is to add a prefix for this cache:
@@ -841,7 +841,7 @@ async def get_user(user_id):
 ### Detect the source of a result
 
 Decorators give us a very simple API but also make it difficult to understand where
-result is coming from - cache or direct call.
+the result is coming from - cache or direct call.
 
 To solve this problem `cashews` has `detect` context manager:
 
@@ -893,8 +893,8 @@ cache.setup("mem://", middlewares=(logging_middleware, ))
 
 ### Transactional
 
-Applications more often based on database with transaction (OLTP) usage. Usually cache support transactions poorly.
-Here just simple example how we can make our cache inconsistent:
+Applications are more often based on a database with transaction (OLTP) usage. Usually cache supports transactions poorly.
+Here is just a simple example of how we can make our cache inconsistent:
 
 ```python
 async def my_handler():
@@ -904,9 +904,9 @@ async def my_handler():
         await api.service.register(user)
 ```
 
-Here the api call may fail, the database transaction will rollback, but the cache will not.
-Of course, at this code we can solve it by moving the cache call outside transaction, but in real code it may not so easy.
-Another case: we want to make bulk operations with group of keys to keep it consistent:
+Here the API call may fail, the database transaction will rollback, but the cache will not.
+Of course, in this code, we can solve it by moving the cache call outside transaction, but in real code it may not so easy.
+Another case: we want to make bulk operations with a group of keys to keep it consistent:
 
 ```python
 async def login(user, token, session):
@@ -948,7 +948,7 @@ async def login(user, token, session):
 
 ```
 
-Transactions in cashews support different mode of "isolation"
+Transactions in cashews support different modes of "isolation"
 
 - fast (0-7% overhead) - memory based, can't protect of race conditions, but may use for atomicity
 - locked (default - 4-9% overhead) - use kind of shared lock per cache key (in case of redis or disk backend), protect of race conditions
