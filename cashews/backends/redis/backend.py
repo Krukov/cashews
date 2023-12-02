@@ -300,5 +300,5 @@ class _Redis(Backend):
         return await self._client.dbsize()
 
     async def close(self):
-        await self._client.close()
+        await self._client.close(close_connection_pool=True)
         self.__is_init = False
