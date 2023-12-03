@@ -1,3 +1,5 @@
+from typing import ContextManager
+
 from .cache_condition import NOT_NONE, only_exceptions, with_exceptions
 from .commands import Command
 from .contrib import *  # noqa
@@ -18,7 +20,7 @@ soft = cache.soft
 hit = cache.hit
 transaction = cache.transaction
 setup = cache.setup
-cache_detect = cache.detect
+cache_detect: ContextManager = cache.detect
 
 circuit_breaker = cache.circuit_breaker
 dynamic = cache.dynamic

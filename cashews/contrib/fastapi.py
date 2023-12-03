@@ -12,6 +12,7 @@ from starlette.responses import Response
 from starlette.types import ASGIApp
 
 from cashews import Cache, Command, cache, invalidate_further
+from cashews._typing import TTL
 
 _CACHE_MAX_AGE: ContextVar[int] = ContextVar("cache_control_max_age")
 
@@ -29,14 +30,14 @@ _PRIVATE = "private"
 _PUBLIC = "public"
 
 _CLEAR_CACHE_HEADER_VALUE = "cache"
+__all__ = ["cache_control_ttl", "CacheRequestControlMiddleware", "CacheEtagMiddleware", "CacheDeleteMiddleware"]
 
 
-def cache_control_condition():
-    pass
+def cache_control_ttl(default: TTL):
+    def _ttl(*args, **kwargs):
+        return _CACHE_MAX_AGE.get(default)
 
-
-def cache_control_ttl():
-    pass
+    return _ttl
 
 
 class CacheRequestControlMiddleware(BaseHTTPMiddleware):
@@ -60,7 +61,7 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
             if calls:
                 key, _ = calls[0]
                 expire = await self._cache.get_expire(key)
-                if expire:
+                if expire > 0:
                     response.headers[
                         _CACHE_CONTROL_HEADER
                     ] = f"{_PRIVATE if self._private else _PUBLIC}, {_MAX_AGE}{expire}"
@@ -84,22 +85,28 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
             if reset_token:
                 _CACHE_MAX_AGE.reset(reset_token)
 
-    @staticmethod
-    def _to_disable(cache_control_value: str | None) -> tuple[Command, ...]:
+    def _to_disable(self, cache_control_value: str | None) -> tuple[Command, ...]:
         if cache_control_value == _NO_CACHE:
             return (Command.GET,)
         if cache_control_value == _NO_STORE:
             return Command.GET, Command.SET
+        if cache_control_value and self._get_max_age(cache_control_value) == 0:
+            return Command.GET, Command.SET
         return tuple()
 
     @staticmethod
-    def _get_max_age(cache_control_value: str) -> int:
-        if not cache_control_value.startswith(_MAX_AGE):
-            return 0
-        try:
-            return int(cache_control_value.replace(_MAX_AGE, ""))
-        except (ValueError, TypeError):
-            return 0
+    def _get_max_age(cache_control_value: str) -> int | None:
+        if _MAX_AGE not in cache_control_value:
+            return None
+        for cc_value_item in cache_control_value.split(","):
+            cc_value_item = cc_value_item.strip()
+            try:
+                key, value = cc_value_item.split("=")
+                if key == _MAX_AGE[:-1]:
+                    return int(value)
+            except (ValueError, TypeError):
+                continue
+        return None
 
 
 class CacheEtagMiddleware(BaseHTTPMiddleware):
@@ -112,10 +119,18 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         if etag and await self._cache.exists(etag):
             return Response(status_code=304)
 
-        with self._cache.detect as detector:
+        set_key = None
+
+        def set_callback(key, result):
+            nonlocal set_key
+            set_key = key
+
+        with self._cache.detect as detector, self._cache.callback(Command.SET, set_callback):
             response = await call_next(request)
             calls = detector.calls_list
             if not calls:
+                if set_key:
+                    response.headers[_ETAG_HEADER] = await self._get_etag(set_key)
                 return response
 
             key, _ = calls[0]

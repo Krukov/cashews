@@ -8,7 +8,12 @@ from fastapi import FastAPI, Header, Query
 from fastapi.responses import StreamingResponse
 
 from cashews import cache
-from cashews.contrib.fastapi import CacheDeleteMiddleware, CacheEtagMiddleware, CacheRequestControlMiddleware
+from cashews.contrib.fastapi import (
+    CacheDeleteMiddleware,
+    CacheEtagMiddleware,
+    CacheRequestControlMiddleware,
+    cache_control_ttl,
+)
 
 app = FastAPI()
 app.add_middleware(CacheDeleteMiddleware)
@@ -21,7 +26,7 @@ KB = 1024
 @app.get("/")
 @cache.failover(ttl="1h")
 @cache.slice_rate_limit(10, "3m")
-@cache(ttl="10m", key="simple:{user_agent}", time_condition="1s")
+@cache(ttl=cache_control_ttl(default="4m"), key="simple:{user_agent}", time_condition="1s")
 async def simple(user_agent: str = Header("No")):
     await asyncio.sleep(1.1)
     return "".join([random.choice(string.ascii_letters) for _ in range(10)])

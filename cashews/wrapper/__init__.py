@@ -1,7 +1,8 @@
 from cashews.backends.interface import _BackendInterface
 from cashews.decorators import context_cache_detect
 
-from .backend_settings import register_backend
+from .backend_settings import register_backend  # noqa
+from .callback import CallbackWrapper
 from .decorators import DecoratorsWrapper
 from .disable_control import ControlWrapper
 from .tags import CommandsTagsWrapper
@@ -17,6 +18,7 @@ __all__ = [
 class Cache(
     TransactionWrapper,
     ControlWrapper,
+    CallbackWrapper,
     CommandsTagsWrapper,
     DecoratorsWrapper,
     _BackendInterface,
