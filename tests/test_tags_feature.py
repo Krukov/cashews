@@ -1,5 +1,6 @@
 import asyncio
 from random import random
+from typing import Union
 from unittest.mock import AsyncMock
 
 import pytest
@@ -221,8 +222,8 @@ async def test_templated_tag_with_none_value(cache: Cache):
         tags=["a:{a};b:{b}"],
     )
     async def cached(
-            a: int,
-            b: int | None = None,
+        a: int,
+        b: Union[int, None] = None,
     ) -> str:
         return f"{a}{b}"
 
