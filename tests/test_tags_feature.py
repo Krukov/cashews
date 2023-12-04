@@ -1,5 +1,6 @@
 import asyncio
 from random import random
+from typing import Union
 from unittest.mock import AsyncMock
 
 import pytest
@@ -213,3 +214,17 @@ async def test_delete_tags_separate_backend(cache: Cache, redis_dsn: str):
 
     tag_backend.set_pop.assert_awaited_with(key="_tag:tag", count=100)
     tag_backend.init.assert_awaited_once()
+
+
+async def test_templated_tag_with_none_value(cache: Cache):
+    @cache(
+        ttl=None,
+        tags=["a:{a};b:{b}"],
+    )
+    async def cached(
+        a: int,
+        b: Union[int, None] = None,
+    ) -> str:
+        return f"{a}{b}"
+
+    assert await cached(1) == "1None"

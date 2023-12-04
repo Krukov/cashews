@@ -23,7 +23,8 @@ class TagsRegistry:
         for tag, patterns in self._registry_template.items():
             match = self._match_patterns(key, patterns)
             if match:
-                tags.append(tag.format(**match.groupdict()))
+                group_dict = {k: v if v is not None else "" for k, v in match.groupdict().items()}
+                tags.append(tag.format(**group_dict))
         return tags
 
     @staticmethod
