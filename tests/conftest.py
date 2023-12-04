@@ -79,7 +79,7 @@ async def _backend(request, redis_dsn, backend_factory):
             hash_key=None,
             max_connections=20,
             suppress=False,
-            socket_timeout=10,
+            socket_timeout=1,
             wait_for_connection_timeout=1,
         )
     elif request.param == "redis_hash":
