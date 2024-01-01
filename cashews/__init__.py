@@ -40,6 +40,23 @@ mem.setup(
 
 
 __all__ = [
+    "mem",
+    "cache",
+    "noself_cache",
+    "failover",
+    "early",
+    "soft",
+    "hit",
+    "transaction",
+    "setup",
+    "cache_detect",
+    "circuit_breaker",
+    "dynamic",
+    "rate_limit",
+    "slice_rate_limit",
+    "locked",
+    "invalidate",
+    "invalidate_func",
     "NOT_NONE",
     "only_exceptions",
     "with_exceptions",
