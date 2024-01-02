@@ -1,30 +1,18 @@
 import asyncio
-import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from ._typing import AsyncCallable_T
 from .backends.interface import _BackendInterface
 from .commands import RETRIEVE_CMDS, Command
-from .formatter import get_templates_for_func, template_to_pattern
-from .key import get_call_values, get_func_params
-
-
-async def invalidate_func(backend: _BackendInterface, func, kwargs: Optional[Dict] = None) -> None:
-    warnings.warn(
-        "invalidating by function object is deprecated. Use 'tags' feature instead", DeprecationWarning, stacklevel=2
-    )
-    values = {**{param: "*" for param in get_func_params(func)}, **kwargs}  # type: ignore[dict-item]
-    for template in get_templates_for_func(func):
-        del_template = template_to_pattern(template, **values)
-        await backend.delete_match(del_template)
+from .key import get_call_values
 
 
 def invalidate(
     backend: _BackendInterface,
-    target: Union[str, Callable],
+    target: str,
     args_map: Optional[Dict[str, str]] = None,
     defaults: Optional[Dict[str, Any]] = None,
 ):
@@ -40,11 +28,8 @@ def invalidate(
             for source, dest in args_map.items():
                 if dest in _args:
                     _args[source] = _args.pop(dest)
-            if callable(target):
-                asyncio.create_task(invalidate_func(backend, target, _args))
-            else:
-                key = target.format(**{k: str(v) if v is not None else "" for k, v in _args.items()})
-                asyncio.create_task(backend.delete_match(key))
+            key = target.format(**{k: str(v) if v is not None else "" for k, v in _args.items()})
+            asyncio.create_task(backend.delete_match(key))
             return result
 
         return _wrap

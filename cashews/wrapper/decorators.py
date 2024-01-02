@@ -278,8 +278,6 @@ class DecoratorsWrapper(Wrapper):
             defaults=defaults,
         )
 
-    invalidate_func = validation.invalidate_func
-
     def circuit_breaker(
         self,
         errors_rate: int,

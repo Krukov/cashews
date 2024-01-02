@@ -3,7 +3,6 @@ from __future__ import annotations
 from functools import wraps
 from typing import TYPE_CHECKING, Callable
 
-from cashews.formatter import register_template
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
@@ -40,7 +39,6 @@ def cache(
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
-        register_template(func, _key_template)
         for tag in tags:
             backend.register_tag(tag, _key_template)
 

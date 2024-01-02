@@ -1,12 +1,11 @@
 import base64
 import json
 import re
-import warnings
 from hashlib import md5, sha1, sha256
 from string import Formatter
-from typing import Any, Callable, Dict, Iterable, Optional, Pattern, Tuple
+from typing import Any, Callable, Dict, Iterable, Pattern, Tuple
 
-from ._typing import Key, KeyOrTemplate, KeyTemplate
+from ._typing import KeyOrTemplate, KeyTemplate
 
 TemplateValue = str
 
@@ -169,63 +168,9 @@ def _re_default(field_name):
 
 
 _re_formatter = _ReplaceFormatter(default=_re_default)
-_re_legacy_formatter = _ReplaceFormatter(default=_re_legacy)
 FuncRegKey = Tuple[str, str]
-
-_REGISTER: Dict[FuncRegKey, Dict[KeyTemplate, Pattern]] = {}  # DEPRECATED
 
 
 def template_to_re_pattern(template: KeyTemplate) -> Pattern:
     pattern = _re_formatter.format(template)
     return re.compile("^" + pattern + "$", flags=re.MULTILINE)
-
-
-def _get_func_reg_key(func: Callable[..., Any]) -> FuncRegKey:
-    return func.__module__ or "", func.__name__
-
-
-def register_template(func, template: KeyTemplate):
-    """Deprecated. Will be removed in 6.0 version"""
-    func_key = _get_func_reg_key(func)
-    _REGISTER.setdefault(func_key, {})
-    if template not in _REGISTER[func_key]:
-        prefix = "(.*[:])?"
-        pattern = prefix + template_to_pattern(template, _formatter=_re_legacy_formatter) + "$"
-        compile_pattern = re.compile(pattern, flags=re.MULTILINE)
-        _REGISTER[func_key][template] = compile_pattern
-
-
-def get_templates_for_func(func) -> Iterable[KeyTemplate]:
-    warnings.warn(
-        "Part of invalidation by function functionality that will be removed in 6.0. Use 'tags' feature instead",
-        DeprecationWarning,
-    )
-    func_key = _get_func_reg_key(func)
-    if func_key not in _REGISTER:
-        return ()
-    return (template for template in _REGISTER[func_key].keys())
-
-
-def get_template_and_func_for(key: Key) -> Tuple[Optional[KeyTemplate], Optional[FuncRegKey]]:
-    warnings.warn(
-        "Part of invalidation by function functionality that will be removed in 6.0. Use 'tags' feature instead",
-        DeprecationWarning,
-    )
-    for func, templates in _REGISTER.items():
-        for template, compile_pattern in templates.items():
-            if compile_pattern.fullmatch(key):
-                return template_to_pattern(template), func
-    return None, None
-
-
-def get_template_for_key(key: Key) -> Tuple[Optional[KeyTemplate], Optional[dict]]:
-    warnings.warn(
-        "Part of invalidation by function functionality that will be removed in 6.0. Use 'tags' feature instead",
-        DeprecationWarning,
-    )
-    for _, templates in _REGISTER.items():
-        for template, compile_pattern in templates.items():
-            match = compile_pattern.fullmatch(key)
-            if match:
-                return template, match.groupdict()
-    return None, None

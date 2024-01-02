@@ -1,6 +1,6 @@
 import random
 from contextvars import ContextVar
-from typing import Any, Dict
+from typing import Any, ContextManager, Dict
 
 from cashews._typing import Key
 
@@ -77,4 +77,4 @@ class _ContextCacheDetect:
         self._stop()
 
 
-context_cache_detect = _ContextCacheDetect()
+context_cache_detect: ContextManager[CacheDetect] = _ContextCacheDetect()

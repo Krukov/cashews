@@ -1,11 +1,9 @@
-from typing import ContextManager
-
 from .cache_condition import NOT_NONE, only_exceptions, with_exceptions
 from .commands import Command
 from .contrib import *  # noqa
 from .decorators import CacheDetect, context_cache_detect, fast_condition, thunder_protection
 from .exceptions import CacheBackendInteractionError, CircuitBreakerOpen, LockedError, RateLimitError
-from .formatter import default_formatter, get_template_and_func_for, get_template_for_key
+from .formatter import default_formatter
 from .helpers import add_prefix, all_keys_lower, memory_limit
 from .key import get_cache_key_template, noself
 from .validation import invalidate_further
@@ -20,7 +18,7 @@ soft = cache.soft
 hit = cache.hit
 transaction = cache.transaction
 setup = cache.setup
-cache_detect: ContextManager[CacheDetect] = cache.detect
+cache_detect = cache.detect
 
 circuit_breaker = cache.circuit_breaker
 dynamic = cache.dynamic
@@ -29,7 +27,6 @@ slice_rate_limit = cache.slice_rate_limit
 locked = cache.locked
 
 invalidate = cache.invalidate
-invalidate_func = cache.invalidate_func
 
 
 mem = Cache(name="mem")
@@ -56,7 +53,6 @@ __all__ = [
     "slice_rate_limit",
     "locked",
     "invalidate",
-    "invalidate_func",
     "NOT_NONE",
     "only_exceptions",
     "with_exceptions",
@@ -69,8 +65,6 @@ __all__ = [
     "LockedError",
     "RateLimitError",
     "default_formatter",
-    "get_template_and_func_for",
-    "get_template_for_key",
     "add_prefix",
     "all_keys_lower",
     "memory_limit",
