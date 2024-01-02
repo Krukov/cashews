@@ -11,7 +11,7 @@ from cashews.commands import ALL, Command
 from cashews.exceptions import CacheBackendInteractionError, LockedError
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import Callback, Default, Key, Value
+    from cashews._typing import Default, Key, OnRemoveCallback, Value
 
 NOT_EXIST = -2
 UNLIMITED = -1
@@ -245,9 +245,9 @@ class ControlMixin:
 class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
-        self._on_remove_callbacks: list[Callback] = []
+        self._on_remove_callbacks: list[OnRemoveCallback] = []
 
-    def on_remove_callback(self, callback: Callback) -> None:
+    def on_remove_callback(self, callback: OnRemoveCallback) -> None:
         self._on_remove_callbacks.append(callback)
 
     async def _call_on_remove_callbacks(self, *keys: Key) -> None:

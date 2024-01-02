@@ -12,12 +12,12 @@ def create_metrics_middleware(latency_metric: Optional[Histogram] = None, with_t
     _DEFAULT_METRIC = Histogram(
         "cashews_operations_latency_seconds",
         "Latency of different operations with a cache",
-        labels=["operation", "backend_class"] if not with_tag else ["operation", "backend_class", "tag"],
+        labelnames=["operation", "backend_class"] if not with_tag else ["operation", "backend_class", "tag"],
     )
     _latency_metric = latency_metric or _DEFAULT_METRIC
 
     async def metrics_middleware(call, cmd: Command, backend: Backend, *args, **kwargs):
-        with _latency_metric as metric:
+        with _latency_metric.time() as metric:
             metric.labels(operation=cmd.value, backend_class=backend.__class__.__name__)
             if with_tag and "key" in kwargs:
                 tags = cache.get_key_tags(kwargs["key"])

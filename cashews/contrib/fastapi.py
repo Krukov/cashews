@@ -4,7 +4,7 @@ import contextlib
 from contextlib import nullcontext
 from contextvars import ContextVar
 from hashlib import blake2s
-from typing import ContextManager, Sequence
+from typing import Any, ContextManager, Sequence
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -121,11 +121,11 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
 
         set_key = None
 
-        def set_callback(key, result):
+        def set_callback(key: str, result: Any):
             nonlocal set_key
             set_key = key
 
-        with self._cache.detect as detector, self._cache.callback(Command.SET, set_callback):
+        with self._cache.detect as detector, self._cache.callback(set_callback, cmd=Command.SET):
             response = await call_next(request)
             calls = detector.calls_list
             if not calls:

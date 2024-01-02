@@ -90,7 +90,7 @@ async def test_set_expire_clean_2(cache: Cache):
     assert await cache.get("key1") is None
     assert await cache.get("key2") is not None
     assert list(await cache.set_pop("_tag:tag", count=1))[0] == "key2"
-    await asyncio.sleep(0)
+    await asyncio.sleep(0.1)
     assert not list(await cache.set_pop("_tag:tag"))
 
 

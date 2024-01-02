@@ -70,7 +70,11 @@ More examples [here](https://github.com/Krukov/cashews/tree/master/examples)
   - [Cache invalidation on code change](#cache-invalidation-on-code-change)
 - [Detect the source of a result](#detect-the-source-of-a-result)
 - [Middleware](#middleware)
+- [Callbacks](#callbacks)
 - [Transactional mode](#transactional)
+- [Contrib](#contrib)
+  - [Fastapi](#fastapi)
+  - [Prometheus](#prometheus)
 
 ### Configuration
 
@@ -891,6 +895,23 @@ async def logging_middleware(call, cmd: Command, backend: Backend, *args, **kwar
 cache.setup("mem://", middlewares=(logging_middleware, ))
 ```
 
+#### Callbacks
+
+One of the middleware that is preinstalled in cache instance is `CallbackMiddleware`.
+This middleware also add to a cache a new interface that allow to add a function that will be called before given command will be triggered
+
+```python
+from cashews import cache, Command
+
+
+def callback(key, result):
+  print(f"GET key={key}")
+
+with cache.callback(callback, cmd=Command.GET):
+    await cache.get("test")  # also will print "GET key=test"
+
+```
+
 ### Transactional
 
 Applications are more often based on a database with transaction (OLTP) usage. Usually cache supports transactions poorly.
@@ -961,6 +982,74 @@ from cashews import cache, TransactionMode
 @cache.transaction(TransactionMode.SERIALIZABLE, timeout=1)
 async def my_handler():
    ...
+```
+
+### Contrib
+
+This library is framework agnostic, but includes several "batteries" for most popular tools.
+
+#### Fastapi
+
+You may find a few middlewares useful that can help you to control a cache in you web application based on fastapi.
+
+1. `CacheEtagMiddleware` - middleware add Etag and check 'If-None-Match' header based on Etag
+2. `CacheRequestControlMiddleware` - middleware check and add `Cache-Control` header
+3. `CacheDeleteMiddleware` - clear cache for an endpoint based on `Clear-Site-Data` header
+
+Example:
+
+```python
+from fastapi import FastAPI, Header, Query
+from fastapi.responses import StreamingResponse
+
+from cashews import cache
+from cashews.contrib.fastapi import (
+    CacheDeleteMiddleware,
+    CacheEtagMiddleware,
+    CacheRequestControlMiddleware,
+    cache_control_ttl,
+)
+
+app = FastAPI()
+app.add_middleware(CacheDeleteMiddleware)
+app.add_middleware(CacheEtagMiddleware)
+app.add_middleware(CacheRequestControlMiddleware)
+metrics_middleware = create_metrics_middleware()
+cache.setup(os.environ.get("CACHE_URI", "redis://"))
+
+
+
+@app.get("/")
+@cache.failover(ttl="1h")
+@cache(ttl=cache_control_ttl(default="4m"), key="simple:{user_agent:hash}", time_condition="1s")
+async def simple(user_agent: str = Header("No")):
+    ...
+
+
+@app.get("/stream")
+@cache(ttl="1m", key="stream:{file_path}")
+async def stream(file_path: str = Query(__file__)):
+    return StreamingResponse(_read_file(file_path=file_path))
+
+
+async def _read_file(_read_file):
+    ...
+
+```
+
+Also cashews can cache stream responses
+
+#### Prometheus
+
+You can easily provide metrics using the Prometheus middleware.
+
+```python
+from cashews import cache
+from cashews.contrib.prometheus import create_metrics_middleware
+
+metrics_middleware = create_metrics_middleware(with_tag=False)
+cache.setup("redis://", middlewares=(metrics_middleware,))
+
 ```
 
 ## Development

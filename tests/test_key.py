@@ -3,7 +3,7 @@ from datetime import timedelta
 import pytest
 
 from cashews.exceptions import WrongKeyError
-from cashews.formatter import default_formatter, get_template_and_func_for, get_template_for_key, register_template
+from cashews.formatter import default_formatter
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
@@ -40,52 +40,6 @@ def _some(value: Klass):
 @default_formatter.register("call_method", preformat=False)
 def call_method(value: Klass, a):
     return value.method(a)
-
-
-@pytest.mark.parametrize(
-    ("key", "template", "func"),
-    (
-        ("func1:test", TEPLATE_FUNC1.format(a="*"), func1),
-        ("func1:", TEPLATE_FUNC1.format(a="*"), func1),
-        ("prefix:func1:test", TEPLATE_FUNC1.format(a="*"), func1),
-        ("func2:-:user:1", TEPLATE_FUNC2.format(k="*", user="*"), func2),
-        ("func3:2", "func3:*", func3),
-        ("func:1", None, None),
-        ("prefix:func2:test:user:1:1", None, None),
-        ("func2:user:1", None, None),
-    ),
-)
-def test_detect_template_and_func_by_key(key, template, func):
-    register_template(func1, TEPLATE_FUNC1)
-    register_template(func2, TEPLATE_FUNC2)
-    register_template(func3, TEPLATE_FUNC3)
-    _template, _func = get_template_and_func_for(key)
-    assert _template == template
-    assert _func == ((func.__module__ or "", func.__name__) if func else None)
-
-
-@pytest.mark.parametrize(
-    ("key", "template", "params"),
-    (
-        ("func1:test", TEPLATE_FUNC1, {"a": "test"}),
-        ("func1:", TEPLATE_FUNC1, {"a": ""}),
-        ("prefix:func1:test", TEPLATE_FUNC1, {"a": "test"}),
-        ("func2:-:user:1", TEPLATE_FUNC2, {"k": "-", "user": "1"}),
-        ("func3:2", TEPLATE_FUNC3, {"k": "2"}),
-        ("func:1", None, None),
-        ("prefix:func2:test:user:1:1", None, None),
-        ("func2:user:1", None, None),
-        ("func2:user:1", None, None),
-    ),
-)
-def test_detect_template_by_key(key, template, params):
-    register_template(func1, TEPLATE_FUNC1)
-    register_template(func2, TEPLATE_FUNC2)
-    register_template(func3, TEPLATE_FUNC3)
-
-    _template, _params = get_template_for_key(key)
-    assert _template == template
-    assert _params == params
 
 
 def test_cache_func_key_dict():
