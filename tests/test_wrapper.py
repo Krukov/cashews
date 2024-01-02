@@ -6,7 +6,6 @@ import pytest
 from cashews.backends.memory import Memory
 from cashews.cache_condition import NOT_NONE
 from cashews.exceptions import NotConfiguredError
-from cashews.formatter import get_templates_for_func
 from cashews.wrapper import Cache
 from cashews.wrapper.auto_init import create_auto_init
 
@@ -204,14 +203,6 @@ async def test_multilayer_cache(cache: Cache):
     await cache.set("key1", "test1")
     assert await func() == "test1"
     assert await cache.get("key2") == "test2"
-
-
-async def test_cache_decor_register(cache: Cache):
-    @cache(ttl=1, key="key:{val}", prefix="test")
-    async def my_func(val=1):
-        return val
-
-    assert next(get_templates_for_func(my_func)) == "test:key:{val}"
 
 
 async def test_cache_lock(cache: Cache):

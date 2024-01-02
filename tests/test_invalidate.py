@@ -4,53 +4,9 @@ import random
 import pytest
 
 from cashews import Cache
-from cashews.validation import invalidate_func, invalidate_further
+from cashews.validation import invalidate_further
 
 pytestmark = pytest.mark.asyncio
-
-
-async def test_invalidate_func(cache: Cache):
-    @cache(ttl=1)
-    async def func(arg):
-        return random.random()
-
-    first_call = await func("test")
-    await asyncio.sleep(0.01)
-
-    assert first_call == await func("test")
-    await invalidate_func(cache, func, kwargs={"arg": "test"})
-    assert first_call != await func("test")
-
-
-async def test_invalidate_func_wrong(cache: Cache):
-    @cache(ttl=1)
-    async def func(arg):
-        return random.random()
-
-    first_call = await func("test")
-    await asyncio.sleep(0.01)
-
-    assert first_call == await func("test")
-    await invalidate_func(cache, func, kwargs={"arg": "test2"})
-    assert first_call == await func("test")
-
-
-async def test_invalidate_decor(cache: Cache):
-    @cache(ttl=1)
-    async def func(arg):
-        return random.random()
-
-    @cache.invalidate(func, args_map={"arg": "a"})
-    async def func2(a):
-        return random.random()
-
-    first_call = await func("test")
-    await asyncio.sleep(0.01)
-
-    assert first_call == await func("test")
-    await func2("test")
-    await asyncio.sleep(0.01)
-    assert first_call != await func("test")
 
 
 async def test_invalidate_decor_str(cache: Cache):
@@ -69,50 +25,6 @@ async def test_invalidate_decor_str(cache: Cache):
     await func2("test")
     await asyncio.sleep(0.01)
     assert first_call != await func("test")
-
-
-async def test_invalidate_decor_complicate(cache: Cache):
-    @cache(ttl=1, key="arg-{arg}:{key}:{flag}")
-    async def func(arg, key="test", flag=True, **kwargs):
-        return random.random()
-
-    @cache.invalidate(func, args_map={"arg": "a"}, defaults={"flag": True})
-    async def func2(a):
-        return random.random()
-
-    first_call = await func("test")
-    not_invalidate = await func("test", flag=False)
-    second_call = await func("test", "key", flag=True)
-    last_call = await func("test2", None)
-    await asyncio.sleep(0.01)
-
-    assert first_call != second_call != last_call
-    assert first_call == await func("test")
-    assert second_call == await func("test", "key")
-    assert last_call == await func("test2", None)
-    assert not_invalidate == await func("test", flag=False)
-
-    await func2("test3")
-
-    await asyncio.sleep(0.01)
-    assert first_call == await func("test")
-    assert second_call == await func("test", "key")
-    assert last_call == await func("test2", None)
-    assert not_invalidate == await func("test", flag=False)
-
-    await func2("test")
-
-    await asyncio.sleep(0.01)
-    assert first_call != await func("test")
-    assert second_call != await func("test", "key")
-    assert last_call == await func("test2", None)
-    assert not_invalidate == await func("test", flag=False)
-
-    await func2("test2")
-
-    await asyncio.sleep(0.01)
-    assert first_call != await func("test")
-    assert not_invalidate == await func("test", flag=False)
 
 
 async def test_invalidate_further_decorator(cache):

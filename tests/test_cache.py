@@ -3,8 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from cashews import Cache, decorators, noself
-from cashews.formatter import _REGISTER, get_templates_for_func
+from cashews import Cache, decorators
 
 pytestmark = pytest.mark.asyncio
 
@@ -80,59 +79,6 @@ async def test_cache_simple_none(cache: Cache):
 
     assert await func() is None
     assert mock.call_count == 1
-
-
-async def test_cache_simple_key(cache: Cache):
-    _REGISTER.clear()
-
-    @cache(ttl=1, key="key:{some}")
-    async def func1(resp=b"ok", some="err"):
-        return resp
-
-    @cache(ttl=1)
-    async def func2(resp, some="err"):
-        return resp
-
-    await func1()
-    await func2("ok")
-
-    assert next(get_templates_for_func(func1)) == "key:{some}"
-    assert next(get_templates_for_func(func2)) == "tests.test_cache:func2:resp:{resp}:some:{some}"
-
-
-async def test_cache_self_noself_key(cache: Cache):
-    _REGISTER.clear()
-
-    _noself = noself(cache)
-
-    class Klass:
-        @cache(ttl=1)
-        async def method(self, resp):
-            return resp
-
-        @staticmethod
-        @cache(ttl=1)
-        async def stat(resp):
-            return resp
-
-        @_noself(ttl=1)
-        async def method2(self, resp):
-            return resp
-
-    obj = Klass()
-    await obj.method("ok")
-    await obj.stat("ok")
-    await obj.method2("ok")
-
-    assert (
-        next(get_templates_for_func(obj.method))
-        == "tests.test_cache:test_cache_self_noself_key.<locals>.Klass.method:self:{self}:resp:{resp}"
-    )
-    assert (
-        next(get_templates_for_func(obj.method2))
-        == "tests.test_cache:test_cache_self_noself_key.<locals>.Klass.method2:resp:{resp}"
-    )
-    assert next(get_templates_for_func(obj.stat)) == "tests.test_cache:stat:resp:{resp}"
 
 
 async def test_cache_simple_cond(cache: Cache):

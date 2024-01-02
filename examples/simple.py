@@ -3,7 +3,13 @@ from decimal import Decimal
 
 from cashews import Command, add_prefix, all_keys_lower, cache  # noqa: F401
 
-cache.setup("redis://0.0.0.0/2", hash_key="test", digestmod="md5", middlewares=(add_prefix("test:"), all_keys_lower()))
+cache.setup(
+    "redis://0.0.0.0/2",
+    client_name=None,
+    hash_key="test",
+    digestmod="md5",
+    middlewares=(add_prefix("test:"), all_keys_lower()),
+)
 
 
 async def basic():
