@@ -3,7 +3,7 @@ from typing import ContextManager
 from .cache_condition import NOT_NONE, only_exceptions, with_exceptions
 from .commands import Command
 from .contrib import *  # noqa
-from .decorators import context_cache_detect, fast_condition, thunder_protection
+from .decorators import CacheDetect, context_cache_detect, fast_condition, thunder_protection
 from .exceptions import CacheBackendInteractionError, CircuitBreakerOpen, LockedError, RateLimitError
 from .formatter import default_formatter, get_template_and_func_for, get_template_for_key
 from .helpers import add_prefix, all_keys_lower, memory_limit
@@ -20,7 +20,7 @@ soft = cache.soft
 hit = cache.hit
 transaction = cache.transaction
 setup = cache.setup
-cache_detect: ContextManager = cache.detect
+cache_detect: ContextManager[CacheDetect] = cache.detect
 
 circuit_breaker = cache.circuit_breaker
 dynamic = cache.dynamic

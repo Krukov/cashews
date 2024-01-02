@@ -4,7 +4,7 @@ from typing import Any, AsyncIterator, Iterable, Mapping, Optional, Set, Tuple, 
 from uuid import uuid4
 
 from cashews import LockedError
-from cashews._typing import Callback, Key, Value
+from cashews._typing import Key, OnRemoveCallback, Value
 from cashews.backends.interface import NOT_EXIST, UNLIMITED, Backend
 from cashews.backends.memory import Memory
 
@@ -53,7 +53,7 @@ class TransactionBackend(Backend):
         self._local_cache = Memory()
         self._to_delete = set()
 
-    def on_remove_callback(self, callback: Callback):
+    def on_remove_callback(self, callback: OnRemoveCallback):
         self._backend.on_remove_callback(callback)
         self._local_cache.on_remove_callback(callback)
 

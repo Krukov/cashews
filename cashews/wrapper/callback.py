@@ -1,8 +1,8 @@
 import contextlib
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Iterator
 
-from cashews._typing import AsyncCallable_T
+from cashews._typing import AsyncCallable_T, Callback, Key, ShortCallback
 from cashews.commands import PATTERN_CMDS, Command
 from cashews.key import get_call_values
 
@@ -21,18 +21,20 @@ class CallbackMiddleware:
         as_key = "pattern" if cmd in PATTERN_CMDS else "key"
         call_values = get_call_values(call, args, kwargs)
         key = call_values.get(as_key)
+        if key is None:
+            return result
         for callback in self._callbacks.values():
-            callback(cmd, key=key, result=result, backend=backend)
+            await callback(cmd, key=key, result=result, backend=backend)
         return result
 
-    def add_callback(self, callback, name):
+    def add_callback(self, callback: Callback, name: str):
         self._callbacks[name] = callback
 
-    def remove_callback(self, name):
+    def remove_callback(self, name: str):
         del self._callbacks[name]
 
     @contextlib.contextmanager
-    def callback(self, callback):
+    def callback(self, callback: Callback) -> Iterator[None]:
         name = uuid.uuid4().hex
         self.add_callback(callback, name)
         try:
@@ -44,16 +46,16 @@ class CallbackMiddleware:
 class CallbackWrapper(Wrapper):
     def __init__(self, name: str = ""):
         super().__init__(name)
-        self._callbacks = CallbackMiddleware()
-        self.add_middleware(self._callbacks)
+        self.callbacks = CallbackMiddleware()
+        self.add_middleware(self.callbacks)
 
     @contextlib.contextmanager
-    def callback(self, cmd: Command, callback):
+    def callback(self, callback: ShortCallback, cmd: Command) -> Iterator[None]:
         t_cmd = cmd
 
-        def _wrapped_callback(cmd, key, result, backend):
+        async def _wrapped_callback(cmd: Command, key: Key, result: Any, backend: "Backend") -> None:
             if cmd == t_cmd:
-                callback(key, result)
+                callback(key, result=result)
 
-        with self._callbacks.callback(_wrapped_callback):
+        with self.callbacks.callback(_wrapped_callback):
             yield

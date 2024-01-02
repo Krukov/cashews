@@ -20,6 +20,9 @@ exclude_lines =
     @(abc\.)?abstractmethod
     @overload
 
+omit =
+    cashews/_typing.py
+
 [report]
 precision = 2
 fail_under = 70

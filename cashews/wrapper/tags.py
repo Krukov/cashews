@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
 
-from cashews._typing import TTL, Callback, Key, KeyOrTemplate, Tag, Tags, Value
+from cashews._typing import TTL, Key, KeyOrTemplate, OnRemoveCallback, Tag, Tags, Value
 from cashews.backends.interface import Backend
 from cashews.exceptions import TagNotRegisteredError
 from cashews.formatter import template_to_re_pattern
@@ -69,7 +69,7 @@ class CommandsTagsWrapper(CommandWrapper):
         super()._add_backend(backend, *args, **kwargs)
         backend.on_remove_callback(self._on_remove_cb)
 
-    def _on_remove_callback(self) -> Callback:
+    def _on_remove_callback(self) -> OnRemoveCallback:
         async def _callback(keys: Iterable[Key], backend: Backend) -> None:
             for tag, _keys in self._group_by_tags(keys).items():
                 await self.tags_backend.set_remove(self._tags_key_prefix + tag, *_keys)

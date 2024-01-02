@@ -6,6 +6,7 @@ import time
 
 from fastapi import FastAPI, Header, Query
 from fastapi.responses import StreamingResponse
+from prometheus_client import make_asgi_app
 
 from cashews import cache
 from cashews.contrib.fastapi import (
@@ -14,38 +15,36 @@ from cashews.contrib.fastapi import (
     CacheRequestControlMiddleware,
     cache_control_ttl,
 )
+from cashews.contrib.prometheus import create_metrics_middleware
 
 app = FastAPI()
 app.add_middleware(CacheDeleteMiddleware)
 app.add_middleware(CacheEtagMiddleware)
 app.add_middleware(CacheRequestControlMiddleware)
-cache.setup(os.environ.get("CACHE_URI", "redis://"))
+
+metrics_middleware = create_metrics_middleware()
+cache.setup(os.environ.get("CACHE_URI", "redis://"), middlewares=(metrics_middleware,))
+cache.setup("mem://", middlewares=(metrics_middleware,), prefix="srl")
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 KB = 1024
 
 
 @app.get("/")
 @cache.failover(ttl="1h")
-@cache.slice_rate_limit(10, "3m")
-@cache(ttl=cache_control_ttl(default="4m"), key="simple:{user_agent}", time_condition="1s")
+@cache.slice_rate_limit(limit=10, period="3m", key="rate:{user_agent:hash}")
+@cache(ttl=cache_control_ttl(default="4m"), key="simple:{user_agent:hash}", time_condition="1s")
 async def simple(user_agent: str = Header("No")):
     await asyncio.sleep(1.1)
     return "".join([random.choice(string.ascii_letters) for _ in range(10)])
 
 
 @app.get("/stream")
-def stream(file_path: str = Query(__file__)):
+@cache(ttl="1m", key="stream:{file_path}")
+async def stream(file_path: str = Query(__file__)):
     return StreamingResponse(_read_file(file_path=file_path))
 
 
-def size_less(limit: int):
-    def _condition(chunk, args, kwargs, key):
-        size = os.path.getsize(kwargs["file_path"])
-        return size < limit
-
-    return _condition
-
-
-@cache.iterator("2h", key="file:{file_path:hash}", condition=size_less(100 * KB))
 async def _read_file(*, file_path, chunk_size=10 * KB):
     loop = asyncio.get_running_loop()
     with open(file_path, encoding="latin1") as file_obj:

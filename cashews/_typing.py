@@ -52,7 +52,7 @@ class Middleware(Protocol):
         ...
 
 
-class Callback(Protocol):
+class OnRemoveCallback(Protocol):
     async def __call__(
         self,
         keys: Iterable[Key],
@@ -61,11 +61,23 @@ class Callback(Protocol):
         ...
 
 
+class Callback(Protocol):
+    async def __call__(self, cmd: Command, key: Key, result: Any, backend: Backend) -> None:
+        pass
+
+
+class ShortCallback(Protocol):
+    def __call__(self, key: Key, result: Any) -> None:
+        pass
+
+
 class ICustomEncoder(Protocol):
-    async def __call__(self, value: Value, backend, key: Key, expire: float | None) -> bytes:  # pragma: no cover
+    async def __call__(
+        self, value: Value, backend: Backend, key: Key, expire: float | None
+    ) -> bytes:  # pragma: no cover
         ...
 
 
 class ICustomDecoder(Protocol):
-    async def __call__(self, value: bytes, backend, key: Key) -> Value:  # pragma: no cover
+    async def __call__(self, value: bytes, backend: Backend, key: Key) -> Value:  # pragma: no cover
         ...
