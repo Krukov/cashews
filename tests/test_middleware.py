@@ -33,7 +33,7 @@ async def test_memory_limit(cache: Cache, target):
     await cache.set(key="key", value="v")
     target.set.assert_not_called()
 
-    await cache.set(key="key", value="v" * 31)
+    await cache.set(key="key", value="v" * 35)
     target.set.assert_not_called()
 
     await cache.set(key="key", value="v" * 15)
