@@ -95,7 +95,10 @@ class CommandsTagsWrapper(CommandWrapper):
             keys = await self.set_pop(key=self._tags_key_prefix + tag, count=100)
             if not keys:
                 break
+            keys = list(keys)
             await self.delete_many(*keys)
+            if len(keys) != 100:
+                break
 
     async def set(
         self,

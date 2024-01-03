@@ -107,26 +107,28 @@ async def _backend(request, redis_dsn, backend_factory):
         backend = backend_factory(Memory, check_interval=0.01)
     try:
         await backend.init()
-        yield backend
+        yield backend, request.param
     finally:
         await backend.close()
 
 
 @pytest_asyncio.fixture()
 async def backend(raw_backend):
-    await raw_backend.clear()
-    yield raw_backend
+    _backend, _ = raw_backend
+    await _backend.clear()
+    yield _backend
 
 
-@pytest.fixture(scope="session")
-def target(raw_backend):
-    return Mock(wraps=raw_backend, is_full_disable=False, name=str(raw_backend))
+@pytest.fixture(scope="session", name="target")
+def _target(raw_backend):
+    backend, _ = raw_backend
+    return Mock(wraps=backend, is_full_disable=False)
 
 
 @pytest_asyncio.fixture()
-async def cache(target: Mock):
+async def cache(target: Mock, raw_backend):
     await target.clear()
     target.reset_mock()
-    cache = Cache()
+    cache = Cache(name=raw_backend[1])
     cache._add_backend(target)
     return cache

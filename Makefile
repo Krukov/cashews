@@ -4,7 +4,7 @@ clean:
 
 upload: clean
 	python setup.py sdist bdist_wheel
-	twine upload -u krukov dist/*
+	twine upload dist/*
 
 LENGTH=120
 

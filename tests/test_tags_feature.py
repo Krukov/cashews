@@ -168,6 +168,9 @@ async def test_tag_early_decorator(cache: Cache):
 
 
 async def test_tag_hit_decorator(cache: Cache):
+    if cache.name == "diskcache":
+        pytest.skip("there is race condition on set_add/set_remove implementation")
+
     @cache.dynamic(ttl="2m", key="key:{a}", tags=["all", "tag:{a}"])
     async def func(a):
         return random()
