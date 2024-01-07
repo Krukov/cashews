@@ -5,7 +5,8 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Container, Dict, Iterable, Tuple
 
 from .exceptions import WrongKeyError
-from .formatter import _ReplaceFormatter, default_formatter, template_to_pattern
+from .formatter import _ReplaceFormatter, default_format
+from .key_context import get as get_key_context
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._typing import Key, KeyOrTemplate, KeyTemplate
@@ -36,7 +37,7 @@ def get_cache_key(
     kwargs = kwargs or {}
     key_values = _get_call_values(func, args, kwargs)
     _key_template = template or get_cache_key_template(func)
-    return template_to_pattern(_key_template, _formatter=default_formatter, **key_values)
+    return default_format(_key_template, **key_values)
 
 
 def get_func_params(func: Callable) -> Iterable[str]:
@@ -115,7 +116,7 @@ def _check_key_params(key: KeyOrTemplate, func_params: Iterable[str]):
         return "*"
 
     check = _ReplaceFormatter(default=_default)
-    check.format(key, **func_params)
+    check.format(key, **{**get_key_context(), **func_params})
     if errors:
         raise WrongKeyError(f"Wrong parameter placeholder '{errors}' in the key ")
 
