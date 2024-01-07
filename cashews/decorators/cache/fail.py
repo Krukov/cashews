@@ -51,13 +51,13 @@ def failover(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             try:
                 result = await func(*args, **kwargs)
             except exceptions as exc:
                 cached = await backend.get(_cache_key, default=_empty)
                 if cached is not _empty:
+                    _ttl = ttl_to_seconds(ttl, *args, **kwargs, result=cached, with_callable=True)
                     context_cache_detect._set(
                         _cache_key,
                         ttl=_ttl,
@@ -69,6 +69,7 @@ def failover(
                 raise exc
             else:
                 if condition(result, args, kwargs, key=_cache_key):
+                    _ttl = ttl_to_seconds(ttl, *args, **kwargs, result=result, with_callable=True)
                     await backend.set(_cache_key, result, expire=_ttl)
                 return result
 

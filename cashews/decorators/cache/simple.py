@@ -49,7 +49,8 @@ def cache(
 
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
-                context_cache_detect._set(_cache_key, ttl=ttl, name="simple", template=_key_template)
+                _ttl = ttl_to_seconds(ttl, *args, **kwargs, result=cached, with_callable=True)
+                context_cache_detect._set(_cache_key, ttl=_ttl, name="simple", template=_key_template)
                 return return_or_raise(cached)
             _exc = None
             try:

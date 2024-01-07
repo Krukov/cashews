@@ -58,9 +58,11 @@ def hit(
                 backend.incr(_cache_key + ":counter", expire=ttl, tags=_tags),
             )
             if cached is not _empty and hits and hits <= cache_hits:
+                _ttl = ttl_to_seconds(ttl, *args, **kwargs, result=cached, with_callable=True)
+
                 context_cache_detect._set(
                     _cache_key,
-                    ttl=ttl,
+                    ttl=_ttl,
                     cache_hits=cache_hits,
                     name="hit",
                     template=_key_template,
