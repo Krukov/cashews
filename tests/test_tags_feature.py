@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from cashews import Cache
+from cashews import Cache, key_context
 
 pytestmark = pytest.mark.asyncio
 
@@ -13,10 +13,18 @@ pytestmark = pytest.mark.asyncio
 def test_register_tags(cache: Cache):
     cache.register_tag("tag", "key")
     cache.register_tag("tag_template", "key{i}")
-    cache.register_tag("tag_test:{i}", "key{i}:test")
+    cache.register_tag("tag_test:{i}", "key{i:len}:test")
+    cache.register_tag("tag_func:{i:hash}", "key{i}:test")
+    cache.register_tag("tag_context:{val}", "key{i}:test")
     cache.register_tag("!@#$%^&*():{i}", "!@#$%^&*(){i}:test")
 
-    assert cache.get_key_tags("key1:test") == ["tag_template", "tag_test:1"]
+    with key_context(val=10):
+        assert cache.get_key_tags("key1:test") == [
+            "tag_template",
+            "tag_test:1",
+            "tag_func:c4ca4238a0b923820dcc509a6f75849b",
+            "tag_context:10",
+        ]
     assert cache.get_key_tags("keyanytest") == ["tag_template"]
     assert cache.get_key_tags("keytest") == ["tag_template"]
     assert cache.get_key_tags("key") == ["tag", "tag_template"]

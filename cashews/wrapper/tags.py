@@ -4,7 +4,7 @@ from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
 from cashews._typing import TTL, Key, KeyOrTemplate, OnRemoveCallback, Tag, Tags, Value
 from cashews.backends.interface import Backend
 from cashews.exceptions import TagNotRegisteredError
-from cashews.formatter import default_formatter, template_to_pattern, template_to_re_pattern
+from cashews.formatter import default_format, template_to_re_pattern
 
 from .commands import CommandWrapper
 
@@ -24,7 +24,7 @@ class TagsRegistry:
             match = self._match_patterns(key, patterns)
             if match:
                 group_dict = {k: v if v is not None else "" for k, v in match.groupdict().items()}
-                tag = template_to_pattern(tag, _formatter=default_formatter, **group_dict)
+                tag = default_format(tag, **group_dict)
                 tags.append(tag)
         return tags
 

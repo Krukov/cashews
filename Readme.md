@@ -515,7 +515,7 @@ async def get():
 
 ### Template Keys
 
-Often, to compose a key, you need all the parameters of the function call.
+Often, to compose a cache key, you need all the parameters of the function call.
 By default, Cashews will generate a key using the function name, module names and parameters
 
 ```python
@@ -537,7 +537,99 @@ await get_name("me", "opt", "attr", opt="opt", attr="attr")
 # a key will be "__module__.get_name:user:me:opt:attr:version:v1:attr:attr:opt:opt"
 ```
 
-The same with a class method
+For more advanced usage it better to define a cache key manually:
+
+```python
+from cashews import cache
+
+cache.setup("mem://")
+
+@cache(ttl="2h", key="user_info:{user_id}")
+async def get_info(user_id: str):
+    ...
+
+```
+
+You may use objects in a key and access to an attribute through a template:
+
+```python
+
+@cache(ttl="2h", key="user_info:{user.uuid}")
+async def get_info(user: User):
+    ...
+
+```
+
+You may use built-in functions to format template values (`lower`, `upper`, `len`, `jwt`, `hash`)
+
+```python
+
+@cache(ttl="2h", key="user_info:{user.name:lower}:{password:hash(sha1)}")
+async def get_info(user: User, password: str):
+    ...
+
+
+@cache(ttl="2h", key="user:{token:jwt(client_id)}")
+async def get_user_by_token(token: str) -> User:
+    ...
+
+```
+
+Or define your own transformation functions:
+
+```python
+from cashews import default_formatter, cache
+
+cache.setup("mem://")
+
+@default_formatter.register("prefix")
+def _prefix(value, chars=3):
+    return value[:chars].upper()
+
+
+@cache(ttl="2h", key="servers-user:{user.index:prefix(4)}")  # a key will be "servers-user:DWQS"
+async def get_user_servers(user):
+    ...
+
+```
+
+or register type formatters:
+
+```python
+from decimal import Decimal
+from cashews import default_formatter, cache
+
+@default_formatter.type_format(Decimal)
+def _decimal(value: Decimal) -> str:
+    return str(value.quantize(Decimal("0.00")))
+
+
+@cache(ttl="2h", key="price-{item.price}:{item.currency:upper}")  # a key will be "price-10.00:USD"
+async def convert_price(item):
+    ...
+
+```
+
+Not only function arguments can participate in a key formation. Cashews have a `template_context`. You may use any variable registered in it:
+
+```python
+from cashews import cache, key_context, register_key_context
+
+cache.setup("mem://")
+register_key_context("client_id")
+
+
+@cache(ttl="2h", key="user:{client_id}")
+async def get_current_user():
+  pass
+
+...
+with key_context(client_id=135356):
+    await get_current_user()
+
+```
+
+#### Template for a class method
 
 ```python
 from cashews import cache
@@ -609,46 +701,6 @@ class MyClass:
 
 await MyClass().get_name("me", version="v2")
 # a key will be "__module__:MyClass.get_name:user:me:version:v1"
-```
-
-Sometimes you may need to format the parameters or define your
-own template for the key and Cashews allows you to do this:
-
-```python
-from cashews import default_formatter, cache
-
-cache.setup("mem://")
-
-@cache.failover(key="name:{user.uid}")
-async def get_name(user, version="v1"):
-    ...
-
-await get_name(user, version="v2")
-# a key will be "fail:name:me"
-
-@cache.hit(key="user:{token:jwt(user_name)}", prefix="new")
-async def get_name(token):
-    ...
-
-await get_name(".....")
-# a key will be "new:user:alex"
-
-
-@default_formatter.register("upper")
-def _upper(value):
-    return value.upper()
-
-@default_formatter.type_format(Decimal)
-def _decimal(value: Decimal) -> str:
-    return value.quantize(Decimal("0.00"))
-
-
-@cache(key="price-{item.price}:{item.currency:upper}")
-async def get_price(item):
-    ...
-
-await get_name(item)
-# a key will be "price-10.00:USD"
 ```
 
 ### TTL
@@ -742,7 +794,7 @@ async def items(page=1):
 ```
 
 Cashews provide the tag system: you can tag cache keys, so they will be stored in a separate [SET](https://redis.io/docs/data-types/sets/)
-to avoid high load on redis storage. To use the tags in a more efficient way please use it with the client side feature
+to avoid high load on redis storage. To use the tags in a more efficient way please use it with the client side feature.
 
 ```python
 from cashews import cache

@@ -2,7 +2,7 @@ import asyncio
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
 from ._typing import AsyncCallable_T
 from .backends.interface import _BackendInterface
@@ -41,7 +41,7 @@ _INVALIDATE_FURTHER = ContextVar("invalidate", default=False)
 
 
 @contextmanager
-def invalidate_further():
+def invalidate_further() -> Iterator[None]:
     _INVALIDATE_FURTHER.set(True)
     try:
         yield

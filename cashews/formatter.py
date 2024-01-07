@@ -5,6 +5,7 @@ from hashlib import md5, sha1, sha256
 from string import Formatter
 from typing import Any, Callable, Dict, Iterable, Pattern, Tuple
 
+from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
 
 TemplateValue = str
@@ -156,8 +157,10 @@ def _upper(value: TemplateValue) -> TemplateValue:
     return value.upper()
 
 
-def template_to_pattern(template: KeyTemplate, _formatter=_ReplaceFormatter(), **values) -> KeyOrTemplate:
-    return _formatter.format(template, **values)
+def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
+    _template_context = key_context.get()
+    _template_context.update(values)
+    return default_formatter.format(template, **_template_context)
 
 
 def _re_default(field_name):

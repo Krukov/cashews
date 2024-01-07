@@ -14,7 +14,7 @@ from starlette.types import ASGIApp
 from cashews import Cache, Command, cache, invalidate_further
 from cashews._typing import TTL
 
-_CACHE_MAX_AGE: ContextVar[int] = ContextVar("cache_control_max_age")
+_cache_max_age: ContextVar[int] = ContextVar("cache_control_max_age")
 
 _CACHE_CONTROL_HEADER = "Cache-Control"
 _AGE_HEADER = "Age"
@@ -35,7 +35,7 @@ __all__ = ["cache_control_ttl", "CacheRequestControlMiddleware", "CacheEtagMiddl
 
 def cache_control_ttl(default: TTL):
     def _ttl(*args, **kwargs):
-        return _CACHE_MAX_AGE.get(default)
+        return _cache_max_age.get(default)
 
     return _ttl
 
@@ -78,12 +78,12 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
         _max_age = self._get_max_age(cache_control_value)
         reset_token = None
         if _max_age:
-            reset_token = _CACHE_MAX_AGE.set(_max_age)
+            reset_token = _cache_max_age.set(_max_age)
         try:
             yield
         finally:
             if reset_token:
-                _CACHE_MAX_AGE.reset(reset_token)
+                _cache_max_age.reset(reset_token)
 
     def _to_disable(self, cache_control_value: str | None) -> tuple[Command, ...]:
         if cache_control_value == _NO_CACHE:
