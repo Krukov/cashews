@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, Iterable, Pattern, Tuple
 from ._typing import KeyOrTemplate, KeyTemplate
 
 TemplateValue = str
+_re_special_chars_map = {i: "\\" + chr(i) for i in b"()[]?*+-|^$\\.&~# \t\n\r\v\f"}
 
 
 def _decode_bytes(value: bytes):
@@ -159,18 +160,13 @@ def template_to_pattern(template: KeyTemplate, _formatter=_ReplaceFormatter(), *
     return _formatter.format(template, **values)
 
 
-def _re_legacy(field_name):
-    return f"(?P<{field_name.replace('.', '_')}>[^:]*)"
-
-
 def _re_default(field_name):
     return f"(?P<{field_name.replace('.', '_')}>.+)?"
 
 
 _re_formatter = _ReplaceFormatter(default=_re_default)
-FuncRegKey = Tuple[str, str]
 
 
 def template_to_re_pattern(template: KeyTemplate) -> Pattern:
-    pattern = _re_formatter.format(template)
+    pattern = _re_formatter.format(template.translate(_re_special_chars_map))
     return re.compile("^" + pattern + "$", flags=re.MULTILINE)

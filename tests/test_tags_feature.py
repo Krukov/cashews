@@ -14,6 +14,7 @@ def test_register_tags(cache: Cache):
     cache.register_tag("tag", "key")
     cache.register_tag("tag_template", "key{i}")
     cache.register_tag("tag_test:{i}", "key{i}:test")
+    cache.register_tag("!@#$%^&*():{i}", "!@#$%^&*(){i}:test")
 
     assert cache.get_key_tags("key1:test") == ["tag_template", "tag_test:1"]
     assert cache.get_key_tags("keyanytest") == ["tag_template"]
@@ -22,6 +23,7 @@ def test_register_tags(cache: Cache):
     assert cache.get_key_tags("k") == []
     assert cache.get_key_tags("prefixkey") == []
     assert cache.get_key_tags(":key") == []
+    assert cache.get_key_tags("!@#$%^&*()$:test") == ["!@#$%^&*():$"]
 
 
 async def test_tags_no_delete(cache: Cache):

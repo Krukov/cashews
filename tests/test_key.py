@@ -27,11 +27,6 @@ class Klass:
         return a
 
 
-TEPLATE_FUNC1 = "func1:{a}"
-TEPLATE_FUNC2 = "func2:{k}:user:{user}"
-TEPLATE_FUNC3 = "func3:{k:len}"
-
-
 @default_formatter.type_format(Klass)
 def _some(value: Klass):
     return "hoho"
@@ -62,6 +57,12 @@ def test_cache_func_key_dict():
             {"kwarg1": "k1", "kwarg3": True},
             "{arg1}:{kwarg1}-{kwarg3}",
             "A1:k1-true",
+        ),
+        (
+            (),
+            {"kwarg1": "!@#$%^&*()"},
+            "!@#$%^&*():{kwarg1}",
+            "!@#$%^&*():!@#$%^&*()",
         ),
         (
             ("A1", "a2", "a3"),
