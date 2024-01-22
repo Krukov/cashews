@@ -13,6 +13,7 @@ from starlette.types import ASGIApp
 
 from cashews import Cache, Command, cache, invalidate_further
 from cashews._typing import TTL
+from cashews.picklers import DEFAULT_PICKLER
 
 _cache_max_age: ContextVar[int] = ContextVar("cache_control_max_age")
 
@@ -25,7 +26,6 @@ _CLEAR_CACHE_HEADER = "Clear-Site-Data"
 _NO_CACHE = "no-cache"  # disable GET
 _NO_STORE = "no-store"  # disable GET AND SET
 _MAX_AGE = "max-age="
-_ONLY_IF_CACHED = "only-if-cached"
 _PRIVATE = "private"
 _PUBLIC = "public"
 
@@ -140,6 +140,11 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
     async def _get_etag(self, key: str) -> str:
         data = await self._cache.get_raw(key)
         expire = await self._cache.get_expire(key)
+        if not isinstance(data, bytes):
+            if isinstance(data, Response):
+                data = data.body
+            else:
+                data = DEFAULT_PICKLER.dumps(data)
         etag = blake2s(data).hexdigest()
         await self._cache.set(etag, True, expire=expire)
         return etag
