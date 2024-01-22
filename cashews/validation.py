@@ -1,4 +1,3 @@
-import asyncio
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
@@ -7,12 +6,13 @@ from typing import Any, Dict, Iterator, Optional
 from ._typing import AsyncCallable_T
 from .backends.interface import _BackendInterface
 from .commands import RETRIEVE_CMDS, Command
+from .formatter import default_format
 from .key import get_call_values
 
 
 def invalidate(
     backend: _BackendInterface,
-    target: str,
+    key_template: str,
     args_map: Optional[Dict[str, str]] = None,
     defaults: Optional[Dict[str, Any]] = None,
 ):
@@ -28,8 +28,8 @@ def invalidate(
             for source, dest in args_map.items():
                 if dest in _args:
                     _args[source] = _args.pop(dest)
-            key = target.format(**{k: str(v) if v is not None else "" for k, v in _args.items()})
-            asyncio.create_task(backend.delete_match(key))
+            key = default_format(key_template, **_args)
+            await backend.delete_match(key)
             return result
 
         return _wrap
