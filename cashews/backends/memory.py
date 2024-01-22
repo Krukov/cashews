@@ -262,10 +262,14 @@ class _Memory(Backend):
         return len(self.store)
 
     async def close(self):
-        self.__remove_expired_stop.set()
         if self.__remove_expired_task:
+            self.__remove_expired_stop.set()
             await self.__remove_expired_task
+            del self.__remove_expired_task
             self.__remove_expired_task = None
+        if self.__remove_expired_stop:
+            del self.__remove_expired_stop
+            self.__remove_expired_stop = None
         self.__is_init = False
 
 

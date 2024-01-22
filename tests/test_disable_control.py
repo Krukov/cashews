@@ -53,6 +53,8 @@ async def test_is_disable():
     assert not cache.is_enable(Command.GET)
     assert not cache.is_enable(Command.SET)
 
+    await cache.close()
+
 
 async def test_disable_context_manager(cache):
     with cache.disabling(Command.INCR):

@@ -36,6 +36,7 @@ async def test_init():
 
     cache.setup("mem://localhost")
     assert not cache.is_init
+    await cache.close()
 
 
 async def test_auto_init(cache):
@@ -248,6 +249,8 @@ async def test_time_condition(decorator):
     await _cache.clear()
     await my_func()
     assert m.call_count == 1
+
+    await _cache.close()
 
 
 async def test_cache_simple_not_none(cache: Cache):
