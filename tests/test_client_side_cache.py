@@ -82,6 +82,9 @@ async def test_del_bcast(create_cache):
     await asyncio.sleep(0.05)  # skip init signal about invalidation
     assert await caches.get("key") is None
 
+    await caches.close()
+    await cachef.close()
+
 
 async def test_rewrite_bcast(create_cache):
     cachef_local = Memory()
@@ -173,6 +176,11 @@ async def test_unsafe_redis_down():
     with pytest.raises(asyncio.TimeoutError):
         await cache.init()
 
+    try:
+        await cache.close()
+    except asyncio.CancelledError:
+        pass
+
 
 async def test_set_get_mem_overload(create_cache):
     cache = await create_cache(Memory(size=1))
@@ -183,6 +191,8 @@ async def test_set_get_mem_overload(create_cache):
 
     assert await cache.get("key1", "test2")
     assert await cache.set("key2", "test")
+
+    await cache.close()
 
 
 async def test_set_tag_get(create_cache):
@@ -196,3 +206,5 @@ async def test_set_tag_get(create_cache):
     assert await cache.set_pop("_tag:tag", count=1)
     await asyncio.sleep(0.11)
     assert not await cache.set_pop("_tag:tag", count=1)
+
+    await cache.close()
