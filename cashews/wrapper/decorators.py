@@ -267,13 +267,13 @@ class DecoratorsWrapper(Wrapper):
 
     def invalidate(
         self,
-        func,
+        key_template: KeyOrTemplate,
         args_map: dict[str, str] | None = None,
         defaults: dict | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return validation.invalidate(
             backend=self,  # type: ignore[arg-type]
-            target=func,
+            key_template=key_template,
             args_map=args_map,
             defaults=defaults,
         )
