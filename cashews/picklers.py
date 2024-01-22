@@ -85,3 +85,6 @@ def get_pickler(name: str):
         raise UnsupportedPicklerError()
 
     return _picklers[name]
+
+
+DEFAULT_PICKLER = get_pickler(DEFAULT_PICKLE)
