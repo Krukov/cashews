@@ -51,7 +51,13 @@ class Wrapper:
             call = partial(middleware, call, cmd, backend)
         return call
 
-    def setup(self, settings_url: str, middlewares: tuple = (), prefix: str = default_prefix, **kwargs) -> Backend:
+    def setup(
+        self,
+        settings_url: str,
+        middlewares: tuple = (),
+        prefix: str = default_prefix,
+        **kwargs,
+    ) -> Backend:
         backend_class, params = settings_url_parse(settings_url)
         params.update(kwargs)
 
@@ -76,7 +82,7 @@ class Wrapper:
     def _add_backend(self, backend: Backend, middlewares=(), prefix: str = default_prefix) -> None:
         self._backends[prefix] = (
             backend,
-            tuple(self._default_middlewares) + middlewares,
+            middlewares + tuple(self._default_middlewares),
         )
 
     async def init(self, *args, **kwargs) -> None:

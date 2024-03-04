@@ -9,7 +9,7 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 def _middleware():
     from cashews.contrib.prometheus import create_metrics_middleware
 
-    return create_metrics_middleware()
+    return create_metrics_middleware(with_tag=True)
 
 
 async def test_smoke(middleware):
