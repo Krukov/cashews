@@ -98,7 +98,12 @@ async def _backend(request, redis_dsn, backend_factory):
         from cashews.backends.redis.client_side import BcastClientSide
 
         backend = backend_factory(
-            BcastClientSide, redis_dsn, hash_key=None, max_connections=5, suppress=False, socket_timeout=10
+            BcastClientSide,
+            redis_dsn,
+            hash_key=None,
+            max_connections=5,
+            suppress=False,
+            socket_timeout=10,
         )
         backend._expire_for_recently_update = 0.1
     elif request.param == "transactional":

@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from random import random
 
 import pytest
@@ -26,7 +26,7 @@ def _cache(request, redis_dsn):
     elif request.param == "redis_cs":
         dsn = redis_dsn + "&client_side=t"
     cache = Cache()
-    cache.setup(dsn)
+    cache.setup(dsn, suppress=False)
     return cache
 
 
@@ -34,7 +34,12 @@ def _cache(request, redis_dsn):
 def _app(cache):
     from fastapi import FastAPI, Header
 
-    app = FastAPI()
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        await cache.close()
+
+    app = FastAPI(lifespan=lifespan)
 
     @app.get("/")
     @cache.early(ttl="1s", key="root:{q}")
