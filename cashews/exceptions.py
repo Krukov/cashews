@@ -18,8 +18,7 @@ class UnSecureDataError(CacheError):
     """Unsecure data in cache storage"""
 
 
-class SignIsMissingError(CacheError):
-    ...
+class SignIsMissingError(CacheError): ...
 
 
 class WrongKeyError(CacheError):

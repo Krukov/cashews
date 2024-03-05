@@ -30,7 +30,6 @@ locked = cache.locked
 
 invalidate = cache.invalidate
 
-
 mem = Cache(name="mem")
 mem.setup(
     "mem://?check_interval=1",
@@ -59,6 +58,7 @@ __all__ = [
     "only_exceptions",
     "with_exceptions",
     "Command",
+    "CacheDetect",
     "context_cache_detect",
     "fast_condition",
     "thunder_protection",

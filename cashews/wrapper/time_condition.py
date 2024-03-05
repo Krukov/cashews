@@ -11,7 +11,9 @@ if TYPE_CHECKING:  # pragma: no cover
 _spent = ContextVar("spent", default=0.0)
 
 
-def create_time_condition(limit: float) -> tuple[CallableCacheCondition, Callable[[DecoratedFunc], DecoratedFunc]]:
+def create_time_condition(
+    limit: float,
+) -> tuple[CallableCacheCondition, Callable[[DecoratedFunc], DecoratedFunc]]:
     def decorator(func: DecoratedFunc) -> DecoratedFunc:
         @wraps(func)
         async def _wrapper(*args, **kwargs):

@@ -22,7 +22,7 @@ app.add_middleware(CacheDeleteMiddleware)
 app.add_middleware(CacheEtagMiddleware)
 app.add_middleware(CacheRequestControlMiddleware)
 
-metrics_middleware = create_metrics_middleware()
+metrics_middleware = create_metrics_middleware(with_tag=True)
 cache.setup(os.environ.get("CACHE_URI", "redis://"), middlewares=(metrics_middleware,))
 cache.setup("mem://", middlewares=(metrics_middleware,), prefix="srl")
 metrics_app = make_asgi_app()
@@ -33,7 +33,12 @@ KB = 1024
 @app.get("/")
 @cache.failover(ttl="1h")
 @cache.slice_rate_limit(limit=10, period="3m", key="rate:{user_agent:hash}")
-@cache(ttl=cache_control_ttl(default="4m"), key="simple:{user_agent:hash}", time_condition="1s")
+@cache(
+    ttl=cache_control_ttl(default="4m"),
+    key="simple:{user_agent:hash}",
+    time_condition="1s",
+    tags=("simple",),
+)
 async def simple(user_agent: str = Header("No")):
     await asyncio.sleep(1.1)
     return "".join([random.choice(string.ascii_letters) for _ in range(10)])
@@ -53,6 +58,12 @@ async def _read_file(*, file_path, chunk_size=10 * KB):
             if not chunk:
                 return
             yield chunk
+
+
+@app.get("/early")
+@cache.early(ttl="5m", early_ttl="1m", key="simple:{user_agent:hash}")
+async def early(user_agent: str = Header("No")):
+    return "".join([random.choice(string.ascii_letters) for _ in range(10)])
 
 
 @app.middleware("http")

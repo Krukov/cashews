@@ -30,7 +30,12 @@ _PRIVATE = "private"
 _PUBLIC = "public"
 
 _CLEAR_CACHE_HEADER_VALUE = "cache"
-__all__ = ["cache_control_ttl", "CacheRequestControlMiddleware", "CacheEtagMiddleware", "CacheDeleteMiddleware"]
+__all__ = [
+    "cache_control_ttl",
+    "CacheRequestControlMiddleware",
+    "CacheEtagMiddleware",
+    "CacheDeleteMiddleware",
+]
 
 
 def cache_control_ttl(default: TTL):
@@ -41,7 +46,13 @@ def cache_control_ttl(default: TTL):
 
 
 class CacheRequestControlMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, cache_instance: Cache = cache, methods: Sequence[str] = ("get",), private=True):
+    def __init__(
+        self,
+        app: ASGIApp,
+        cache_instance: Cache = cache,
+        methods: Sequence[str] = ("get",),
+        private=True,
+    ):
         self._private = private
         self._cache = cache_instance
         self._methods = methods
@@ -62,9 +73,9 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
                 key, _ = calls[0]
                 expire = await self._cache.get_expire(key)
                 if expire > 0:
-                    response.headers[
-                        _CACHE_CONTROL_HEADER
-                    ] = f"{_PRIVATE if self._private else _PUBLIC}, {_MAX_AGE}{expire}"
+                    response.headers[_CACHE_CONTROL_HEADER] = (
+                        f"{_PRIVATE if self._private else _PUBLIC}, {_MAX_AGE}{expire}"
+                    )
                     response.headers[_AGE_HEADER] = f"{expire}"
             else:
                 response.headers[_CACHE_CONTROL_HEADER] = _NO_CACHE
@@ -130,11 +141,15 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
             calls = detector.calls_list
             if not calls:
                 if set_key:
-                    response.headers[_ETAG_HEADER] = await self._get_etag(set_key)
+                    etag = await self._get_etag(set_key)
+                    if etag:
+                        response.headers[_ETAG_HEADER] = etag
                 return response
 
             key, _ = calls[0]
-            response.headers[_ETAG_HEADER] = await self._get_etag(key)
+            etag = await self._get_etag(key)
+            if etag:
+                response.headers[_ETAG_HEADER] = etag
         return response
 
     async def _get_etag(self, key: str) -> str:

@@ -70,7 +70,10 @@ class SerializerMixin:
         values = []
         for key, value in zip(keys, encoded_values):
             deserialized_value = await self._serializer.decode(
-                self, key, value, default=default  # type: ignore[arg-type]
+                backend=self,  # type: ignore[arg-type]
+                key=key,
+                value=value,
+                default=default,
             )
             values.append(deserialized_value)
         return tuple(values)

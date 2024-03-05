@@ -200,7 +200,12 @@ class TransactionBackend(Backend):
         return await self._backend.incr_bits(key, *indexes, size=size, by=by)
 
     async def slice_incr(
-        self, key: Key, start: Union[int, float], end: Union[int, float], maxvalue: int, expire: Optional[float] = None
+        self,
+        key: Key,
+        start: Union[int, float],
+        end: Union[int, float],
+        maxvalue: int,
+        expire: Optional[float] = None,
     ) -> int:
         return await self._backend.slice_incr(key, start, end, maxvalue, expire)
 

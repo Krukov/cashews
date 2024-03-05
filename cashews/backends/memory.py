@@ -26,7 +26,14 @@ class _Memory(Backend):
     Inmemory backend lru with ttl
     """
 
-    __slots__ = ["store", "_check_interval", "size", "__is_init", "__remove_expired_stop", "__remove_expired_task"]
+    __slots__ = [
+        "store",
+        "_check_interval",
+        "size",
+        "__is_init",
+        "__remove_expired_stop",
+        "__remove_expired_task",
+    ]
 
     def __init__(self, size: int = 1000, check_interval: float = 1, **kwargs):
         self.store: OrderedDict = OrderedDict()
@@ -65,7 +72,7 @@ class _Memory(Backend):
         exist: bool | None = None,
     ) -> bool:
         if exist is not None:
-            if not (key in self.store) is exist:
+            if (key in self.store) is not exist:
                 return False
         self._set(key, value, expire)
         return True
@@ -182,12 +189,10 @@ class _Memory(Backend):
             self.store.popitem(last=False)
 
     @overload
-    async def _get(self, key: Key, default: Default) -> Value | Default:
-        ...
+    async def _get(self, key: Key, default: Default) -> Value | Default: ...
 
     @overload
-    async def _get(self, key: Key, default: None = None) -> Value | None:
-        ...
+    async def _get(self, key: Key, default: None = None) -> Value | None: ...
 
     async def _get(self, key: Key, default: Default | None = None) -> Value | None:
         if key not in self.store:
@@ -221,7 +226,12 @@ class _Memory(Backend):
         return 0
 
     async def slice_incr(
-        self, key: Key, start: int | float, end: int | float, maxvalue: int, expire: float | None = None
+        self,
+        key: Key,
+        start: int | float,
+        end: int | float,
+        maxvalue: int,
+        expire: float | None = None,
     ) -> int:
         val_list = await self._get(key)
         count = 0

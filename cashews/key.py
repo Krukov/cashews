@@ -53,7 +53,10 @@ def get_func_params(func: Callable) -> Iterable[str]:
 
 @lru_cache(maxsize=10000)
 def get_cache_key_template(
-    func: Callable, key: KeyOrTemplate | None = None, prefix: str = "", exclude_parameters: Container = ()
+    func: Callable,
+    key: KeyOrTemplate | None = None,
+    prefix: str = "",
+    exclude_parameters: Container = (),
 ) -> KeyOrTemplate:
     """
     Get cache key name for function (:param func) called with args and kwargs

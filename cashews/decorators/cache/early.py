@@ -63,7 +63,17 @@ def early(
             _cache_key = get_cache_key(func, _key_template, args, kwargs)
             _tags = [get_cache_key(func, tag, args, kwargs) for tag in tags]
 
-            args_to_call = [backend, func, args, kwargs, _cache_key, _ttl, _early_ttl, condition, _tags]
+            args_to_call = [
+                backend,
+                func,
+                args,
+                kwargs,
+                _cache_key,
+                _ttl,
+                _early_ttl,
+                condition,
+                _tags,
+            ]
             cached = await backend.get(_cache_key, default=_empty)
             if cached is _empty:
                 return await _get_result_for_early(*args_to_call)
@@ -95,7 +105,16 @@ def early(
 
 
 async def _get_result_for_early(
-    backend: Cache, func, args, kwargs, key, ttl: int, early_ttl: int, condition, tags, unlock=False
+    backend: Cache,
+    func,
+    args,
+    kwargs,
+    key,
+    ttl: int,
+    early_ttl: int,
+    condition,
+    tags,
+    unlock=False,
 ):
     try:
         _exc = None

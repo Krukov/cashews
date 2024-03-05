@@ -43,9 +43,10 @@ async def _cache(request, redis_dsn):
         redis = Redis(redis_dsn, hash_key="test", safe=False, digestmod=digestmod)
         await redis.init()
         await redis.clear()
-        return redis
-
-    return Memory(hash_key=b"test", digestmod=digestmod, pickle_type=pickle_type)
+        yield redis
+        await redis.close()
+    else:
+        yield Memory(hash_key=b"test", digestmod=digestmod, pickle_type=pickle_type)
 
 
 @pytest.mark.parametrize(
