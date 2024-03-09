@@ -176,7 +176,7 @@ class Serializer:
     def register_type(cls, klass: type, encoder, decoder):
         cls._type_mapping[bytes(klass.__name__, "utf8")] = (encoder, decoder)
 
-    async def encode(self, backend: "Backend", key: Key, value: Value, expire: float | None) -> bytes:  # on SET
+    async def encode(self, backend: Backend, key: Key, value: Value, expire: float | None) -> bytes:  # on SET
         if isinstance(value, int) and not isinstance(value, bool):
             return value  # type: ignore[return-value]
         _value = await self._custom_encode(backend, key, value, expire)
@@ -192,7 +192,7 @@ class Serializer:
         encoded_value = await encoder(value, backend, key, expire)
         return value_type + b":" + encoded_value
 
-    async def decode(self, backend: "Backend", key: Key, value: bytes, default: Value) -> Value:  # on GET
+    async def decode(self, backend: Backend, key: Key, value: bytes, default: Value) -> Value:  # on GET
         if value is default:
             return default
         if not isinstance(value, bytes):
@@ -220,7 +220,7 @@ class Serializer:
             repr(value)
         return value
 
-    async def _custom_decode(self, backend: "Backend", key: Key, value: bytes, default: Value) -> Value:
+    async def _custom_decode(self, backend: Backend, key: Key, value: bytes, default: Value) -> Value:
         try:
             value_type, value = value.split(b":", 1)
         except ValueError:
