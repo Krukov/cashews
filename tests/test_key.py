@@ -10,16 +10,13 @@ from cashews.key_context import register as register_context
 from cashews.ttl import ttl_to_seconds
 
 
-async def func1(a):
-    ...
+async def func1(a): ...
 
 
-async def func2(a, *, k=None, **kwargs):
-    ...
+async def func2(a, *, k=None, **kwargs): ...
 
 
-async def func3(a, *, k="test"):
-    ...
+async def func3(a, *, k="test"): ...
 
 
 class Klass:
@@ -40,8 +37,7 @@ def call_method(value: Klass, a):
 
 
 def test_cache_func_key_dict():
-    async def func(user):
-        ...
+    async def func(user): ...
 
     obj = type("user", (), {"name": "test", "one": True})()
 
@@ -172,8 +168,7 @@ def test_cache_func_key_dict():
     ),
 )
 def test_cache_key_args_kwargs(args, kwargs, template, key):
-    async def func(arg1, arg2, *args, kwarg1=None, kwarg2=b"true", **kwargs):
-        ...
+    async def func(arg1, arg2, *args, kwarg1=None, kwarg2=b"true", **kwargs): ...
 
     with key_context(context_value="context", kwarg1="test"):
         assert get_cache_key(func, template, args=args, kwargs=kwargs) == key

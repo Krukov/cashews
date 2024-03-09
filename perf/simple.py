@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from cashews import TransactionMode, cache
 
-cache.setup("redis://", client_side=True)
+cache.setup("redis://0.0.0.0:6000")
 
 
 @cache.transaction(TransactionMode.SERIALIZABLE)
@@ -17,11 +17,13 @@ async def func(a):
 async def main():
     # async with cache.transaction(TransactionMode.SERIALIZABLE):
     await cache.init()
-    for _ in range(5_000):
-        await asyncio.gather(
-            func(1),
-            func(Decimal("102.2")),
-            func(uuid4()),
+    for _ in range(10):
+        print(
+            await asyncio.gather(
+                func(1),
+                func(Decimal("102.2")),
+                func(uuid4()),
+            )
         )
 
 

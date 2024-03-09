@@ -53,7 +53,12 @@ class CommandsTagsWrapper(CommandWrapper):
         self._on_remove_cb = self._on_remove_callback()
 
     def setup_tags_backend(self, settings_url: str, middlewares: Tuple = (), **kwargs) -> Backend:
-        return self.setup(settings_url, middlewares=middlewares, prefix=self._tags_key_prefix, **kwargs)
+        return self.setup(
+            settings_url,
+            middlewares=middlewares,
+            prefix=self._tags_key_prefix,
+            **kwargs,
+        )
 
     @lru_cache(maxsize=1)
     def _get_tags_backend(self):

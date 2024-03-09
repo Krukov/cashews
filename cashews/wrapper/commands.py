@@ -32,12 +32,10 @@ class CommandWrapper(Wrapper):
         return await self._with_middlewares(Command.SET_RAW, key)(key=key, value=value, **kwargs)
 
     @overload
-    async def get(self, key: Key, default: Default) -> Value | Default:
-        ...
+    async def get(self, key: Key, default: Default) -> Value | Default: ...
 
     @overload
-    async def get(self, key: Key, default: None = None) -> Value | None:
-        ...
+    async def get(self, key: Key, default: None = None) -> Value | None: ...
 
     async def get(self, key: Key, default: Default | None = None) -> Value | Default | None:
         return await self._with_middlewares(Command.GET, key)(key=key, default=default)
@@ -53,7 +51,7 @@ class CommandWrapper(Wrapper):
 
         for middleware in middlewares:
             call = partial(middleware, call, Command.SCAN, backend)
-        async for key in (await call(pattern=pattern, batch_size=batch_size)):
+        async for key in await call(pattern=pattern, batch_size=batch_size):
             yield key
 
     async def get_match(
@@ -68,7 +66,7 @@ class CommandWrapper(Wrapper):
 
         for middleware in middlewares:
             call = partial(middleware, call, Command.GET_MATCH, backend)
-        async for key, value in (await call(pattern=pattern, batch_size=batch_size)):
+        async for key, value in await call(pattern=pattern, batch_size=batch_size):
             yield key, value
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
@@ -109,7 +107,11 @@ class CommandWrapper(Wrapper):
         expire: TTL = None,
     ) -> int:
         return await self._with_middlewares(Command.SLICE_INCR, key)(
-            key=key, start=start, end=end, maxvalue=maxvalue, expire=ttl_to_seconds(expire)
+            key=key,
+            start=start,
+            end=end,
+            maxvalue=maxvalue,
+            expire=ttl_to_seconds(expire),
         )
 
     async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:

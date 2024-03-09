@@ -34,7 +34,12 @@ class DecoratorsWrapper(Wrapper):
         return self._wrap(decorator_fabric, protected=protected, **decor_kwargs)
 
     def _wrap(
-        self, decorator_fabric, lock=False, time_condition=None, protected=False, **decor_kwargs
+        self,
+        decorator_fabric,
+        lock=False,
+        time_condition=None,
+        protected=False,
+        **decor_kwargs,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         def _decorator(func: DecoratedFunc) -> DecoratedFunc:
             if time_condition is not None:
@@ -67,7 +72,14 @@ class DecoratorsWrapper(Wrapper):
 
         return _decorator
 
-    def _wrap_with_condition(self, decorator_fabric, condition, lock=False, time_condition=None, **decor_kwargs):
+    def _wrap_with_condition(
+        self,
+        decorator_fabric,
+        condition,
+        lock=False,
+        time_condition=None,
+        **decor_kwargs,
+    ):
         def _decorator(func: AsyncCallable_T) -> AsyncCallable_T:
             _condition = condition
             if time_condition is not None:

@@ -92,7 +92,11 @@ class _Redis(Backend):
         return self.__is_init
 
     async def init(self):
-        self._client = self._client_class(connection_pool=self._pool_class.from_url(self._address, **self._kwargs))
+        pool = self._pool_class.from_url(self._address, **self._kwargs)
+        if hasattr(self._client_class, "from_pool"):
+            self._client = self._client_class.from_pool(pool)
+        else:
+            self._client = self._client_class(connection_pool=pool)
         await self._client.initialize()
         self.__is_init = True
 
@@ -273,7 +277,12 @@ class _Redis(Backend):
         return await self._client.get(key)
 
     async def slice_incr(
-        self, key: Key, start: int | float, end: int | float, maxvalue: int, expire: float | None = None
+        self,
+        key: Key,
+        start: int | float,
+        end: int | float,
+        maxvalue: int,
+        expire: float | None = None,
     ) -> int:
         expire = expire or 0
         expire = int(expire * 1000)
@@ -300,5 +309,6 @@ class _Redis(Backend):
         return await self._client.dbsize()
 
     async def close(self):
-        await self._client.close(close_connection_pool=True)
+        await self._client.close()
+        await self._client.connection_pool.disconnect()
         self.__is_init = False

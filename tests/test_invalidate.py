@@ -76,7 +76,10 @@ async def test_invalidate_further_get_many(cache):
 async def test_invalidate_further_get_match(cache):
     await cache.set("key1", "value1")
     await cache.set("key2", "value2")
-    assert {k: v async for k, v in cache.get_match("key*")} == {"key1": "value1", "key2": "value2"}
+    assert {k: v async for k, v in cache.get_match("key*")} == {
+        "key1": "value1",
+        "key2": "value2",
+    }
 
     with invalidate_further():
         assert {k: v async for k, v in cache.get_match("key1*")} == {}

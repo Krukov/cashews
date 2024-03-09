@@ -56,7 +56,13 @@ class BcastClientSide(Redis):
     https://redis.io/topics/client-side-caching
     """
 
-    def __init__(self, *args: Any, local_cache=None, client_side_prefix: str = _DEFAULT_PREFIX, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *args: Any,
+        local_cache=None,
+        client_side_prefix: str = _DEFAULT_PREFIX,
+        **kwargs: Any,
+    ) -> None:
         self._local_cache = Memory(size=10000) if local_cache is None else local_cache
         self._prefix = client_side_prefix
         self._recently_update = Memory(size=500, check_interval=60)

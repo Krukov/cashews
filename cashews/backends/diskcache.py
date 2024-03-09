@@ -59,7 +59,7 @@ class _DiskCache(Backend):
 
     def _set(self, key: Key, value: Value, expire=None, exist=None):
         if exist is not None:
-            if not self._exists(key) is exist:
+            if self._exists(key) is not exist:
                 return False
         if expire is None:
             expire = self._get_expire(key)
@@ -225,7 +225,12 @@ class _DiskCache(Backend):
         return False
 
     async def slice_incr(
-        self, key: Key, start: int | float, end: int | float, maxvalue: int, expire: float | None = None
+        self,
+        key: Key,
+        start: int | float,
+        end: int | float,
+        maxvalue: int,
+        expire: float | None = None,
     ) -> int:
         val_set = await self.get(key)
         count = 0

@@ -80,7 +80,9 @@ def _asyncgen_lock(
     return _wrap
 
 
-def thunder_protection(key: KeyOrTemplate | None = None) -> Callable[[DecoratedFunc], DecoratedFunc]:
+def thunder_protection(
+    key: KeyOrTemplate | None = None,
+) -> Callable[[DecoratedFunc], DecoratedFunc]:
     tasks: dict[str, asyncio.Task] = {}
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:

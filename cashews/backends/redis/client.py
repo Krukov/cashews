@@ -16,7 +16,12 @@ class Redis(_Redis):
     async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
-        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError) as exp:
+        except (
+            RedisConnectionError,
+            socket.gaierror,
+            OSError,
+            asyncio.TimeoutError,
+        ) as exp:
             raise CacheBackendInteractionError() from exp
 
 
@@ -24,7 +29,12 @@ class SafeRedis(_Redis):
     async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
-        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError) as exp:
+        except (
+            RedisConnectionError,
+            socket.gaierror,
+            OSError,
+            asyncio.TimeoutError,
+        ) as exp:
             if command.lower() == "ping":
                 raise CacheBackendInteractionError() from exp
             logger.error("redis: can not execute command: %s", command, exc_info=True)

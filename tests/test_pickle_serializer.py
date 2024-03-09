@@ -43,9 +43,10 @@ async def _cache(request, redis_dsn):
         redis = Redis(redis_dsn, hash_key="test", safe=False, digestmod=digestmod)
         await redis.init()
         await redis.clear()
-        return redis
-
-    return Memory(hash_key=b"test", digestmod=digestmod, pickle_type=pickle_type)
+        yield redis
+        await redis.close()
+    else:
+        yield Memory(hash_key=b"test", digestmod=digestmod, pickle_type=pickle_type)
 
 
 @pytest.mark.parametrize(
@@ -135,10 +136,16 @@ async def test_serialize_array_diff_value(value, cache):
 @pytest.mark.parametrize(
     ("value", "encoded"),
     (
-        ("test", b"md5:2182de23a749c70144594da72f8cedc2_\x80\x05\x95\b\x00\x00\x00\x00\x00\x00\x00\x8c\x04test\x94."),
+        (
+            "test",
+            b"md5:2182de23a749c70144594da72f8cedc2_\x80\x05\x95\b\x00\x00\x00\x00\x00\x00\x00\x8c\x04test\x94.",
+        ),
         (b"test", b"md5:aa47dd7b9ec8a973cdea43bce56cd34c_bytes:test"),
         (0, b"0"),
-        (1.234, b"sum:915_\x80\x05\x95\n\x00\x00\x00\x00\x00\x00\x00G?\xf3\xbev\xc8\xb49X."),
+        (
+            1.234,
+            b"sum:915_\x80\x05\x95\n\x00\x00\x00\x00\x00\x00\x00G?\xf3\xbev\xc8\xb49X.",
+        ),
         (
             Decimal("1.001"),
             b"sum:117b_\x80\x05\x95#\x00\x00\x00\x00\x00\x00\x00\x8c\adecimal\x94\x8c\aDecimal\x94\x93\x94\x8c\x05"
@@ -147,14 +154,22 @@ async def test_serialize_array_diff_value(value, cache):
         (True, b"md5:b5d04289f61dd9a7cb8856222e64589a_\x80\x05\x88."),
         (None, b"sum:40a_\x80\x05N."),
         ("1", b"sum:5a8_\x80\x05\x95\x05\x00\x00\x00\x00\x00\x00\x00\x8c\x011\x94."),
-        ({"hi": True}, b"sum:85a_\x80\x05\x95\n\x00\x00\x00\x00\x00\x00\x00}\x94\x8c\x02hi\x94\x88s."),
+        (
+            {"hi": True},
+            b"sum:85a_\x80\x05\x95\n\x00\x00\x00\x00\x00\x00\x00}\x94\x8c\x02hi\x94\x88s.",
+        ),
         (
             TestDC(test="test", _=1),
             b"sum:1e3f_\x80\x05\x95B\x00\x00\x00\x00\x00\x00\x00\x8c\x1ctests.test_pickle_serializer\x94\x8c\x06"
             b"TestDC\x94\x93\x94)\x81\x94}\x94(\x8c\x04test\x94h\x05\x8c\x01_\x94K\x01ub.",
         ),
         (
-            [NT(name="test", test="lol"), 1, timedelta(days=10), TestDC(test="test", _=1)],
+            [
+                NT(name="test", test="lol"),
+                1,
+                timedelta(days=10),
+                TestDC(test="test", _=1),
+            ],
             b"sum:360b_\x80\x05\x95\x80\x00\x00\x00\x00\x00\x00\x00]\x94(\x8c\x1ctests.test_pickle_serializer"
             b"\x94\x8c\x02NT\x94\x93\x94\x8c\x03lol\x94\x8c\x04test\x94\x86\x94\x81\x94K\x01\x8c\bdatetime"
             b"\x94\x8c\ttimedelta\x94\x93\x94K\nK\x00K\x00\x87\x94R\x94h\x01\x8c\x06TestDC"
