@@ -147,9 +147,8 @@ def _get_call_values(func: Callable, args: Args, kwargs: Kwargs):
     if len(args) == 0:
         _kwargs = {**kwargs}
         for name, parameter in _get_func_signature(func).parameters.items():
-            if parameter.kind != inspect.Parameter.VAR_KEYWORD:
-                if name in _kwargs:
-                    del _kwargs[name]
+            if parameter.kind != inspect.Parameter.VAR_KEYWORD and name in _kwargs:
+                del _kwargs[name]
         return {**kwargs, _KWARGS: _kwargs}
 
     signature = _get_func_signature(func).bind(*args, **kwargs)

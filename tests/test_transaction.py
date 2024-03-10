@@ -243,7 +243,7 @@ async def test_isolation(cache: Cache, tx_mode):
         assert await cache.get("incr") == 6
 
     first_value = None
-    async for key, value in cache.get_match("k*"):
+    async for _key, value in cache.get_match("k*"):
         if first_value is None:
             first_value = value
         else:

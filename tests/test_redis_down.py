@@ -39,10 +39,10 @@ async def test_safe_redis(redis_backend):
     assert await redis.slice_incr("test", 1, 2, 10) is None
     assert await redis.get_size("test") == 0
     async for _ in redis.scan("*"):
-        assert False
+        raise AssertionError()
 
     async for _ in redis.get_match("*"):
-        assert False
+        raise AssertionError()
 
     assert await redis.delete("test") == 0
     await redis.delete_match("*")

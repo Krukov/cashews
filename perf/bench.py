@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import random
 import time
 import uuid
@@ -33,10 +34,8 @@ async def _get_latency(func, *args, **kwargs) -> float:
 
 
 async def run(target, test, iters=1000):
-    try:
+    with contextlib.suppress(AttributeError, TypeError):
         await target.init()
-    except (AttributeError, TypeError):
-        pass
 
     method, key_gen, _options = test
     _options = dict(_options)

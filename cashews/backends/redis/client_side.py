@@ -4,7 +4,8 @@ in theory local cache should be consistence
 GET:
 -> IN mem cache -> Y -> return
                 -> N -> in redis cache -> Y -> store in mem cache -> return
-                                       -> N -> compete -> store in mem and in redis -> notify others by channel to invalidate  # noqa: E501
+                                       -> N -> compete -> store in mem and in redis
+                                            -> notify others by channel to invalidate
 
 INVALIDATE:
 
@@ -82,9 +83,9 @@ class BcastClientSide(Redis):
         self._listen_task = asyncio.create_task(self._listen_invalidate_forever())
         try:
             await asyncio.wait_for(self._listen_started.wait(), timeout=self._kwargs["socket_timeout"])
-        except (TimeoutError, asyncio.TimeoutError):
+        except (TimeoutError, asyncio.TimeoutError) as exc:
             if self._listen_task.done():
-                raise self._listen_task.exception()
+                raise self._listen_task.exception() from exc
             self._listen_task.cancel()
             raise
         self.__is_init = True
@@ -176,7 +177,7 @@ class BcastClientSide(Redis):
 
     async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
         await self._local_cache.set_many(pairs, expire)
-        for key in pairs.keys():
+        for key in pairs:
             await self._mark_as_recently_updated(key)
         return await super().set_many(
             {self._add_prefix(key): value for key, value in pairs.items()},
@@ -255,9 +256,8 @@ class BcastClientSide(Redis):
         return result
 
     async def get_expire(self, key: Key) -> int:
-        if await self._local_cache.get_expire(key) > 0:
-            if self._listen_started.is_set():
-                return await self._local_cache.get_expire(key)
+        if await self._local_cache.get_expire(key) > 0 and self._listen_started.is_set():
+            return await self._local_cache.get_expire(key)
         expire = await super().get_expire(self._add_prefix(key))
         await self._local_cache.expire(key, expire)
         return expire

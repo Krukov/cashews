@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Protocol, Type, TypeVar, Union
 
 if TYPE_CHECKING:  # pragma: no cover
     from . import Command
     from .backends.interface import Backend
 
-try:
-    from typing import Protocol
-except ImportError:  # 3.7 python
-    from typing_extensions import Protocol  # type: ignore[assignment]
 
 _TTLTypes = Union[int, float, str, timedelta, None]
 TTL = Union[_TTLTypes, Callable[..., _TTLTypes]]

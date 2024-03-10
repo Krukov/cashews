@@ -71,9 +71,8 @@ class _Memory(Backend):
         expire: float | None = None,
         exist: bool | None = None,
     ) -> bool:
-        if exist is not None:
-            if (key in self.store) is not exist:
-                return False
+        if exist is not None and (key in self.store) is not exist:
+            return False
         self._set(key, value, expire)
         return True
 

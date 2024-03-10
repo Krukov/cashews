@@ -58,6 +58,7 @@ class _Redis(Backend):
             warnings.warn(
                 "`safe` property was renamed to `suppress` and will be removed in next release",
                 DeprecationWarning,
+                stacklevel=2,
             )
             suppress = safe
 
@@ -224,7 +225,7 @@ class _Redis(Backend):
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         if not keys:
-            return tuple()
+            return ()
         values = await self._client.mget(*keys)
         if values is None:
             return tuple([default] * len(keys))

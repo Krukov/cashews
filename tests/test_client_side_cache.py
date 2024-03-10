@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 
 import pytest
 
@@ -133,14 +134,14 @@ async def test_simple_cmd_bcast_many(create_cache):
         assert key in ("key:1", "key:2")
         break
     else:
-        assert False
+        raise AssertionError()
 
     async for key, value in cache.get_match("key:*"):
         assert key in ("key:1", "key:2")
         assert value in ("test", "test2")
         break
     else:
-        assert False
+        raise AssertionError()
 
     await local.clear()
 
@@ -160,10 +161,10 @@ async def test_simple_cmd_bcast_many(create_cache):
     assert await local.get("key:1") is _empty_in_redis
 
     async for _ in cache.scan("key:*"):
-        assert False
+        raise AssertionError()
 
     async for _ in cache.get_match("key:*"):
-        assert False
+        raise AssertionError()
 
     await cache.close()
 
@@ -176,10 +177,8 @@ async def test_unsafe_redis_down():
     with pytest.raises(asyncio.TimeoutError):
         await cache.init()
 
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await cache.close()
-    except asyncio.CancelledError:
-        pass
 
 
 async def test_set_get_mem_overload(create_cache):

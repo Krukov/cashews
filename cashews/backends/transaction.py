@@ -64,10 +64,12 @@ class TransactionBackend(Backend):
         expire: Optional[float] = None,
         exist: Optional[bool] = None,
     ) -> bool:
-        if exist is not None:
-            if await self._backend.exists(key) is not exist:
-                if await self._local_cache.exists(key) is not exist:
-                    return False
+        if (
+            exist is not None
+            and await self._backend.exists(key) is not exist
+            and await self._local_cache.exists(key) is not exist
+        ):
+            return False
         self._to_delete.discard(key)
         return await self._local_cache.set(key, value, expire, exist)
 
@@ -313,7 +315,7 @@ class LockTransactionBackend(TransactionBackend):
         return await super().set(key, value, expire=expire, exist=exist)
 
     async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
-        for key in pairs.keys():
+        for key in pairs:
             await self._lock_updates(key)
         res = await super().set_many(pairs, expire=expire)
         return res

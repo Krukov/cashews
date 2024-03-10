@@ -58,9 +58,8 @@ class _DiskCache(Backend):
         return await future
 
     def _set(self, key: Key, value: Value, expire=None, exist=None):
-        if exist is not None:
-            if self._exists(key) is not exist:
-                return False
+        if exist is not None and self._exists(key) is not exist:
+            return False
         if expire is None:
             expire = self._get_expire(key)
             expire = expire if expire not in [UNLIMITED, NOT_EXIST] else None

@@ -15,7 +15,7 @@ async def test_rate_limit_simple(cache, n):
     async def func():
         return 1
 
-    for i in range(n):
+    for _i in range(n):
         assert await func() == 1
 
     with pytest.raises(RateLimitError):
@@ -76,7 +76,7 @@ async def test_rate_limit_slice_simple(cache, n):
     async def func():
         return 1
 
-    for i in range(n):
+    for _i in range(n):
         assert await func() == 1
 
     with pytest.raises(RateLimitError):

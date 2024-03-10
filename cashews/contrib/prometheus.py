@@ -28,10 +28,7 @@ def create_metrics_middleware(with_tag: bool = False) -> Middleware:
             metric.labels(operation=cmd.value, backend_class=backend.__class__.__name__, tag=tag)
             result = await call(*args, **kwargs)
             if cmd is Command.GET:
-                if result is not kwargs["default"]:
-                    op_result = "hit"
-                else:
-                    op_result = "miss"
+                op_result = "hit" if result is not kwargs["default"] else "miss"
                 _HIT_MISS.labels(result=op_result, backend_class=backend.__class__.__name__, tag=tag).inc()
             return result
 

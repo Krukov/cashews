@@ -188,10 +188,7 @@ class ControlMixin:
         _disable = self._disable
         if not cmds and _disable:
             return True
-        for cmd in cmds:
-            if cmd in _disable:
-                return True
-        return False
+        return any(cmd in _disable for cmd in cmds)
 
     def is_enable(self, *cmds: Command) -> bool:
         return not self.is_disable(*cmds)

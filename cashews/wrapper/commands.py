@@ -85,7 +85,7 @@ class CommandWrapper(Wrapper):
         for key in pairs:
             backend = self._get_backend(key)
             backends.setdefault(backend, []).append(key)
-        for backend, keys in backends.items():
+        for keys in backends.values():
             data = {key: pairs[key] for key in keys}
             await self._with_middlewares(Command.SET_MANY, keys[0])(
                 pairs=data,

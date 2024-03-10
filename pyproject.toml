@@ -1,0 +1,14 @@
+[tool.ruff]
+exclude = ["venv/*","tox/*","specs/*",".venv/*"]
+line-length = 119
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I", "SIM", "UP", "C4"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "B011", # asserts allowed in tests...
+    "B007", # asserts allowed in tests...
+    "B017",
+    "SIM105",
+]

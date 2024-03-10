@@ -61,10 +61,7 @@ class Wrapper:
         backend_class, params = settings_url_parse(settings_url)
         params.update(kwargs)
 
-        if "disable" in params:
-            disable = params.pop("disable")
-        else:
-            disable = not params.pop("enable", True)
+        disable = params.pop("disable") if "disable" in params else not params.pop("enable", True)
 
         backend = backend_class(**params)
         if disable:
@@ -93,10 +90,7 @@ class Wrapper:
 
     @property
     def is_init(self) -> bool:
-        for backend, _ in self._backends.values():
-            if not backend.is_init:
-                return False
-        return True
+        return all(backend.is_init for backend, _ in self._backends.values())
 
     async def close(self) -> None:
         for backend, _ in self._backends.values():

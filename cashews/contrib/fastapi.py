@@ -103,7 +103,7 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
             return Command.GET, Command.SET
         if cache_control_value and self._get_max_age(cache_control_value) == 0:
             return Command.GET, Command.SET
-        return tuple()
+        return ()
 
     @staticmethod
     def _get_max_age(cache_control_value: str) -> int | None:
@@ -156,10 +156,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         data = await self._cache.get_raw(key)
         expire = await self._cache.get_expire(key)
         if not isinstance(data, bytes):
-            if isinstance(data, Response):
-                data = data.body
-            else:
-                data = DEFAULT_PICKLER.dumps(data)
+            data = data.body if isinstance(data, Response) else DEFAULT_PICKLER.dumps(data)
         etag = blake2s(data).hexdigest()
         await self._cache.set(etag, True, expire=expire)
         return etag
