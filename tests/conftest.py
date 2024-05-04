@@ -95,7 +95,7 @@ async def _backend(request, redis_dsn, backend_factory):
             hash_key=None,
             max_connections=5,
             suppress=False,
-            socket_timeout=10,
+            socket_timeout=0.1,
         )
         backend._expire_for_recently_update = 0.1
     elif request.param == "transactional":
