@@ -4,14 +4,11 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-import pytest_asyncio
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 from cashews.backends.memory import Memory
 from cashews.serialize import UnSecureDataError
-
-pytestmark = pytest.mark.asyncio
 
 
 @dataclasses.dataclass()
@@ -23,7 +20,7 @@ class TestDC:
 NT = namedtuple("NT", ("test", "name"), defaults=[False, "test"])
 
 
-@pytest_asyncio.fixture(
+@pytest.fixture(
     name="cache",
     params=[
         "default_md5",

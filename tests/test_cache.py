@@ -5,8 +5,6 @@ import pytest
 
 from cashews import Cache, decorators
 
-pytestmark = pytest.mark.asyncio
-
 EXPIRE = 0.02
 
 

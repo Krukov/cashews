@@ -2,7 +2,7 @@
 Here modules with auto setup
 """
 
-try:
+from contextlib import suppress
+
+with suppress(ImportError):
     from . import _starlette  # noqa
-except ImportError:
-    pass

@@ -1,12 +1,8 @@
 import asyncio
 import random
 
-import pytest
-
 from cashews import Cache
 from cashews.validation import invalidate_further
-
-pytestmark = pytest.mark.asyncio
 
 
 async def test_invalidate_decor_str(cache: Cache):

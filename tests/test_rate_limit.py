@@ -6,8 +6,6 @@ import pytest
 
 from cashews.exceptions import RateLimitError
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.mark.parametrize("n", list(range(1, 10)))
 async def test_rate_limit_simple(cache, n):

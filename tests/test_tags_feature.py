@@ -7,8 +7,6 @@ import pytest
 
 from cashews import Cache, key_context
 
-pytestmark = pytest.mark.asyncio
-
 
 def test_register_tags(cache: Cache):
     cache.register_tag("tag", "key")

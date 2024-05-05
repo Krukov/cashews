@@ -60,7 +60,7 @@ class CommandsTagsWrapper(CommandWrapper):
             **kwargs,
         )
 
-    @lru_cache(maxsize=1)
+    @lru_cache(maxsize=1)  # noqa: B019
     def _get_tags_backend(self):
         return self._get_backend(self._tags_key_prefix)
 

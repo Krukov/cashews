@@ -2,12 +2,8 @@ import asyncio
 from random import random
 from unittest.mock import Mock
 
-import pytest
-
 from cashews.commands import Command
 from cashews.wrapper import Cache
-
-pytestmark = pytest.mark.asyncio
 
 
 async def test_disable_cmd(cache):

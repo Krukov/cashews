@@ -1,11 +1,7 @@
 from unittest.mock import Mock
 
-import pytest
-
 from cashews.commands import Command
 from cashews.wrapper import Cache
-
-pytestmark = pytest.mark.asyncio
 
 
 async def test_with_callback_on_set(cache: Cache):

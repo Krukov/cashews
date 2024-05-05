@@ -1,11 +1,7 @@
 import asyncio
 from unittest.mock import Mock
 
-import pytest
-
 from cashews import Cache
-
-pytestmark = pytest.mark.asyncio
 
 
 async def test_iterator(cache: Cache):

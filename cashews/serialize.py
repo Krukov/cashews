@@ -45,6 +45,7 @@ class SerializerMixin:
             warnings.warn(
                 "`hash_key` property was renamed to `secret` and will be removed in next release",
                 DeprecationWarning,
+                stacklevel=2,
             )
             secret = hash_key
 

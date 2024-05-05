@@ -8,8 +8,6 @@ from cashews.backends.interface import NOT_EXIST, UNLIMITED
 from cashews.wrapper import Cache
 from cashews.wrapper.transaction import TransactionMode
 
-pytestmark = pytest.mark.asyncio
-
 
 @pytest.fixture(
     name="tx_mode",
