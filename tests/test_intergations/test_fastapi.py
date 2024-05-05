@@ -152,6 +152,27 @@ def test_cache_etag(client_with_middleware, app, cache):
         assert etag == response3.headers["ETag"]
 
 
+def test_cache_etag_early(client_with_middleware, app, cache):
+    from cashews.contrib.fastapi import CacheEtagMiddleware
+
+    @app.get("/to_cache")
+    @cache.early(ttl="10s", early_ttl="7s", key="to_cache")
+    async def rand():
+        return str(random()).encode()
+
+    with client_with_middleware(CacheEtagMiddleware, cache_instance=cache) as client:
+        response = client.get("/to_cache")
+        etag = response.headers["ETag"]
+
+        response2 = client.get("/to_cache", headers={"If-None-Match": etag})
+        assert response2.status_code == 304
+
+        response3 = client.get("/to_cache", headers={"If-None-Match": str(random())})
+        assert response3.status_code == 200
+        assert response.content == response3.content
+        assert etag == response3.headers["ETag"]
+
+
 @pytest.fixture(name="app_with_cache_control")
 def _app_with_cache_control(cache, app):
     from cashews.contrib.fastapi import CacheRequestControlMiddleware, cache_control_ttl
