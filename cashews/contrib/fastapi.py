@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 from contextlib import nullcontext
 from contextvars import ContextVar
+from datetime import datetime
 from hashlib import blake2s
 from typing import Any, ContextManager, Sequence
 
@@ -130,7 +131,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         if etag and await self._cache.exists(etag):
             return Response(status_code=304)
 
-        set_key = None
+        set_key: None | str = None
 
         def set_callback(key: str, result: Any):
             nonlocal set_key
@@ -140,26 +141,38 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             calls = detector.calls_list
             if not calls:
-                if set_key:
-                    etag = await self._get_etag(set_key)
-                    if etag:
-                        response.headers[_ETAG_HEADER] = etag
+                if set_key is not None:
+                    _etag = await self._get_etag(set_key)
+                    if _etag == etag:
+                        return Response(status_code=304)
+                    if _etag:
+                        response.headers[_ETAG_HEADER] = _etag
                 return response
 
             key, _ = calls[0]
-            etag = await self._get_etag(key)
-            if etag:
-                response.headers[_ETAG_HEADER] = etag
+            _etag = await self._get_etag(key)
+            if _etag == etag:
+                return Response(status_code=304)
+            if _etag:
+                response.headers[_ETAG_HEADER] = _etag
         return response
 
     async def _get_etag(self, key: str) -> str:
-        data = await self._cache.get_raw(key)
-        expire = await self._cache.get_expire(key)
+        data = await self._cache.get(key)
+        if _is_early_cache(data):
+            expire = (data[0] - datetime.utcnow()).total_seconds()  # type: ignore[index]
+            data = data[1]  # type: ignore[index]
+        else:
+            expire = await self._cache.get_expire(key)
         if not isinstance(data, bytes):
             data = data.body if isinstance(data, Response) else DEFAULT_PICKLER.dumps(data)
         etag = blake2s(data).hexdigest()
         await self._cache.set(etag, True, expire=expire)
         return etag
+
+
+def _is_early_cache(data: Any) -> bool:
+    return isinstance(data, list) and isinstance(data[0], datetime)
 
 
 class CacheDeleteMiddleware(BaseHTTPMiddleware):
