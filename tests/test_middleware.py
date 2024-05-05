@@ -1,9 +1,5 @@
-import pytest
-
 from cashews import Cache
 from cashews.helpers import add_prefix, all_keys_lower, memory_limit
-
-pytestmark = pytest.mark.asyncio
 
 
 async def test_all_keys_lower(cache: Cache, target):

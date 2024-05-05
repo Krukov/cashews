@@ -4,8 +4,6 @@ import pytest
 
 from cashews.exceptions import CircuitBreakerOpen
 
-pytestmark = pytest.mark.asyncio
-
 EXPIRE = 0.02
 
 

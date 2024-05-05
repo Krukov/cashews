@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import os
+import random
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
-import pytest_asyncio
 
 from cashews import Cache
 from cashews.backends.memory import Memory
@@ -17,7 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from cashews.backends.interface import Backend
 
 
-pytest_plugins = ["pytest_asyncio"]  # pylint: disable=invalid-name
+pytest_plugins = []  # pylint: disable=invalid-name
 
 try:
     import aiohttp
@@ -30,18 +29,11 @@ else:
 
 
 @pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
 def redis_dsn():
     host = os.getenv("REDIS_HOST", "")
     port = os.getenv("REDIS_PORT", "6379")
-    return f"redis://{host}:{port}/"
+    db = random.choice(range(15))
+    return f"redis://{host}:{port}/{db}"
 
 
 @pytest.fixture(scope="session")
@@ -53,9 +45,9 @@ def backend_factory():
     return factory
 
 
-@pytest_asyncio.fixture(
+@pytest.fixture(
     name="raw_backend",
-    scope="session",
+    # scope="session",
     params=[
         "memory",
         "transactional",
@@ -117,20 +109,13 @@ async def _backend(request, redis_dsn, backend_factory):
         await backend.close()
 
 
-@pytest_asyncio.fixture()
-async def backend(raw_backend):
-    _backend, _ = raw_backend
-    await _backend.clear()
-    yield _backend
-
-
-@pytest.fixture(scope="session", name="target")
+@pytest.fixture(name="target")
 def _target(raw_backend):
     backend, _ = raw_backend
     return Mock(wraps=backend, is_full_disable=False)
 
 
-@pytest_asyncio.fixture()
+@pytest.fixture()
 async def cache(target: Mock, raw_backend):
     await target.clear()
     target.reset_mock()

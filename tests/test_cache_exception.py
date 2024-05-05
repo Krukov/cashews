@@ -4,7 +4,6 @@ import pytest
 
 from cashews import Cache, only_exceptions, with_exceptions
 
-pytestmark = pytest.mark.asyncio
 EXPIRE = 0.1
 
 

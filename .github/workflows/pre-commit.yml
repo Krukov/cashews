@@ -15,6 +15,6 @@ jobs:
 
       - name: install extras for mypy
         run: |
-          pip install -e ".[redis,diskcache,speedup,dill,lint]"
+          pip install ".[redis,diskcache,speedup,dill,lint]"
 
       - uses: pre-commit/action@v3.0.1

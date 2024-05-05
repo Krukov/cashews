@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 import pytest
-import pytest_asyncio
 
 from cashews import mem
 
@@ -35,7 +34,7 @@ def _app():
     return app
 
 
-@pytest_asyncio.fixture(name="cli")
+@pytest.fixture(name="cli")
 async def _cli(aiohttp_client, app):
     return await aiohttp_client(app)
 

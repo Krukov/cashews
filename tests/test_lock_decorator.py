@@ -6,8 +6,6 @@ import pytest
 from cashews import decorators
 from cashews.backends.memory import Memory
 
-pytestmark = pytest.mark.asyncio
-
 
 async def test_lock_cache_parallel(cache):
     mock = Mock()

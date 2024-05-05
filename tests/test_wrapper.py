@@ -9,8 +9,6 @@ from cashews.exceptions import NotConfiguredError
 from cashews.wrapper import Cache
 from cashews.wrapper.auto_init import create_auto_init
 
-pytestmark = pytest.mark.asyncio
-
 
 async def test_prefix_many(cache):
     await cache.init("mem://")

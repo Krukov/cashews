@@ -4,7 +4,11 @@ import pytest
 
 from cashews.decorators.bloom import bloom
 
-pytestmark = pytest.mark.asyncio
+
+@pytest.fixture
+async def backend(raw_backend):
+    _backend, _ = raw_backend
+    yield _backend
 
 
 async def test_bloom_simple(cache):

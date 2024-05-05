@@ -7,7 +7,6 @@ from cashews import Cache
 from cashews.backends.interface import NOT_EXIST, UNLIMITED
 from cashews.backends.memory import Memory
 
-pytestmark = pytest.mark.asyncio
 VALUE = Decimal("100.2")
 
 
