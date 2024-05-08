@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+from contextvars import ContextVar
 from functools import partial, wraps
 from typing import TYPE_CHECKING, Callable
 
@@ -80,25 +81,29 @@ def _asyncgen_lock(
     return _wrap
 
 
+# store tasks per context to avoid awaiting another loop's task
+_thunder_protection_tasks: ContextVar[dict[str, asyncio.Task]] = ContextVar("_thunder_protection_tasks", default={})
+
+
 def thunder_protection(
     key: KeyOrTemplate | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
-    tasks: dict[str, asyncio.Task] = {}
-
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key)
 
         def done_callback(_key: Key, _: asyncio.Task):
-            del tasks[_key]
+            _thunder_protection_tasks.set(
+                {key: task for key, task in _thunder_protection_tasks.get().items() if key != _key}
+            )
 
         @wraps(func)
         async def _wrapper(*args, **kwargs):
             _key = get_cache_key(func, _key_template, args, kwargs)
-            if _key in tasks:
-                return await tasks[_key]
-            task = asyncio.create_task(func(*args, **kwargs))
-            tasks[_key] = task
-            task.add_done_callback(partial(done_callback, _key))
+            if (task := _thunder_protection_tasks.get().get(_key)) is None:
+                task = asyncio.create_task(func(*args, **kwargs))
+                _thunder_protection_tasks.set({**_thunder_protection_tasks.get(), _key: task})
+                task.add_done_callback(partial(done_callback, _key))
+
             return await task
 
         return _wrapper  # type: ignore[return-value]
