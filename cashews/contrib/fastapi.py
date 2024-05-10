@@ -11,6 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
+from ttl import ttl_to_seconds
 
 from cashews import Cache, Command, cache, invalidate_further
 from cashews._typing import TTL
@@ -41,7 +42,7 @@ __all__ = [
 
 def cache_control_ttl(default: TTL):
     def _ttl(*args, **kwargs):
-        return _cache_max_age.get(default)
+        return _cache_max_age.get(ttl_to_seconds(default))
 
     return _ttl
 
