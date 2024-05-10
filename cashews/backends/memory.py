@@ -5,6 +5,7 @@ import re
 import time
 from collections import OrderedDict
 from contextlib import suppress
+from copy import copy
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Mapping, overload
 
 from cashews.serialize import SerializerMixin
@@ -168,21 +169,19 @@ class _Memory(Backend):
         return tuple(array.get(index, size) for index in indexes)
 
     async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
-        array: Bitarray | None = await self._get(key)
-        if array is None:
-            array = Bitarray("0")
-            self._set(key, array)
+        array: Bitarray = await self._get(key, default=Bitarray("0"))
         result = []
         for index in indexes:
             array.incr(index, size, by)
             result.append(array.get(index, size))
+        self._set(key, array)
         return tuple(result)
 
     def _set(self, key: Key, value: Value, expire: float | None = None):
         expire = time.time() + expire if expire else None
         if expire is None and key in self.store:
             expire, _ = self.store[key]
-        self.store[key] = (expire, value)
+        self.store[key] = (expire, copy(value))
         self.store.move_to_end(key)
         if len(self.store) > self.size:
             self.store.popitem(last=False)

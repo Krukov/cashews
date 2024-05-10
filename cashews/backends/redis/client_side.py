@@ -39,9 +39,15 @@ from cashews.backends.memory import Memory
 
 from . import Redis
 
+
+class _EmptyCopy:
+    def __copy__(self):
+        return self
+
+
 _REDIS_INVALIDATE_CHAN = "__redis__:invalidate"
 _empty = object()
-_empty_in_redis = object()  # set when we know that key not in redis
+_empty_in_redis = _EmptyCopy()  # set when we know that key not in redis
 _RECONNECT_WAIT = 10
 _DEFAULT_PREFIX = "cashews:"
 BCAST_ON = "CLIENT TRACKING on REDIRECT {client_id} BCAST PREFIX {prefix}"
