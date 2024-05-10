@@ -11,11 +11,11 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
-from ttl import ttl_to_seconds
 
 from cashews import Cache, Command, cache, invalidate_further
 from cashews._typing import TTL
 from cashews.picklers import DEFAULT_PICKLER
+from cashews.ttl import ttl_to_seconds
 
 _cache_max_age: ContextVar[int] = ContextVar("cache_control_max_age")
 
