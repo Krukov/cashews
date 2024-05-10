@@ -40,6 +40,8 @@ class Bitarray:
     def copy(self):
         return Bitarray(self._value.to01(), base=2)
 
+    __copy__ = copy
+
     def to_int(self):
         return util.ba2int(self._value, False)
 

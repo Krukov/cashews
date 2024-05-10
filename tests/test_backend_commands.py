@@ -20,6 +20,14 @@ async def test_set_get_bytes(cache: Cache):
     assert await cache.get("key") == b"10"
 
 
+async def test_mutation(cache):
+    obj = [1, 2, 3]
+    await cache.set("key", obj)
+    obj.append(4)
+    assert list(await cache.get("key")) != list(obj)
+    assert await cache.get("key") == [1, 2, 3]
+
+
 async def test_incr_get(cache: Cache):
     await cache.incr("key")
     assert await cache.get("key") == 1

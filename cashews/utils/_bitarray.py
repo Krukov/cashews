@@ -35,6 +35,8 @@ class Bitarray:
     def copy(self):
         return Bitarray(str(self), 2)
 
+    __copy__ = copy
+
     def to_int(self):
         return self._value
 
