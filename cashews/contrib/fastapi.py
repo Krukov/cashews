@@ -15,6 +15,7 @@ from starlette.types import ASGIApp
 from cashews import Cache, Command, cache, invalidate_further
 from cashews._typing import TTL
 from cashews.picklers import DEFAULT_PICKLER
+from cashews.ttl import ttl_to_seconds
 
 _cache_max_age: ContextVar[int] = ContextVar("cache_control_max_age")
 
@@ -41,7 +42,7 @@ __all__ = [
 
 def cache_control_ttl(default: TTL):
     def _ttl(*args, **kwargs):
-        return _cache_max_age.get(default)
+        return _cache_max_age.get(ttl_to_seconds(default))
 
     return _ttl
 
