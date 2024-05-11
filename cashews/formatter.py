@@ -9,7 +9,7 @@ from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
 
 TemplateValue = str
-_re_special_chars_map = {i: "\\" + chr(i) for i in b"()[]?*+-|^$\\.&~# \t\n\r\v\f"}
+_re_special_chars_map = {i: "\\" + chr(i) for i in b"()[]?*+-|^$\\&~# \t\n\r\v\f"}
 
 
 def _decode_bytes(value: bytes):
@@ -164,7 +164,8 @@ def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
 
 
 def _re_default(field_name):
-    return f"(?P<{field_name.replace('.', '_')}>.+)?"
+    field_name = field_name.split(".")[0]
+    return f"(?P<{field_name}>.+)?"
 
 
 _re_formatter = _ReplaceFormatter(default=_re_default)

@@ -32,7 +32,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Client-side cache (10x faster than simple cache with redis)
 - Bloom filters
 - Different cache invalidation techniques (time-based or tags)
-- Cache any objects securely with pickle (use [hash key](#redis))
+- Cache any objects securely with pickle (use [secret](#redis))
 - 2x faster than `aiocache` (with client side caching)
 
 ## Usage Example
@@ -84,9 +84,9 @@ More examples [here](https://github.com/Krukov/cashews/tree/master/examples)
 from cashews import cache
 
 # via url
-cache.setup("redis://0.0.0.0/?db=1&socket_connect_timeout=0.5&suppress=0&hash_key=my_secret&enable=1")
+cache.setup("redis://0.0.0.0/?db=1&socket_connect_timeout=0.5&suppress=0&secret=my_secret&enable=1")
 # or via kwargs
-cache.setup("redis://0.0.0.0/", db=1, wait_for_connection_timeout=0.5, suppress=False, hash_key=b"my_key", enable=True)
+cache.setup("redis://0.0.0.0/", db=1, wait_for_connection_timeout=0.5, suppress=False, secret=b"my_key", enable=True)
 ```
 
 Alternatively, you can create a cache instance yourself:
@@ -156,8 +156,8 @@ If you would like to use [client-side cache](https://redis.io/topics/client-side
 Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
 
 ```python
-cache.setup("redis://0.0.0.0/?db=1&minsize=10&suppress=false&hash_key=my_secret", prefix="func")
-cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, hash_key="my_secret")
+cache.setup("redis://0.0.0.0/?db=1&minsize=10&suppress=false&secret=my_secret", prefix="func")
+cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, secret="my_secret")
 cache.setup("redis://0.0.0.0", client_side=True, client_side_prefix="my_prefix:", pickle_type="dill")
 ```
 

@@ -37,13 +37,13 @@ async def _cache(request, redis_dsn):
     if pickle_type == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis(redis_dsn, hash_key="test", safe=False, digestmod=digestmod)
+        redis = Redis(redis_dsn, secret="test", safe=False, digestmod=digestmod)
         await redis.init()
         await redis.clear()
         yield redis
         await redis.close()
     else:
-        yield Memory(hash_key=b"test", digestmod=digestmod, pickle_type=pickle_type)
+        yield Memory(secret=b"test", digestmod=digestmod, pickle_type=pickle_type)
 
 
 @pytest.mark.parametrize(
@@ -271,7 +271,7 @@ async def test_no_hash(key, value):
 
 async def test_cache_from_hash_to_no_hash():
     val = Decimal("10.2")
-    cache = Memory(hash_key="test")
+    cache = Memory(secret="test")
     await cache.set("key", val)
 
     assert await cache.get("key") == val
@@ -286,7 +286,7 @@ async def test_cache_from_no_hash_to_hash():
     await cache.set("key", val)
 
     assert await cache.get("key") == val
-    cache_hash = Memory(hash_key="test")
+    cache_hash = Memory(secret="test")
     cache_hash.store = cache.store
 
     assert await cache_hash.get("key") == val

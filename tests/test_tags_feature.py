@@ -241,3 +241,19 @@ async def test_templated_tag_with_none_value(cache: Cache):
         return f"{a}{b}"
 
     assert await cached(1) == "1None"
+
+
+async def test_template_tag_function(cache: Cache):
+    @cache(ttl="1m", key="{user.name:hash}:func", tags=["tag:{user.name}", "tag:{user.name:hash}"])
+    async def func(user):
+        return random()
+
+    class User:
+        def __init__(self, name):
+            self.name = name
+
+        def __hash__(self):
+            return hash(self.name)
+
+    await func(User("test"))
+    await cache.delete_tags("tag:test")
