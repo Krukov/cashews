@@ -3,7 +3,6 @@ from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
 
 from cashews._typing import TTL, Key, KeyOrTemplate, OnRemoveCallback, Tag, Tags, Value
 from cashews.backends.interface import Backend
-from cashews.exceptions import TagNotRegisteredError
 from cashews.formatter import default_format, template_to_re_pattern
 
 from .commands import CommandWrapper
@@ -35,14 +34,6 @@ class TagsRegistry:
             if match:
                 return match
         return None
-
-    def check_tags_registered(self, key: Key, tags: Tags):
-        tags = set(tags)
-        key_tags = set(self.get_key_tags(key))
-        difference = tags.difference(key_tags)
-
-        if difference:
-            raise TagNotRegisteredError(f"tag: {difference} not registered: call cache.register_tag before using tags")
 
 
 class CommandsTagsWrapper(CommandWrapper):
@@ -116,7 +107,6 @@ class CommandsTagsWrapper(CommandWrapper):
     ) -> bool:
         _set = await super().set(key=key, value=value, expire=expire, exist=exist)
         if _set and tags:
-            self._tags_registry.check_tags_registered(key, tags)
             for tag in tags:
                 await self.set_add(self._tags_key_prefix + tag, key, expire=expire)
         return _set
@@ -124,7 +114,6 @@ class CommandsTagsWrapper(CommandWrapper):
     async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None, tags: Tags = ()) -> int:
         _set = await super().incr(key=key, value=value, expire=expire)
         if _set and tags:
-            self._tags_registry.check_tags_registered(key, tags)
             for tag in tags:
                 await self.set_add(self._tags_key_prefix + tag, key, expire=expire)
         return _set

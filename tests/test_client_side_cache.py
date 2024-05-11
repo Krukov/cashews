@@ -14,7 +14,7 @@ def _create_cache(redis_dsn, backend_factory):
     from cashews.backends.redis.client_side import BcastClientSide
 
     async def call(local_cache=None):
-        backend = backend_factory(BcastClientSide, redis_dsn, hash_key=None, local_cache=local_cache)
+        backend = backend_factory(BcastClientSide, redis_dsn, secret=None, local_cache=local_cache)
         await backend.init()
         await backend.clear()
         return backend

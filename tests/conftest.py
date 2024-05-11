@@ -68,7 +68,7 @@ async def _backend(request, redis_dsn, backend_factory):
         backend = backend_factory(
             Redis,
             redis_dsn,
-            hash_key=None,
+            secret=None,
             max_connections=20,
             suppress=False,
             socket_timeout=1,
@@ -80,7 +80,7 @@ async def _backend(request, redis_dsn, backend_factory):
         backend = backend_factory(
             Redis,
             redis_dsn,
-            hash_key=uuid4().hex,
+            secret=uuid4().hex,
             max_connections=20,
             suppress=False,
             socket_timeout=10,
@@ -92,7 +92,7 @@ async def _backend(request, redis_dsn, backend_factory):
         backend = backend_factory(
             BcastClientSide,
             redis_dsn,
-            hash_key=None,
+            secret=None,
             max_connections=5,
             suppress=False,
             socket_timeout=0.1,
