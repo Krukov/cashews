@@ -796,6 +796,15 @@ async def items(page=1):
 Cashews provide the tag system: you can tag cache keys, so they will be stored in a separate [SET](https://redis.io/docs/data-types/sets/)
 to avoid high load on redis storage. To use the tags in a more efficient way please use it with the client side feature.
 
+> :warning: \*\*Warning: Tags require setting up default cache or cache for tags prefix
+> ```python
+> from cashews import cache
+> cache.setup(...)
+> # or
+> cache.setup_tags_backend(...)
+> ```
+
+
 ```python
 from cashews import cache
 
