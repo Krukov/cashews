@@ -1048,6 +1048,14 @@ You may find a few middlewares useful that can help you to control a cache in yo
 2. `CacheRequestControlMiddleware` - middleware check and add `Cache-Control` header
 3. `CacheDeleteMiddleware` - clear cache for an endpoint based on `Clear-Site-Data` header
 
+> :warning: \*\*Warning: CacheEtagMiddleware requires setting up default cache or cache with prefix "fastapi:"
+> ```python
+> from cashews import cache
+> cache.setup(...)
+> # or
+> cache.setup(..., prefix="fastapi:")
+> ```
+
 Example:
 
 ```python

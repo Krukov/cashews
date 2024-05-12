@@ -19,6 +19,7 @@ from cashews.ttl import ttl_to_seconds
 
 _cache_max_age: ContextVar[int] = ContextVar("cache_control_max_age")
 
+PREFIX = "fastapi:"
 _CACHE_CONTROL_HEADER = "Cache-Control"
 _AGE_HEADER = "Age"
 _ETAG_HEADER = "ETag"
@@ -65,10 +66,10 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
         cache_control_value = request.headers.get(_CACHE_CONTROL_HEADER)
         if request.method.lower() not in self._methods:
             return await call_next(request)
-        to_disable = self._to_disable(cache_control_value)
+        to_disable = _to_disable(cache_control_value)
         if to_disable:
             context = self._cache.disabling(*to_disable)
-        with context, self.max_age(cache_control_value), self._cache.detect as detector:
+        with context, max_age(cache_control_value), self._cache.detect as detector:
             response = await call_next(request)
             calls = detector.calls_list
             if calls:
@@ -83,43 +84,45 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
                 response.headers[_CACHE_CONTROL_HEADER] = _NO_CACHE
             return response
 
-    @contextlib.contextmanager
-    def max_age(self, cache_control_value: str | None):
-        if not cache_control_value:
-            yield
-            return
-        _max_age = self._get_max_age(cache_control_value)
-        reset_token = None
-        if _max_age:
-            reset_token = _cache_max_age.set(_max_age)
-        try:
-            yield
-        finally:
-            if reset_token:
-                _cache_max_age.reset(reset_token)
 
-    def _to_disable(self, cache_control_value: str | None) -> tuple[Command, ...]:
-        if cache_control_value == _NO_CACHE:
-            return (Command.GET,)
-        if cache_control_value == _NO_STORE:
-            return Command.GET, Command.SET
-        if cache_control_value and self._get_max_age(cache_control_value) == 0:
-            return Command.GET, Command.SET
-        return ()
+@contextlib.contextmanager
+def max_age(cache_control_value: str | None):
+    if not cache_control_value:
+        yield
+        return
+    _max_age = _get_max_age(cache_control_value)
+    reset_token = None
+    if _max_age:
+        reset_token = _cache_max_age.set(_max_age)
+    try:
+        yield
+    finally:
+        if reset_token:
+            _cache_max_age.reset(reset_token)
 
-    @staticmethod
-    def _get_max_age(cache_control_value: str) -> int | None:
-        if _MAX_AGE not in cache_control_value:
-            return None
-        for cc_value_item in cache_control_value.split(","):
-            cc_value_item = cc_value_item.strip()
-            try:
-                key, value = cc_value_item.split("=")
-                if key == _MAX_AGE[:-1]:
-                    return int(value)
-            except (ValueError, TypeError):
-                continue
+
+def _to_disable(cache_control_value: str | None) -> tuple[Command, ...]:
+    if cache_control_value == _NO_CACHE:
+        return (Command.GET,)
+    if cache_control_value == _NO_STORE:
+        return Command.GET, Command.SET
+    if cache_control_value and _get_max_age(cache_control_value) == 0:
+        return Command.GET, Command.SET
+    return ()
+
+
+def _get_max_age(cache_control_value: str) -> int | None:
+    if _MAX_AGE not in cache_control_value:
         return None
+    for cc_value_item in cache_control_value.split(","):
+        cc_value_item = cc_value_item.strip()
+        try:
+            key, value = cc_value_item.split("=")
+            if key == _MAX_AGE[:-1]:
+                return int(value)
+        except (ValueError, TypeError):
+            continue
+    return None
 
 
 class CacheEtagMiddleware(BaseHTTPMiddleware):
@@ -129,7 +132,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
         etag = request.headers.get(_IF_NOT_MATCH_HEADER)
-        if etag and await self._cache.exists(etag):
+        if etag and await self._cache.exists(self._get_etag_key(etag)):
             return Response(status_code=304)
 
         set_key: None | str = None
@@ -143,7 +146,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
             calls = detector.calls_list
             if not calls:
                 if set_key is not None:
-                    _etag = await self._get_etag(set_key)
+                    _etag = await self._set_etag(set_key)
                     if _etag == etag:
                         return Response(status_code=304)
                     if _etag:
@@ -151,25 +154,34 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
                 return response
 
             key, _ = calls[0]
-            _etag = await self._get_etag(key)
+            _etag = await self._set_etag(key)
             if _etag == etag:
                 return Response(status_code=304)
             if _etag:
                 response.headers[_ETAG_HEADER] = _etag
         return response
 
-    async def _get_etag(self, key: str) -> str:
+    async def _set_etag(self, key: str) -> str:
         data = await self._cache.get(key)
         if _is_early_cache(data):
             expire = (data[0] - datetime.utcnow()).total_seconds()  # type: ignore[index]
-            data = data[1]  # type: ignore[index]
         else:
             expire = await self._cache.get_expire(key)
-        if not isinstance(data, bytes):
-            data = data.body if isinstance(data, Response) else DEFAULT_PICKLER.dumps(data)
-        etag = blake2s(data).hexdigest()
-        await self._cache.set(etag, True, expire=expire)
+        etag = _get_etag(data)
+        await self._cache.set(self._get_etag_key(etag), True, expire=expire)
         return etag
+
+    @staticmethod
+    def _get_etag_key(etag: str) -> str:
+        return f"{PREFIX}:etag:{etag}"
+
+
+def _get_etag(cached_data: Any) -> str:
+    if _is_early_cache(cached_data):
+        cached_data = cached_data[1]
+    if not isinstance(cached_data, bytes):
+        cached_data = cached_data.body if isinstance(cached_data, Response) else DEFAULT_PICKLER.dumps(cached_data)
+    return blake2s(cached_data).hexdigest()
 
 
 def _is_early_cache(data: Any) -> bool:
