@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 from functools import partial
 from typing import TYPE_CHECKING, AsyncIterator, Iterable, Mapping, overload
 
@@ -10,7 +11,9 @@ from cashews.ttl import ttl_to_seconds
 from .wrapper import Wrapper
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import TTL, Default, Key, Value
+    from cashews._typing import TTL, AsyncCallable_T, Callable_T, Default, Key, Result_T, Value
+
+_empty = object()
 
 
 class CommandWrapper(Wrapper):
@@ -39,6 +42,22 @@ class CommandWrapper(Wrapper):
 
     async def get(self, key: Key, default: Default | None = None) -> Value | Default | None:
         return await self._with_middlewares(Command.GET, key)(key=key, default=default)
+
+    async def get_or_set(
+        self, key: Key, default: Default | AsyncCallable_T | Callable_T, expire: TTL = None
+    ) -> Value | Default | Result_T:
+        value = await self.get(key, default=_empty)
+        if value is not _empty:
+            return value
+        if callable(default):
+            if inspect.iscoroutinefunction(default):
+                _default = await default()
+            else:
+                _default = default()
+        else:
+            _default = default
+        await self.set(key, _default, expire=expire)
+        return default
 
     async def get_raw(self, key: Key) -> Value:
         return await self._with_middlewares(Command.GET_RAW, key)(key=key)

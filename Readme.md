@@ -196,16 +196,19 @@ from cashews import cache
 
 cache.setup("mem://")  # configure as in-memory cache
 
-await cache.set(key="key", value=90, expire=60, exist=None)  # -> bool
+await cache.set(key="key", value=90, expire="2h", exist=None)  # -> bool
 await cache.set_raw(key="key", value="str")  # -> bool
+await cache.set_many({"key1": value, "key2": value})  # -> None
 
 await cache.get("key", default=None)  # -> Any
-await cache.get_raw("key")
-await cache.get_many("key1", "key2", default=None)
+await cache.get_or_set("key", default=awaitable_or_callable, expire="1h")  # -> Any
+await cache.get_raw("key") # -> Any
+await cache.get_many("key1", "key2", default=None)  # -> tuple[Any]
 async for key, value in cache.get_match("pattern:*", batch_size=100):
     ...
 
 await cache.incr("key") # -> int
+await cache.exists("key") # -> bool
 
 await cache.delete("key")
 await cache.delete_many("key1", "key2")
@@ -928,8 +931,8 @@ E.g. A simple middleware to use it in a web app:
 async def add_from_cache_headers(request: Request, call_next):
     with cache.detect as detector:
         response = await call_next(request)
-        if detector.keys:
-            key = list(detector.keys.keys())[0]
+        if detector.calls:
+            key = list(detector.calls.keys())[0]
             response.headers["X-From-Cache"] = key
             expire = await cache.get_expire(key)
             response.headers["X-From-Cache-Expire-In-Seconds"] = str(expire)
@@ -1004,7 +1007,7 @@ Here we want to have some way to protect our code from race conditions and do op
 
 Cashews support transaction operations:
 
-> :warning: \*\*Warning: transaction operations are `set`, `set_many`, `delete`, `delete_many`, `delete_match` and `incr`
+  > :warning: \*\*Warning: transaction operations are `set`, `set_many`, `delete`, `delete_many`, `delete_match` and `incr`
 
 ```python
 from cashews import cache

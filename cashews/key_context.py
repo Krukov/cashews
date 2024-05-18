@@ -4,12 +4,14 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Iterator
 
-_template_context: ContextVar[dict[str, Any]] = ContextVar("template_context", default={})
+_REWRITE = "__rewrite"
+_template_context: ContextVar[dict[str, Any]] = ContextVar("template_context", default={_REWRITE: False})
 
 
 @contextmanager
-def context(**values) -> Iterator[None]:
+def context(rewrite=False, **values) -> Iterator[None]:
     new_context = {**_template_context.get(), **values}
+    new_context[_REWRITE] = rewrite
     token = _template_context.set(new_context)
     try:
         yield
@@ -17,8 +19,9 @@ def context(**values) -> Iterator[None]:
         _template_context.reset(token)
 
 
-def get():
-    return {**_template_context.get()}
+def get() -> tuple[dict[str, Any], bool]:
+    _context = {**_template_context.get()}
+    return _context, _context.pop(_REWRITE)
 
 
 def register(*names: str) -> None:

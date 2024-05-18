@@ -18,6 +18,8 @@ async def basic():
     await cache.set("key", 1)
     assert await cache.get("key") == 1
     await cache.set("key1", value={"any": True}, expire="1m")
+    print(await cache.get_or_set("key200", default=lambda: "test"))
+    print(await cache.get_or_set("key10", default="test"))
 
     await cache.set_many({"key2": "test", "key3": Decimal("10.1")}, expire="1m")
     print("Get: ", await cache.get("key1"))  # -> Any

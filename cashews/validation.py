@@ -8,6 +8,7 @@ from .backends.interface import _BackendInterface
 from .commands import RETRIEVE_CMDS, Command
 from .formatter import default_format
 from .key import get_call_values
+from .key_context import context as template_context
 
 
 def invalidate(
@@ -29,7 +30,8 @@ def invalidate(
                 if dest in _args:
                     _args[source] = _args.pop(dest)
             key = default_format(key_template, **_args)
-            await backend.delete_match(key)
+            with template_context(**_args, rewrite=True):
+                await backend.delete_match(key)
             return result
 
         return _wrap

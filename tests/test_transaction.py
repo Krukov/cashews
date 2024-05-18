@@ -79,6 +79,39 @@ async def test_transaction_set_exception(cache: Cache, tx_mode):
     assert await cache.get("key2") == "value2"
 
 
+async def test_transaction_get_or_set(cache: Cache, tx_mode):
+    await cache.set("key1", "value1", expire=1)
+
+    async with cache.transaction(tx_mode):
+        await cache.get_or_set("key", "value")
+        await cache.get_or_set("key1", "value2")
+
+        assert await cache.get("key") == "value"
+        assert await cache.get("key1") == "value1"
+
+    assert await cache.get("key") == "value"
+    assert await cache.get("key1") == "value1"
+
+
+async def test_transaction_get_or_set_rollback(cache: Cache, tx_mode):
+    await cache.set("key1", "value1", expire=1)
+
+    async with cache.transaction(tx_mode) as tx:
+        await cache.get_or_set("key", "value")
+        await cache.get_or_set("key1", "value2")
+
+        assert await cache.get("key") == "value"
+        assert await cache.get("key1") == "value1"
+
+        await tx.rollback()
+
+        assert await cache.get("key") is None
+        assert await cache.get("key1") == "value1"
+
+    assert await cache.get("key") is None
+    assert await cache.get("key1") == "value1"
+
+
 async def test_transaction_set_delete_get_many(cache: Cache, tx_mode):
     await cache.set("key1", "value", expire=1)
     await cache.set("key2", "value2", expire=2)

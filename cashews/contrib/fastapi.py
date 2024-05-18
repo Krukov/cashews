@@ -55,10 +55,12 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
         cache_instance: Cache = cache,
         methods: Sequence[str] = ("get",),
         private=True,
+        prefix_to_disable: str = "",
     ):
         self._private = private
         self._cache = cache_instance
         self._methods = methods
+        self._prefix_to_disable = prefix_to_disable
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -68,7 +70,7 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         to_disable = _to_disable(cache_control_value)
         if to_disable:
-            context = self._cache.disabling(*to_disable)
+            context = self._cache.disabling(*to_disable, prefix=self._prefix_to_disable)
         with context, max_age(cache_control_value), self._cache.detect as detector:
             response = await call_next(request)
             calls = detector.calls_list
