@@ -19,6 +19,7 @@ class Command(Enum):
     EXPIRE = "expire"
     GET_EXPIRE = "get_expire"
     CLEAR = "clear"
+
     SET_LOCK = "set_lock"
     UNLOCK = "unlock"
     IS_LOCKED = "is_locked"

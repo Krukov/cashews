@@ -158,8 +158,11 @@ def _upper(value: TemplateValue) -> TemplateValue:
 
 
 def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
-    _template_context = key_context.get()
-    _template_context.update(values)
+    _template_context, rewrite = key_context.get()
+    if rewrite:
+        _template_context = {**values, **_template_context}
+    else:
+        _template_context = {**_template_context, **values}
     return default_formatter.format(template, **_template_context)
 
 

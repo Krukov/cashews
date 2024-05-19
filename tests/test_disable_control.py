@@ -65,6 +65,11 @@ async def test_disable_context_manage_get(cache):
         assert await cache.get("test") is None
 
 
+def test_disable_context_manage_no_init():
+    cache = Cache()
+    cache.disable(Command.GET)
+
+
 async def test_disable_context_manage_decor(cache):
     @cache(ttl="1m")
     async def func():

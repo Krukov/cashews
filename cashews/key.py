@@ -119,7 +119,7 @@ def _check_key_params(key: KeyOrTemplate, func_params: Iterable[str]):
         return "*"
 
     check = _ReplaceFormatter(default=_default)
-    check.format(key, **{**get_key_context(), **func_params})
+    check.format(key, **{**get_key_context()[0], **func_params})
     if errors:
         raise WrongKeyError(f"Wrong parameter placeholder '{errors}' in the key ")
 

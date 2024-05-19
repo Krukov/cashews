@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ._typing import AsyncCallable_T, AsyncCallableResult_T, Middleware
+from ._typing import AsyncCallable_T, Middleware, Result_T
 from .backends.interface import Backend
 from .commands import PATTERN_CMDS, Command
 from .key import get_call_values
@@ -8,9 +8,7 @@ from .utils import get_obj_size
 
 
 def add_prefix(prefix: str) -> Middleware:
-    async def _middleware(
-        call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs
-    ) -> AsyncCallableResult_T:
+    async def _middleware(call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs) -> Result_T:
         if cmd == Command.GET_MANY:
             return await call(*[prefix + key for key in args])
         call_values = get_call_values(call, args, kwargs)
@@ -29,9 +27,7 @@ def add_prefix(prefix: str) -> Middleware:
 
 
 def all_keys_lower() -> Middleware:
-    async def _middleware(
-        call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs
-    ) -> AsyncCallableResult_T:
+    async def _middleware(call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs) -> Result_T:
         if cmd == Command.GET_MANY:
             return await call(*[key.lower() for key in args])
         call_values = get_call_values(call, args, kwargs)
@@ -54,7 +50,7 @@ def all_keys_lower() -> Middleware:
 def memory_limit(min_bytes=0, max_bytes=None) -> Middleware:
     async def _middleware(
         call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs
-    ) -> Optional[AsyncCallableResult_T]:
+    ) -> Optional[Result_T]:
         if cmd != Command.SET:
             return await call(*args, **kwargs)
         call_values = get_call_values(call, args, kwargs)

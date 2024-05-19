@@ -56,7 +56,7 @@ async def _call(function, *args, **kwargs):
     await function(*args, **kwargs)
     with cache.detect as detector:
         await function(*args, **kwargs)
-        key = list(detector.keys.keys())[-1]
+        key = list(detector.calls.keys())[-1]
 
     print(
         f"""

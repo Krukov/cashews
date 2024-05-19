@@ -30,8 +30,9 @@ Exceptions = Union[Type[Exception], Iterable[Type[Exception]], None]
 
 CacheCondition = Union[CallableCacheCondition, str, None]
 
-AsyncCallableResult_T = TypeVar("AsyncCallableResult_T")
-AsyncCallable_T = Callable[..., Awaitable[AsyncCallableResult_T]]
+Result_T = TypeVar("Result_T")
+AsyncCallable_T = Callable[..., Awaitable[Result_T]]
+Callable_T = Callable[..., Result_T]
 
 DecoratedFunc = TypeVar("DecoratedFunc", bound=AsyncCallable_T)
 
@@ -44,7 +45,7 @@ class Middleware(Protocol):
         backend: Backend,
         *args,
         **kwargs,
-    ) -> Awaitable[AsyncCallableResult_T | None]:  # pragma: no cover
+    ) -> Awaitable[Result_T | None]:  # pragma: no cover
         ...
 
 

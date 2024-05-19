@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from typing import TYPE_CHECKING, Iterator
 
 from cashews.commands import Command
+from cashews.exceptions import NotConfiguredError
 
 from .wrapper import Wrapper
 
@@ -26,7 +27,8 @@ class ControlWrapper(Wrapper):
         self.add_middleware(_is_disable_middleware)
 
     def disable(self, *cmds: Command, prefix: str = "") -> None:
-        return self._get_backend(prefix).disable(*cmds)
+        with suppress(NotConfiguredError):
+            return self._get_backend(prefix).disable(*cmds)
 
     def enable(self, *cmds: Command, prefix: str = "") -> None:
         return self._get_backend(prefix).enable(*cmds)
@@ -37,7 +39,8 @@ class ControlWrapper(Wrapper):
         try:
             yield
         finally:
-            self.enable(*cmds, prefix=prefix)
+            with suppress(NotConfiguredError):
+                self.enable(*cmds, prefix=prefix)
 
     def is_disable(self, *cmds: Command, prefix: str = "") -> bool:
         return self._get_backend(prefix).is_disable(*cmds)
