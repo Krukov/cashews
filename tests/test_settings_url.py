@@ -72,6 +72,14 @@ def test_url_but_backend_dependency_is_not_installed(url, error):
             "redis://localhost:9000?",
             {"address": "redis://localhost:9000"},
         ),
+        (
+            "redis://localhost:9000/0?client_side=true&client_side_listen_timeout=0.1",
+            {
+                "address": "redis://localhost:9000/0",
+                "client_side": True,
+                "client_side_listen_timeout": 0.1,
+            },
+        ),
     ),
 )
 def test_url_with_redis_as_backend(url, params):

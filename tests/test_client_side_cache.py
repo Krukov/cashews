@@ -1,5 +1,7 @@
 import asyncio
 import contextlib
+import time
+from typing import Optional
 
 import pytest
 
@@ -169,13 +171,25 @@ async def test_simple_cmd_bcast_many(create_cache):
     await cache.close()
 
 
-async def test_unsafe_redis_down():
+@pytest.mark.parametrize("client_side_listen_timeout", [None, 0.1])
+async def test_unsafe_redis_down(client_side_listen_timeout: Optional[float]):
     from cashews.backends.redis.client_side import BcastClientSide
 
-    cache = BcastClientSide(address="redis://localhost:9223")
+    cache = BcastClientSide(
+        client_side_listen_timeout=client_side_listen_timeout,
+        address="redis://localhost:9223",
+    )
 
+    init_start = time.time()
     with pytest.raises(asyncio.TimeoutError):
         await cache.init()
+    init_end = time.time()
+
+    if client_side_listen_timeout is None:
+        # defaults to socket_timeout, which defaults to 1.0
+        client_side_listen_timeout = 1.0
+
+    assert client_side_listen_timeout <= init_end - init_start <= client_side_listen_timeout * 5
 
     with contextlib.suppress(asyncio.CancelledError):
         await cache.close()
