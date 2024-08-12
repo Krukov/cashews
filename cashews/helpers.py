@@ -9,7 +9,7 @@ from .utils import get_obj_size
 
 def add_prefix(prefix: str) -> Middleware:
     async def _middleware(call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs) -> Result_T:
-        if cmd == Command.GET_MANY:
+        if cmd in (Command.GET_MANY, Command.DELETE_MANY):
             return await call(*[prefix + key for key in args])
         call_values = get_call_values(call, args, kwargs)
         if cmd == Command.SET_MANY:
@@ -28,7 +28,7 @@ def add_prefix(prefix: str) -> Middleware:
 
 def all_keys_lower() -> Middleware:
     async def _middleware(call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs) -> Result_T:
-        if cmd == Command.GET_MANY:
+        if cmd in (Command.GET_MANY, Command.DELETE_MANY):
             return await call(*[key.lower() for key in args])
         call_values = get_call_values(call, args, kwargs)
 
