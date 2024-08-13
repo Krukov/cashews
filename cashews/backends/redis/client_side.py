@@ -69,11 +69,13 @@ class BcastClientSide(Redis):
         local_cache=None,
         client_side_prefix: str = _DEFAULT_PREFIX,
         client_side_listen_timeout: Optional[float] = None,
+        client_side_suppress: bool = False,
         **kwargs: Any,
     ) -> None:
         self._local_cache = Memory(size=10000) if local_cache is None else local_cache
         self._prefix = client_side_prefix
         self._listen_timeout = client_side_listen_timeout
+        self._suppress = client_side_suppress
         self._recently_update = Memory(size=500, check_interval=60)
         self._listen_task = None
         self._expire_for_recently_update = 5
@@ -93,10 +95,14 @@ class BcastClientSide(Redis):
         try:
             await asyncio.wait_for(self._listen_started.wait(), timeout=listen_timeout)
         except (TimeoutError, asyncio.TimeoutError) as exc:
-            if self._listen_task.done():
-                raise self._listen_task.exception() from exc
+            if not self._suppress:
+                if self._listen_task.done():
+                    raise self._listen_task.exception() from exc
+                self._listen_task.cancel()
+                raise
+
+            logger.error("redis client side: can not start listen task", exc_info=True)
             self._listen_task.cancel()
-            raise
         self.__is_init = True
 
     async def _mark_as_recently_updated(self, key: Key):

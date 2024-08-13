@@ -73,11 +73,12 @@ def test_url_but_backend_dependency_is_not_installed(url, error):
             {"address": "redis://localhost:9000"},
         ),
         (
-            "redis://localhost:9000/0?client_side=true&client_side_listen_timeout=0.1",
+            "redis://localhost:9000/0?client_side=true&client_side_listen_timeout=0.1&client_side_suppress=true",
             {
                 "address": "redis://localhost:9000/0",
                 "client_side": True,
                 "client_side_listen_timeout": 0.1,
+                "client_side_suppress": True,
             },
         ),
     ),

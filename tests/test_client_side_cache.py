@@ -195,6 +195,20 @@ async def test_unsafe_redis_down(client_side_listen_timeout: Optional[float]):
         await cache.close()
 
 
+async def test_safe_redis_down():
+    from cashews.backends.redis.client_side import BcastClientSide
+
+    cache = BcastClientSide(
+        client_side_suppress=True,
+        address="redis://localhost:9223",
+    )
+
+    await cache.init()
+
+    with contextlib.suppress(asyncio.CancelledError):
+        await cache.close()
+
+
 async def test_set_get_mem_overload(create_cache):
     cache = await create_cache(Memory(size=1))
 
