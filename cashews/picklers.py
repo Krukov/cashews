@@ -1,3 +1,4 @@
+import json
 import pickle
 
 from ._typing import Value
@@ -63,6 +64,18 @@ class NonPickler(Pickler):
         return value
 
 
+class JsonPickler(Pickler):
+    json_serial = None
+
+    @staticmethod
+    def loads(value: bytes):
+        return json.loads(value)
+
+    @classmethod
+    def dumps(cls, value) -> bytes:
+        return json.dumps(value, default=cls.json_serial).encode()
+
+
 DEFAULT_PICKLE = "default"
 NULL_PICKLE = "null"
 
@@ -71,6 +84,7 @@ _picklers = {
     "sqlalchemy": SQLAlchemyPickler,
     "dill": DillPickler,
     NULL_PICKLE: NonPickler,
+    "json": JsonPickler,
 }
 
 

@@ -290,3 +290,19 @@ async def test_cache_from_no_hash_to_hash():
     cache_hash.store = cache.store
 
     assert await cache_hash.get("key") == val
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "str",
+        123,
+        [1, 2, 3],
+        ["s", "t", "r"],
+        {"any": None},
+    ),
+)
+async def test_json_serialize(value):
+    cache = Memory(secret=b"test", pickle_type="json")
+    await cache.set("key", value)
+    assert await cache.get("key") == value

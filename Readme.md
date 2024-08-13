@@ -148,6 +148,7 @@ Pickle can't serialize any type of object. In case you need to store more comple
 you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`.
 Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
+Use `json` also an option to serialize/deserialize an object, but it very limited (`pickle_type="json"`)
 
 Any connection errors are suppressed, to disable it use `suppress=False` - a `CacheBackendInteractionError` will be raised
 
