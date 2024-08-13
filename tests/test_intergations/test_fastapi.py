@@ -114,6 +114,26 @@ def test_cache_stream(client, app, cache):
     assert response.content == b"0123456789"
 
 
+def test_cache_stream_on_error(client, app, cache):
+    from starlette.responses import StreamingResponse
+
+    def iterator():
+        for i in range(10):
+            if i == 5:
+                raise Exception
+            yield f"{i}"
+
+    @app.get("/stream")
+    @cache(ttl="10s", key="stream")
+    async def stream():
+        return StreamingResponse(iterator(), status_code=201, headers={"X-Test": "TRUE"})
+
+    with pytest.raises(Exception):
+        client.get("/stream")
+    with pytest.raises(Exception):
+        client.get("/stream")
+
+
 def test_cache_delete_middleware(client_with_middleware, app, cache):
     from cashews.contrib.fastapi import CacheDeleteMiddleware
 

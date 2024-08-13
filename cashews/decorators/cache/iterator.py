@@ -17,6 +17,12 @@ if TYPE_CHECKING:  # pragma: no cover
 __all__ = ("iterator",)
 
 
+if "anext" not in globals():
+
+    async def anext(ait):
+        return await ait.__anext__()
+
+
 def iterator(
     backend: _BackendInterface,
     ttl: TTL,
