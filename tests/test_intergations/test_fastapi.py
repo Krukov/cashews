@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.integration]
         pytest.param("diskcache", marks=pytest.mark.integration),
     ],
 )
-def _cache(request, redis_dsn):
+async def _cache(request, redis_dsn):
     dsn = "mem://"
     if request.param == "diskcache":
         dsn = "disk://"
@@ -27,7 +27,8 @@ def _cache(request, redis_dsn):
         dsn = redis_dsn + "&client_side=t"
     cache = Cache()
     cache.setup(dsn, suppress=False)
-    return cache
+    yield cache
+    await cache.clear()
 
 
 @pytest.fixture(name="app")
