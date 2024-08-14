@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.integration]
         pytest.param("diskcache", marks=pytest.mark.integration),
     ],
 )
-def _cache(request, redis_dsn):
+async def _cache(request, redis_dsn):
     dsn = "mem://"
     if request.param == "diskcache":
         dsn = "disk://"
@@ -27,7 +27,8 @@ def _cache(request, redis_dsn):
         dsn = redis_dsn + "&client_side=t"
     cache = Cache()
     cache.setup(dsn, suppress=False)
-    return cache
+    yield cache
+    await cache.clear()
 
 
 @pytest.fixture(name="app")
@@ -112,6 +113,26 @@ def test_cache_stream(client, app, cache):
     assert response.status_code == 201
     assert response.headers["X-Test"] == "TRUE"
     assert response.content == b"0123456789"
+
+
+def test_cache_stream_on_error(client, app, cache):
+    from starlette.responses import StreamingResponse
+
+    def iterator():
+        for i in range(10):
+            if i == 5:
+                raise Exception
+            yield f"{i}"
+
+    @app.get("/stream")
+    @cache(ttl="10s", key="stream")
+    async def stream():
+        return StreamingResponse(iterator(), status_code=201, headers={"X-Test": "TRUE"})
+
+    with pytest.raises(Exception):
+        client.get("/stream")
+    with pytest.raises(Exception):
+        client.get("/stream")
 
 
 def test_cache_delete_middleware(client_with_middleware, app, cache):

@@ -229,8 +229,14 @@ class Serializer:
         if value_type not in self._type_mapping:
             return default
         _, decoder = self._type_mapping[value_type]
-        decode_value = await decoder(value, backend, key)
-        return decode_value
+        try:
+            return await decoder(value, backend, key)
+        except DecodeError:
+            return default
+
+
+class DecodeError(Exception):
+    pass
 
 
 register_type = Serializer.register_type

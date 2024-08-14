@@ -8,12 +8,19 @@ from cashews.backends.interface import _BackendInterface
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
+from ._exception import RaiseException, return_or_raise
 from .defaults import context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc
 
 __all__ = ("iterator",)
+
+
+if "anext" not in globals():
+
+    async def anext(ait):
+        return await ait.__anext__()
 
 
 def iterator(
@@ -49,14 +56,27 @@ def iterator(
                     chunk = await backend.get(_cache_key + f":{chunk_number}")
                     if not chunk:
                         return
-                    yield chunk
+                    yield return_or_raise(chunk)
                     chunk_number += 1
 
-            _to_cache = condition(None, args, kwargs, key=_cache_key)
             start = time.monotonic()
-            async for chunk in async_iterator(*args, **kwargs):
+            _to_cache = False
+            _async_iterator = async_iterator(*args, **kwargs)
+            while True:
+                try:
+                    chunk = await anext(_async_iterator)
+                except StopAsyncIteration:
+                    break
+                except Exception as exc:
+                    cond_res = condition(exc, args, kwargs, key=_cache_key)
+                    if cond_res and isinstance(cond_res, Exception):
+                        _to_cache = True
+                        await backend.set(_cache_key + f":{chunk_number}", RaiseException(exc), expire=_ttl)
+                        await backend.set(_cache_key, True, expire=_ttl - time.monotonic() + start)
+                    raise exc
                 yield chunk
-                if _to_cache:
+                if condition(chunk, args, kwargs, key=_cache_key):
+                    _to_cache = True
                     await backend.set(_cache_key + f":{chunk_number}", chunk, expire=_ttl)
                 chunk_number += 1
             if _to_cache:

@@ -1,7 +1,7 @@
 from starlette.responses import StreamingResponse
 
 from cashews.backends.interface import Backend
-from cashews.serialize import register_type
+from cashews.serialize import DecodeError, register_type
 
 
 async def encode_streaming_response(
@@ -16,6 +16,8 @@ async def encode_streaming_response(
 
 
 async def decode_streaming_response(value: bytes, backend: Backend, key: str, **kwargs) -> StreamingResponse:
+    if not await backend.get(f"{key}:done"):
+        raise DecodeError()
     status_code, headers = value.split(b":")
     raw_headers = []
     for header in headers.split(b";"):
@@ -36,6 +38,7 @@ async def set_iterator(backend: Backend, key: str, iterator, expire: int):
         await backend.set(f"{key}:chunk:{chunk_number}", chunk, expire=expire)
         yield chunk
         chunk_number += 1
+    await backend.set(f"{key}:done", True, expire=expire)  # mark as finished
 
 
 async def get_iterator(backend: Backend, key: str):

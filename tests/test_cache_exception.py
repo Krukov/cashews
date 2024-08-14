@@ -37,6 +37,23 @@ async def test_cache_with_exceptions(cache: Cache):
     assert mock.call_count == 3
 
 
+async def test_cache_exc_not_cached_by_default(cache: Cache):
+    mock = Mock()
+
+    @cache(ttl=EXPIRE)
+    async def func():
+        mock()
+        raise CustomError()
+
+    with pytest.raises(CustomError):
+        await func()
+
+    with pytest.raises(CustomError):
+        await func()
+
+    assert mock.call_count == 2
+
+
 async def test_cache_only_exceptions(cache: Cache):
     mock = Mock()
 
