@@ -177,6 +177,7 @@ async def test_unsafe_redis_down(client_side_listen_timeout: Optional[float]):
 
     cache = BcastClientSide(
         client_side_listen_timeout=client_side_listen_timeout,
+        suppress=False,
         address="redis://localhost:9223",
     )
 
@@ -198,10 +199,7 @@ async def test_unsafe_redis_down(client_side_listen_timeout: Optional[float]):
 async def test_safe_redis_down():
     from cashews.backends.redis.client_side import BcastClientSide
 
-    cache = BcastClientSide(
-        client_side_suppress=True,
-        address="redis://localhost:9223",
-    )
+    cache = BcastClientSide(address="redis://localhost:9223")
 
     await cache.init()
 

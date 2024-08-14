@@ -69,19 +69,19 @@ class BcastClientSide(Redis):
         local_cache=None,
         client_side_prefix: str = _DEFAULT_PREFIX,
         client_side_listen_timeout: Optional[float] = None,
-        client_side_suppress: bool = False,
+        suppress: bool = True,
         **kwargs: Any,
     ) -> None:
         self._local_cache = Memory(size=10000) if local_cache is None else local_cache
         self._prefix = client_side_prefix
         self._listen_timeout = client_side_listen_timeout
-        self._suppress = client_side_suppress
+        self._suppress = suppress
         self._recently_update = Memory(size=500, check_interval=60)
         self._listen_task = None
         self._expire_for_recently_update = 5
         self._listen_started = asyncio.Event()
         self.__listen_stop = asyncio.Event()
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, suppress=suppress, **kwargs)
 
     async def init(self):
         self._listen_started = asyncio.Event()
