@@ -304,7 +304,14 @@ class _Redis(Backend):
         await self._client.srem(key, *values)
 
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
-        return [value.decode() for value in await self._client.spop(key, count)]  # type: ignore[union-attr]
+        values = await self._client.spop(key, count)
+        if values is None:
+            return []
+
+        if isinstance(values, str):
+            values = [values]
+
+        return [value.decode() for value in values]  # type: ignore[union-attr]
 
     async def get_keys_count(self) -> int:
         return await self._client.dbsize()
