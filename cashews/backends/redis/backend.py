@@ -308,7 +308,7 @@ class _Redis(Backend):
         if values is None:
             return []
 
-        if isinstance(values, str):
+        if isinstance(values, bytes):
             values = [values]
 
         return [value.decode() for value in values]  # type: ignore[union-attr]
