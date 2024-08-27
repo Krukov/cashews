@@ -44,6 +44,9 @@ async def test_safe_redis(redis_backend):
     async for _ in redis.get_match("*"):
         raise AssertionError()
 
+    assert await redis.set_add("testset", "test") is None
+    assert await redis.set_pop("testset") == []
+
     assert await redis.delete("test") == 0
     await redis.delete_match("*")
 
