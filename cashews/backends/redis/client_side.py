@@ -154,8 +154,8 @@ class BcastClientSide(Redis):
                 key = self._remove_prefix(original_key)
                 if not await self._recently_update.get(key):
                     logger.debug("invalidate the key %s", key)
-                    await self._local_cache.delete(key)
-                    await self._call_on_remove_callbacks(original_key)
+                    if await self._local_cache.delete(key):
+                        await self._call_on_remove_callbacks(original_key)
                 else:
                     logger.debug("the key `%s`: recently update", key)
                     await self._recently_update.delete(key)
