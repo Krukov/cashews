@@ -146,29 +146,27 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         with self._cache.detect as detector, self._cache.callback(set_callback, cmd=Command.SET):
             response = await call_next(request)
             calls = detector.calls_list
-            if not calls:
-                if set_key is not None:
-                    _etag = await self._set_etag(set_key)
-                    if _etag == etag:
-                        return Response(status_code=304)
-                    if _etag:
-                        response.headers[_ETAG_HEADER] = _etag
-                return response
-
-            key, _ = calls[0]
+            key = None
+            if calls:
+                key, _ = calls[0]
+            elif set_key is not None:
+                key = set_key
+        if key:
             _etag = await self._set_etag(key)
-            if _etag == etag:
+            if _etag and _etag == etag:
                 return Response(status_code=304)
             if _etag:
                 response.headers[_ETAG_HEADER] = _etag
         return response
 
-    async def _set_etag(self, key: str) -> str:
+    async def _set_etag(self, key: str) -> str | None:
         data = await self._cache.get(key)
         if _is_early_cache(data):
             expire = (data[0] - datetime.utcnow()).total_seconds()  # type: ignore[index]
         else:
             expire = await self._cache.get_expire(key)
+        if expire < 0:
+            return None
         etag = _get_etag(data)
         await self._cache.set(self._get_etag_key(etag), True, expire=expire)
         return etag
