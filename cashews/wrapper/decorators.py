@@ -121,6 +121,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         ttl: TTL,
         key: KeyOrTemplate | None = None,
+        *,
         condition: CacheCondition = None,
         time_condition: TTL | None = None,
         prefix: str = "",
@@ -147,6 +148,7 @@ class DecoratorsWrapper(Wrapper):
     def failover(
         self,
         ttl: TTL,
+        *,
         exceptions: Exceptions = None,
         key: KeyOrTemplate | None = None,
         condition: CacheCondition = None,
@@ -168,12 +170,14 @@ class DecoratorsWrapper(Wrapper):
         self,
         ttl: TTL,
         key: KeyOrTemplate | None = None,
+        *,
         early_ttl: TTL | None = None,
         condition: CacheCondition = None,
         time_condition: TTL | None = None,
         prefix: str = "early",
         upper: bool = False,
         tags: Tags = (),
+        background: bool = True,
         protected: bool = True,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
@@ -186,6 +190,7 @@ class DecoratorsWrapper(Wrapper):
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
             tags=tags,
+            background=background,
             protected=protected,
         )
 
@@ -193,6 +198,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         ttl: TTL,
         key: KeyOrTemplate | None = None,
+        *,
         soft_ttl: TTL | None = None,
         exceptions: Exceptions = Exception,
         condition: CacheCondition = None,
@@ -219,6 +225,7 @@ class DecoratorsWrapper(Wrapper):
     def hit(
         self,
         ttl: TTL,
+        *,
         cache_hits: int,
         update_after: int = 0,
         key: KeyOrTemplate | None = None,
@@ -245,6 +252,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         ttl: TTL = 60 * 60 * 24,
         key: KeyOrTemplate | None = None,
+        *,
         condition: CacheCondition = None,
         time_condition: TTL | None = None,
         prefix: str = "dynamic",
@@ -267,7 +275,8 @@ class DecoratorsWrapper(Wrapper):
     def iterator(
         self,
         ttl: TTL,
-        key: str | None = None,
+        key: KeyOrTemplate | None = None,
+        *,
         condition: CacheCondition = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.iterator(
@@ -281,6 +290,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         key_template: KeyOrTemplate,
         args_map: dict[str, str] | None = None,
+        *,
         defaults: dict | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return validation.invalidate(
@@ -292,6 +302,7 @@ class DecoratorsWrapper(Wrapper):
 
     def circuit_breaker(
         self,
+        *,
         errors_rate: int,
         period: TTL,
         ttl: TTL,
@@ -316,6 +327,7 @@ class DecoratorsWrapper(Wrapper):
 
     def rate_limit(
         self,
+        *,
         limit: int,
         period: TTL,
         ttl: TTL | None = None,
@@ -335,6 +347,7 @@ class DecoratorsWrapper(Wrapper):
 
     def slice_rate_limit(
         self,
+        *,
         limit: int,
         period: TTL,
         key: KeyOrTemplate | None = None,
@@ -354,6 +367,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         ttl: TTL | None = None,
         key: KeyOrTemplate | None = None,
+        *,
         wait: bool = True,
         prefix: str = "locked",
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:

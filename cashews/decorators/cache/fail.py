@@ -64,6 +64,7 @@ def failover(
                         exc=exc,
                         name="failover",
                         template=_key_template,
+                        value=cached,
                     )
                     return cached
                 raise exc

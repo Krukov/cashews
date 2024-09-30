@@ -30,10 +30,11 @@ def early(
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "early",
     tags: Tags = (),
+    background: bool = True,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache strategy that try to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
-    With hot cache recalculate a result in background near expiration time
+    With hot cache recalculate a result near expiration time
     Warning Not good at cold cache
 
     :param backend: cache backend
@@ -43,13 +44,15 @@ def early(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'early'
     :param tags: aliases for keys that used for cache (used for invalidation)
+    :param background: if true will run recalculation in background
     """
 
+    background_tasks = set()
     ttl = ttl_to_seconds(ttl)
     early_ttl = ttl_to_seconds(early_ttl)
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
-        _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
+        _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         for tag in tags:
             backend.register_tag(tag, _key_template)
 
@@ -78,14 +81,16 @@ def early(
             if cached is _empty:
                 return await _get_result_for_early(*args_to_call)
 
+            early_expire_at, result = cached
             context_cache_detect._set(
                 _cache_key,
                 ttl=_ttl,
                 early_ttl=_early_ttl,
                 name="early",
                 template=_key_template,
+                value=result,
+                early_expire_at=early_expire_at,
             )
-            early_expire_at, result = cached
             if early_expire_at >= datetime.utcnow():
                 return return_or_raise(result)
             lock_key = _cache_key + _LOCK_SUFFIX
@@ -96,7 +101,11 @@ def early(
                 _cache_key,
                 early_expire_at,
             )
-            asyncio.create_task(_get_result_for_early(*args_to_call, unlock=True))
+            task = asyncio.create_task(_get_result_for_early(*args_to_call, unlock=True))
+            background_tasks.add(task)
+            task.add_done_callback(background_tasks.discard)
+            if not background:
+                await task
             return return_or_raise(result)
 
         return _wrap  # type: ignore[return-value]

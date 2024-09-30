@@ -40,7 +40,7 @@ class TransactionWrapper(Wrapper):
         return tx.wrap(backend), config
 
     def transaction(
-        self, mode: TransactionMode | None = None, timeout: float | None = None
+        self, mode: TransactionMode | None = None, *, timeout: float | None = None
     ) -> TransactionContextDecorator:
         mode = mode or self.transaction_mode
         timeout = timeout or self.transaction_timeout

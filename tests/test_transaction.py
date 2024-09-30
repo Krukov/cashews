@@ -321,8 +321,8 @@ async def test_decorators_smoke(cache: Cache, tx_mode):
     @cache.early(ttl=10, early_ttl=5)
     @cache.hit(ttl=10, cache_hits=2)
     @cache.invalidate("key")
-    @cache.slice_rate_limit(10, 10)
-    @cache.circuit_breaker(10, 10, 10)
+    @cache.slice_rate_limit(limit=10, period=10)
+    @cache.circuit_breaker(errors_rate=10, period=10, ttl=10)
     async def do_sum(*args):
         return sum(args)
 
