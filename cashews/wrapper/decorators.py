@@ -174,6 +174,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "early",
         upper: bool = False,
         tags: Tags = (),
+        background: bool = True,
         protected: bool = True,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
@@ -186,6 +187,7 @@ class DecoratorsWrapper(Wrapper):
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
             tags=tags,
+            background=background,
             protected=protected,
         )
 
@@ -227,6 +229,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "hit",
         upper: bool = False,
         tags: Tags = (),
+        background: bool = True,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.hit,
@@ -239,6 +242,7 @@ class DecoratorsWrapper(Wrapper):
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
             tags=tags,
+            background=background,
         )
 
     def dynamic(
@@ -267,7 +271,7 @@ class DecoratorsWrapper(Wrapper):
     def iterator(
         self,
         ttl: TTL,
-        key: str | None = None,
+        key: KeyOrTemplate | None = None,
         condition: CacheCondition = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.iterator(

@@ -63,6 +63,8 @@ def soft(
                         soft_ttl=soft_ttl,
                         name="soft",
                         template=_key_template,
+                        value=result,
+                        soft_expire_at=soft_expire_at,
                     )
                     return result
 
@@ -70,13 +72,15 @@ def soft(
                 result = await func(*args, **kwargs)
             except exceptions:
                 if cached is not _empty:
-                    _, result = cached
+                    soft_expire_at, result = cached
                     context_cache_detect._set(
                         _cache_key,
                         ttl=ttl,
                         soft_ttl=soft_ttl,
                         name="soft",
                         template=_key_template,
+                        value=result,
+                        soft_expire_at=soft_expire_at,
                     )
                     return result
                 raise
