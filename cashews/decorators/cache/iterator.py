@@ -51,7 +51,13 @@ def iterator(
             cached = await backend.get(_cache_key)
             chunk_number = 0
             if cached:
-                context_cache_detect._set(_cache_key, ttl=_ttl, name="iterator", template=_key_template)
+                context_cache_detect._set(
+                    _cache_key,
+                    ttl=_ttl,
+                    name="iterator",
+                    template=_key_template,
+                    value=cached,
+                )
                 while True:
                     chunk = await backend.get(_cache_key + f":{chunk_number}")
                     if not chunk:

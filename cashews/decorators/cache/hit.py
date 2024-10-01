@@ -26,6 +26,7 @@ def hit(
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "hit",
     tags: Tags = (),
+    background: bool = True,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache call results and drop cache after given numbers of call 'cache_hits'
@@ -37,8 +38,10 @@ def hit(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'hit'
     :param tags: aliases for keys that used for cache (used for invalidation)
+    :param background: if true will run recalculation in background
     """
     ttl = ttl_to_seconds(ttl)
+    background_tasks = set()
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
@@ -68,7 +71,11 @@ def hit(
                     template=_key_template,
                 )
                 if update_after and hits == update_after:
-                    asyncio.create_task(_get_and_save(*call_args))
+                    task = asyncio.create_task(_get_and_save(*call_args))
+                    background_tasks.add(task)
+                    task.add_done_callback(background_tasks.discard)
+                    if not background:
+                        await task
                 return return_or_raise(cached)
             return await _get_and_save(*call_args)
 
