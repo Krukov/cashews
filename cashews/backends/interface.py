@@ -173,8 +173,11 @@ class _BackendInterface(metaclass=ABCMeta):
 
 
 class ControlMixin:
+    enable_by_default = True
+
     def __init__(self, *args, **kwargs) -> None:
         self.__disable: ContextVar[set[Command]] = ContextVar(str(id(self)), default=set())
+        self._control_set = True
         super().__init__(*args, **kwargs)
 
     @property
@@ -183,18 +186,26 @@ class ControlMixin:
 
     def _set_disable(self, value: set[Command]) -> None:
         self.__disable.set(value)
+        self._control_set = True
 
     def is_disable(self, *cmds: Command) -> bool:
+        if not self._control_set:
+            return not self.enable_by_default
         _disable = self._disable
         if not cmds and _disable:
             return True
-        return any(cmd in _disable for cmd in cmds)
+        for cmd in cmds:
+            if cmd in _disable:
+                return True
+        return False
 
     def is_enable(self, *cmds: Command) -> bool:
         return not self.is_disable(*cmds)
 
     @property
     def is_full_disable(self) -> bool:
+        if not self._control_set:
+            return not self.enable_by_default
         return self._disable == ALL
 
     def disable(self, *cmds: Command) -> None:

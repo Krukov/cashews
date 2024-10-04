@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any, Iterator
 
 from cashews._typing import AsyncCallable_T, Callback, Key, ShortCallback
 from cashews.commands import PATTERN_CMDS, Command
-from cashews.key import get_call_values
 
 from .wrapper import Wrapper
 
@@ -18,9 +17,10 @@ class CallbackMiddleware:
 
     async def __call__(self, call: AsyncCallable_T, cmd: Command, backend: "Backend", *args, **kwargs):
         result = await call(*args, **kwargs)
+        if not self._callbacks:
+            return result
         as_key = "pattern" if cmd in PATTERN_CMDS else "key"
-        call_values = get_call_values(call, args, kwargs)
-        key = call_values.get(as_key)
+        key = kwargs.get(as_key)
         if key is None or result is None:
             return result
         for callback in self._callbacks.values():
