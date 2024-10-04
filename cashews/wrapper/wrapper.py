@@ -20,6 +20,7 @@ class Wrapper:
 
     def __init__(self, name: str = ""):
         self._backends: dict[str, tuple[Backend, tuple[Middleware, ...]]] = {}
+        self._sorted_prefixes: tuple[str, ...] = ()
         self._default_middlewares: list[Middleware] = [
             create_auto_init(),
             validation._invalidate_middleware,
@@ -31,7 +32,7 @@ class Wrapper:
         self._default_middlewares.append(middleware)
 
     def _get_backend_and_config(self, key: Key) -> tuple[Backend, tuple[Middleware, ...]]:
-        for prefix in sorted(self._backends.keys(), reverse=True):
+        for prefix in self._sorted_prefixes:
             if key.startswith(prefix):
                 return self._backends[prefix]
         self._check_setup()
@@ -81,6 +82,7 @@ class Wrapper:
             backend,
             middlewares + tuple(self._default_middlewares),
         )
+        self._sorted_prefixes = tuple(sorted(self._backends.keys(), reverse=True))
 
     async def init(self, *args, **kwargs) -> None:
         if args or kwargs:
