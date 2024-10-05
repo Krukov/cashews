@@ -69,6 +69,7 @@ def hit(
                     cache_hits=cache_hits,
                     name="hit",
                     template=_key_template,
+                    value=cached,
                 )
                 if update_after and hits == update_after:
                     task = asyncio.create_task(_get_and_save(*call_args))
