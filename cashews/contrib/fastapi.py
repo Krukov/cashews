@@ -132,44 +132,51 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         self._cache = cache_instance
         super().__init__(app)
 
-    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint):
-        etag = request.headers.get(_IF_NOT_MATCH_HEADER)
-        if etag and await self._cache.exists(self._get_etag_key(etag)):
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        request_etag = request.headers.get(_IF_NOT_MATCH_HEADER)
+        if request_etag and await self._cache.exists(self._get_etag_key(request_etag)):
             return Response(status_code=304)
 
-        set_key: None | str = None
+        used_key: None | str = None
 
         def set_callback(key: str, result: Any):
-            nonlocal set_key
-            set_key = key
+            if not key.endswith(":lock"):
+                nonlocal used_key
+                used_key = key
 
         with self._cache.detect as detector, self._cache.callback(set_callback, cmd=Command.SET):
             response = await call_next(request)
             calls = detector.calls_list
-            if not calls:
-                if set_key is not None:
-                    _etag = await self._set_etag(set_key)
-                    if _etag == etag:
-                        return Response(status_code=304)
-                    if _etag:
-                        response.headers[_ETAG_HEADER] = _etag
+            if not calls and not used_key:
                 return response
+            if used_key:
+                _key = used_key
+                _data = None
+            else:
+                _key = calls[0][0]
+                _data = calls[0][1][0]["value"]
+            _etag = await self._set_etag(_key, _data)
+            return self._response_etag(response, _etag, request_etag)
 
-            key, _ = calls[0]
-            _etag = await self._set_etag(key)
-            if _etag == etag:
-                return Response(status_code=304)
-            if _etag:
-                response.headers[_ETAG_HEADER] = _etag
+    def _response_etag(self, response: Response, etag: str | None, request_etag: str | None) -> Response:
+        if etag is None:
+            return response
+        if etag == request_etag:
+            return Response(status_code=304)
+        if etag:
+            response.headers[_ETAG_HEADER] = etag
         return response
 
-    async def _set_etag(self, key: str) -> str:
-        data = await self._cache.get(key)
-        if _is_early_cache(data):
-            expire = (data[0] - datetime.utcnow()).total_seconds()  # type: ignore[index]
+    async def _set_etag(self, key: str, data: Any = None) -> str | None:
+        _data = data or await self._cache.get(key)
+        if _is_early_cache(_data):
+            expire = (_data[0] - datetime.utcnow()).total_seconds()  # type: ignore[index]
+            _data = _data[1]  # type: ignore[index]
         else:
             expire = await self._cache.get_expire(key)
-        etag = _get_etag(data)
+        if expire < 0:
+            return None
+        etag = _get_etag(_data)
         await self._cache.set(self._get_etag_key(etag), True, expire=expire)
         return etag
 
@@ -179,8 +186,6 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
 
 
 def _get_etag(cached_data: Any) -> str:
-    if _is_early_cache(cached_data):
-        cached_data = cached_data[1]
     if not isinstance(cached_data, bytes):
         cached_data = cached_data.body if isinstance(cached_data, Response) else DEFAULT_PICKLER.dumps(cached_data)
     return blake2s(cached_data).hexdigest()

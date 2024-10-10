@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class CallbackMiddleware:
     def __init__(self):
-        self._callbacks = {}
+        self._callbacks: dict[str, Callback] = {}
 
     async def __call__(self, call: AsyncCallable_T, cmd: Command, backend: "Backend", *args, **kwargs):
         result = await call(*args, **kwargs)
