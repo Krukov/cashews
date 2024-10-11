@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 
-class Cache(
+class Cache(  # type: ignore[misc]
     TransactionWrapper,
     ControlWrapper,
     CallbackWrapper,

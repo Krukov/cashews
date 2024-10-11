@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 from contextlib import nullcontext
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import datetime, timezone
 from hashlib import blake2s
 from typing import Any, ContextManager, Sequence
 
@@ -170,7 +170,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
     async def _set_etag(self, key: str, data: Any = None) -> str | None:
         _data = data or await self._cache.get(key)
         if _is_early_cache(_data):
-            expire = (_data[0] - datetime.utcnow()).total_seconds()  # type: ignore[index]
+            expire = (_data[0] - datetime.now(timezone.utc)).total_seconds()  # type: ignore[index]
             _data = _data[1]  # type: ignore[index]
         else:
             expire = await self._cache.get_expire(key)

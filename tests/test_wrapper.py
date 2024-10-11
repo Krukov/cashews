@@ -51,7 +51,9 @@ async def test_auto_init(cache):
 
     type(target).is_init = PropertyMock(side_effect=lambda: init)
     target.init.side_effect = set_init
-    cache._backends[""] = (target, (create_auto_init(),))
+    cache._backends[""] = target
+    cache._middlewares[target._id] = [create_auto_init()]
+
     await asyncio.gather(cache.ping(), cache.ping(), cache.get("test"))
     target.init.assert_called_once()
 
@@ -124,13 +126,10 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
 
     await cache.set("key", "value")
     assert [key async for key in cache.scan("key*")] == ["key"]
-    target.scan.assert_called_once_with("key*", batch_size=100)
+    target.scan.assert_called_once_with(pattern="key*", batch_size=100)
 
     assert [key_value async for key_value in cache.get_match("key*")] == [("key", "value")]
-    target.get_match.assert_called_once_with("key*", batch_size=100)
-
-    await cache.get_size("key")
-    target.get_size.assert_called_once_with(key="key")
+    target.get_match.assert_called_once_with(pattern="key*", batch_size=100)
 
     await cache.slice_incr("key_slice", 0, 10, maxvalue=10)
     target.slice_incr.assert_called_once_with(key="key_slice", start=0, end=10, maxvalue=10, expire=None)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import TYPE_CHECKING, Any, Callable, NoReturn
 
@@ -61,5 +61,5 @@ def slice_rate_limit(
 
 
 async def _get_requests_count(backend: _BackendInterface, key: str, limit: int, period: int) -> int:
-    timestamp = datetime.utcnow().timestamp()
+    timestamp = datetime.now(timezone.utc).timestamp()
     return await backend.slice_incr(key, timestamp - period, timestamp, maxvalue=limit + 1, expire=period)

@@ -9,7 +9,7 @@ from copy import copy
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Mapping, overload
 
 from cashews.serialize import SerializerMixin
-from cashews.utils import Bitarray, get_obj_size
+from cashews.utils import Bitarray
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
 
@@ -217,11 +217,6 @@ class _Memory(Backend):
 
     async def unlock(self, key: Key, value: Value) -> bool:
         return await self._delete(key)
-
-    async def get_size(self, key: Key) -> int:
-        if key in self.store:
-            return get_obj_size(self.store[key])
-        return 0
 
     async def slice_incr(
         self,

@@ -236,11 +236,6 @@ async def test_diff_types_get_match(cache: Cache):
     assert dict(match) == {"key": 1}
 
 
-async def test_get_size(cache: Cache):
-    await cache.set("test", b"1")
-    assert isinstance(await cache.get_size("test"), int)
-
-
 async def test_get_keys_count(cache: Cache):
     await cache.set("test", b"1")
     assert await cache.get_keys_count() == 1

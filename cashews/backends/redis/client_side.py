@@ -27,10 +27,12 @@ https://engineering.redislabs.com/posts/redis-assisted-client-side-caching-in-py
 https://redis.io/topics/client-side-caching
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from contextlib import suppress
-from typing import Any, AsyncIterator, Mapping, Optional, Tuple
+from typing import Any, AsyncIterator, Mapping
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 
@@ -68,7 +70,7 @@ class BcastClientSide(Redis):
         *args: Any,
         local_cache=None,
         client_side_prefix: str = _DEFAULT_PREFIX,
-        client_side_listen_timeout: Optional[float] = None,
+        client_side_listen_timeout: float | None = None,
         suppress: bool = True,
         **kwargs: Any,
     ) -> None:
@@ -160,7 +162,7 @@ class BcastClientSide(Redis):
                     logger.debug("the key `%s`: recently update", key)
                     await self._recently_update.delete(key)
 
-    async def get(self, key: Key, default: Optional[Value] = None) -> Value:
+    async def get(self, key: Key, default: Value | None = None) -> Value:
         if self._listen_started.is_set():
             value = await self._local_cache.get(key, default=_empty)
             if value is _empty_in_redis:
@@ -178,8 +180,8 @@ class BcastClientSide(Redis):
         self,
         key: Key,
         value: Value,
-        expire: Optional[float] = None,
-        exist: Optional[bool] = None,
+        expire: float | None = None,
+        exist: bool | None = None,
     ) -> bool:
         await self._local_cache.set(key, value, expire, exist)
         await self._mark_as_recently_updated(key)
@@ -190,7 +192,7 @@ class BcastClientSide(Redis):
             await self._recently_update.delete(key)
         return _set
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         await self._local_cache.set_many(pairs, expire)
         for key in pairs:
             await self._mark_as_recently_updated(key)
@@ -203,7 +205,7 @@ class BcastClientSide(Redis):
         async for key in super().scan(self._add_prefix(pattern), batch_size=batch_size):
             yield self._remove_prefix(key)
 
-    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
+    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         missed_keys = {self._add_prefix(key) for key in keys}
         values = {key: default for key in keys}
         if self._listen_started.is_set():
@@ -224,7 +226,7 @@ class BcastClientSide(Redis):
                 await self._local_cache.set(key, _empty_in_redis)
         return tuple(missed.get(key, value) for key, value in values.items())
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:  # type: ignore
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:  # type: ignore
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=self._add_prefix(pattern), count=batch_size)
@@ -240,7 +242,7 @@ class BcastClientSide(Redis):
             if not cursor:
                 return
 
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         _value = await super().incr(self._add_prefix(key), value=value, expire=expire)
         if _value:
             await self._local_cache.set(key, _value, expire=expire)
@@ -284,7 +286,7 @@ class BcastClientSide(Redis):
                 return True
         return await super().exists(self._add_prefix(key))
 
-    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
+    async def set_lock(self, key: Key, value: Value, expire: float | None) -> bool:
         await self._mark_as_recently_updated(key)
         await self._local_cache.set_lock(key, value, expire)
         return await super().set_lock(self._add_prefix(key), value, expire=expire)
@@ -292,9 +294,6 @@ class BcastClientSide(Redis):
     async def unlock(self, key: Key, value: Value) -> bool:
         await self._local_cache.unlock(key, value)
         return await super().unlock(self._add_prefix(key), value)
-
-    async def get_size(self, key: Key) -> int:
-        return await super().get_size(self._add_prefix(key))
 
     async def clear(self):
         await self._local_cache.clear()

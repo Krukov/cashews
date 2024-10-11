@@ -137,8 +137,8 @@ class _Redis(Backend):
     async def expire(self, key: Key, timeout: float):
         return await self._client.pexpire(key, int(timeout * 1000))
 
-    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
-        pexpire = int(expire * 1000)
+    async def set_lock(self, key: Key, value: Value, expire: float | None) -> bool:
+        pexpire = int(expire * 1000) if expire else None
         return bool(await self._client.set(key, value, px=pexpire, nx=True))
 
     async def is_locked(
@@ -214,10 +214,6 @@ class _Redis(Backend):
                     yield key, value
             if not cursor:
                 return
-
-    async def get_size(self, key: Key) -> int:
-        size = await self._client.memory_usage(key) or 0
-        return int(size)
 
     async def get(self, key: Key, default: Value | None = None) -> Value:
         value = await self._client.get(key)
