@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import warnings
 from typing import Any, AsyncIterator, Iterable, Mapping
 
 from redis.asyncio import BlockingConnectionPool
@@ -50,18 +49,9 @@ class _Redis(Backend):
     def __init__(
         self,
         address: str,
-        safe: bool = _empty,  # type: ignore[assignment]
         suppress: bool = True,
         **kwargs: Any,
     ) -> None:
-        if safe is not _empty:
-            warnings.warn(
-                "`safe` property was renamed to `suppress` and will be removed in next release",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            suppress = safe
-
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)
         kwargs.setdefault("client_name", "cashews")

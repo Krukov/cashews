@@ -34,7 +34,7 @@ class LockedError(CacheError):
 
 
 class CacheBackendInteractionError(CacheError):
-    """Raised if redis not available and safe is set to false"""
+    """Raised if redis not available and suppress is set to false"""
 
 
 class RateLimitError(CacheError):
