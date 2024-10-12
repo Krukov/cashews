@@ -5,6 +5,7 @@ class Command(Enum):
     GET = "get"
     GET_MANY = "get_many"
     GET_MATCH = "get_match"
+    EXISTS = "exists"
     INCR = "incr"
 
     SET = "set"
@@ -16,4 +17,4 @@ class Command(Enum):
 
 
 ALL = set(Command)
-RETRIEVE_CMDS = {Command.GET, Command.INCR, Command.GET_MANY, Command.GET_MATCH}
+RETRIEVE_CMDS = {Command.GET, Command.INCR, Command.GET_MANY, Command.GET_MATCH, Command.EXISTS}

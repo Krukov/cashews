@@ -13,7 +13,7 @@ def test_register_tags(cache: Cache):
     cache.register_tag("tag_template", "key{i}")
     cache.register_tag("tag_test:{i}", "key{i:len}:test")
     cache.register_tag("tag_func:{i:hash}", "key{i}:test")
-    cache.register_tag("tag_context:{val}", "key{i}:test")
+    cache.register_tag("tag_context:{@:get(val)}", "key{i}:test")
     cache.register_tag("!@#$%^&*():{i}", "!@#$%^&*(){i}:test")
 
     with key_context(val=10):

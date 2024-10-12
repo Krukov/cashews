@@ -44,7 +44,7 @@ _empty = object()
 
 
 class _Redis(Backend):
-    _client: Redis | SafeRedis
+    _client: Redis | SafeRedis | None
     _client_class: type[Redis] | type[SafeRedis]
 
     def __init__(
@@ -86,6 +86,7 @@ class _Redis(Backend):
         self._kwargs = kwargs
         self._address = address
         self.__is_init = False
+        self._client = None
         super().__init__()
 
     @property

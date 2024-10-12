@@ -52,7 +52,7 @@ def early(
     early_ttl = ttl_to_seconds(early_ttl)
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
-        _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
+        _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         for tag in tags:
             backend.register_tag(tag, _key_template)
 

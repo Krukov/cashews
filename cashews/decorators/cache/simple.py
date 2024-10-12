@@ -56,6 +56,7 @@ def cache(
                     name="simple",
                     template=_key_template,
                     value=cached,
+                    tags=tags,
                 )
                 return return_or_raise(cached)
             _exc = None

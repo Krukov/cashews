@@ -1,14 +1,18 @@
 import base64
 import json
 import re
+import warnings
+from contextlib import contextmanager
 from hashlib import md5, sha1, sha256
 from string import Formatter
-from typing import Any, Callable, Dict, Iterable, Pattern, Tuple
+from typing import Any, Callable, Dict, Iterable, Pattern, Tuple, TypeVar
 
 from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
+from .exceptions import WrongKeyError
 
 TemplateValue = str
+T = TypeVar("T")
 _re_special_chars_map = {i: "\\" + chr(i) for i in b"()[]?*+-|^$\\&~# \t\n\r\v\f"}
 
 
@@ -62,6 +66,15 @@ class _ReplaceFormatter(Formatter):
         }
         super().__init__()
 
+    @contextmanager
+    def default(self, _default):
+        was = self.__default
+        self.__default = _default
+        try:
+            yield
+        finally:
+            self.__default = was
+
     def set_format_for_type(self, value, format_function):
         self.__type_format[value] = format_function
 
@@ -93,29 +106,43 @@ class _ReplaceFormatter(Formatter):
         return format(self._format_field(value))
 
 
-class _FuncFormatter(_ReplaceFormatter):
+class _KeyFormatter(_ReplaceFormatter):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         self._functions: Dict[str, Tuple[Callable, bool]] = {}
+        self._final_formatters = []
         super().__init__(*args, **kwargs)
 
-    def _register(self, alias: str, function: Callable, preformat: bool = True) -> None:
-        self._functions[alias] = (function, preformat)
-
-    def register(self, alias: str, preformat: bool = True):
+    def register_func(self, alias: str, preformat: bool = True) -> Callable[[T], T]:
         def _decorator(func):
             self._register(alias, func, preformat=preformat)
             return func
 
         return _decorator
 
+    def register(self, alias: str, preformat: bool = True):
+        warnings.warn(
+            "`register` function was renamed to `register_func` and will be removed in next release",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.register_func(alias, preformat=preformat)
+
+    def _register(self, alias: str, function: Callable, preformat: bool = True) -> None:
+        self._functions[alias] = (function, preformat)
+
+    def add_formatter(self, formatter: Callable[[str, ...], str]) -> None:
+        self._final_formatters.append(formatter)
+
     def format_field(self, value: Any, format_spec: str) -> TemplateValue:
+        if format_spec == "":
+            return super().format_field(value, format_spec)
         format_spec, args = self.parse_format_spec(format_spec)
         if format_spec not in self._functions:
-            return super().format_field(value, format_spec)
+            raise WrongKeyError(f"Invalid key format function {format_spec}")
         func, preformat = self._functions[format_spec]
         if preformat:
             value = super().format_field(value, "")
-        return func(value, *args)
+        return super().format_field(func(value, *args), "")
 
     @staticmethod
     def parse_format_spec(format_spec: str):
@@ -124,45 +151,53 @@ class _FuncFormatter(_ReplaceFormatter):
         format_spec, args = format_spec.split("(", 1)
         return format_spec, args.replace(")", "").split(",")
 
+    def vformat(self, format_string, args, kwargs):
+        key = super().vformat(format_string, args, kwargs)
+        for formatter in self._final_formatters:
+            key = formatter(key)
+        return key
 
-default_formatter = _FuncFormatter(lambda name: "")
+
+default_formatter = _KeyFormatter(lambda name: "")
 
 
-@default_formatter.register("len")
+@default_formatter.register_func("len")
 def _len(value: TemplateValue):
     return str(len(value))
 
 
-@default_formatter.register("jwt")
+@default_formatter.register_func("get", preformat=False)
+def _get(value: Any, key: str) -> TemplateValue:
+    return value.get(key)
+
+
+@default_formatter.register_func("jwt")
 def _jwt_func(jwt: TemplateValue, key: str) -> TemplateValue:
     _, payload, _ = jwt.split(".", 2)
     payload_dict = json.loads(base64.b64decode(payload))
     return payload_dict.get(key)
 
 
-@default_formatter.register("hash")
+@default_formatter.register_func("hash")
 def _hash_func(value: TemplateValue, alg="md5") -> TemplateValue:
     algs = {"sha1": sha1, "md5": md5, "sha256": sha256}
     alg = algs[alg]
     return alg(value.encode()).hexdigest()
 
 
-@default_formatter.register("lower")
+@default_formatter.register_func("lower")
 def _lower(value: TemplateValue) -> TemplateValue:
     return value.lower()
 
 
-@default_formatter.register("upper")
+@default_formatter.register_func("upper")
 def _upper(value: TemplateValue) -> TemplateValue:
     return value.upper()
 
 
 def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
     _template_context, rewrite = key_context.get()
-    if rewrite:
-        _template_context = {**values, **_template_context}
-    else:
-        _template_context = {**_template_context, **values}
+    _template_context = {**values, "@": _template_context}
     return default_formatter.format(template, **_template_context)
 
 
@@ -174,6 +209,7 @@ def _re_default(field_name):
 _re_formatter = _ReplaceFormatter(default=_re_default)
 
 
+#  TODO: remove
 def template_to_re_pattern(template: KeyTemplate) -> Pattern:
     pattern = _re_formatter.format(template.translate(_re_special_chars_map))
     return re.compile("^" + pattern + "$", flags=re.MULTILINE)

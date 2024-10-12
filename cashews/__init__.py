@@ -29,6 +29,7 @@ slice_rate_limit = cache.slice_rate_limit
 locked = cache.locked
 
 invalidate = cache.invalidate
+key_formatter = default_formatter
 
 mem = Cache(name="mem")
 mem.setup(
@@ -67,6 +68,7 @@ __all__ = [
     "LockedError",
     "RateLimitError",
     "default_formatter",
+    "key_formatter",
     "memory_limit",
     "get_cache_key_template",
     "noself",

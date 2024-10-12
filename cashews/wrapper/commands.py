@@ -199,7 +199,11 @@ class CommandWrapper(Wrapper):
 
     async def exists(self, key: Key) -> bool:
         backend = self._get_backend(key)
-        return await backend.exists(key=key)
+        return await self._call_with_middlewares_for_backend(
+            call=backend.exists,
+            cmd=Command.EXISTS,
+            backend=backend,
+        )(key=key)
 
     async def set_lock(self, key: Key, value: Value, expire: TTL) -> bool:
         backend = self._get_backend(key)

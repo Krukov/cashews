@@ -5,8 +5,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, Container, Dict, Iterable, Tuple
 
 from .exceptions import WrongKeyError
-from .formatter import _ReplaceFormatter, default_format
-from .key_context import get as get_key_context
+from .formatter import default_format, default_formatter
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._typing import Key, KeyOrTemplate, KeyTemplate
@@ -112,16 +111,13 @@ class _Star:
 
 def _check_key_params(key: KeyOrTemplate, func_params: Iterable[str]):
     func_params = {param: _Star() for param in func_params}
-    errors = []
 
     def _default(name):
-        errors.append(name)
-        return "*"
+        raise WrongKeyError(f"Wrong parameter placeholder '{name}' in the key ")
 
-    check = _ReplaceFormatter(default=_default)
-    check.format(key, **{**get_key_context()[0], **func_params})
-    if errors:
-        raise WrongKeyError(f"Wrong parameter placeholder '{errors}' in the key ")
+    func_params["@"] = {}
+    with default_formatter.default(_default):
+        default_formatter.format(key, **func_params)
 
 
 def get_call_values(func: Callable, args: Args, kwargs: Kwargs) -> dict:
