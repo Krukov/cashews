@@ -8,13 +8,12 @@ from typing import Any, AsyncIterator, Iterable, Mapping
 from diskcache import Cache, FanoutCache
 
 from cashews._typing import Key, Value
-from cashews.serialize import SerializerMixin
 from cashews.utils import Bitarray
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
 
 
-class _DiskCache(Backend):
+class DiskCache(Backend):
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         self.__is_init = False
         self._set_locks: dict[str, asyncio.Lock] = {}
@@ -266,7 +265,3 @@ class _DiskCache(Backend):
 
     async def get_keys_count(self) -> int:
         return await self._run_in_executor(lambda: len(self._cache))
-
-
-class DiskCache(SerializerMixin, _DiskCache):
-    pass

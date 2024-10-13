@@ -16,7 +16,7 @@ def _create_cache(redis_dsn, backend_factory):
     from cashews.backends.redis.client_side import BcastClientSide
 
     async def call(local_cache=None):
-        backend = backend_factory(BcastClientSide, redis_dsn, secret=None, local_cache=local_cache)
+        backend = backend_factory(BcastClientSide, redis_dsn, local_cache=local_cache)
         await backend.init()
         await backend.clear()
         return backend
@@ -57,12 +57,12 @@ async def test_set_none_bcast(create_cache):
     assert await caches_local.exists("key")
     assert await caches.get("key") is None
 
-    await cachef.set("key", None, expire=10000)
+    await cachef.set("key", "val", expire=10000)
     await asyncio.sleep(0.01)  # skip init signal about invalidation
     assert await cachef.exists("key")
     assert await cachef_local.exists("key")
 
-    assert await caches.get("key") is None
+    assert await caches.get("key") == b"val"
     assert await caches.exists("key")
     assert await caches_local.exists("key")
 
@@ -147,16 +147,16 @@ async def test_simple_cmd_bcast_many(create_cache):
 
     await local.clear()
 
-    assert await cache.get_many("key:1", "key:3") == ("test", None)
+    assert await cache.get_many("key:1", "key:3") == (b"test", None)
 
     async for key in cache.scan("key:*"):
         assert key in ("key:1", "key:2")
 
     async for key, value in cache.get_match("key:*"):
         assert key in ("key:1", "key:2")
-        assert value in ("test", "test2")
+        assert value in (b"test", b"test2")
 
-    assert await local.get("key:1") == "test"
+    assert await local.get("key:1") == b"test"
 
     await cache.delete_match("key:*")
     assert await cache.get("key:1") is None

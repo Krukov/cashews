@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from cashews import Cache
@@ -20,7 +22,7 @@ async def test_memory_limit_set(cache: Cache, target, min_bytes, max_bytes, size
     await cache.set(key="key", value="v" * size)
 
     if called:
-        target.set.assert_called_once_with(key="key", value="v" * size, expire=None, exist=None)
+        target.set.assert_called_once_with(key="key", value=mock.ANY, expire=None, exist=None)
     else:
         target.set.assert_not_called()
 
@@ -35,4 +37,4 @@ async def test_memory_limit_set_many(cache: Cache, target):
     target.set_many.assert_not_called()
 
     await cache.set_many({"key": "v" * 35, "key2": "v", "key3": "v" * 15})
-    target.set_many.assert_called_once_with(pairs={"key3": "v" * 15}, expire=None)
+    target.set_many.assert_called_once_with(pairs={"key3": mock.ANY}, expire=None)

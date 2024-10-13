@@ -8,7 +8,6 @@ from contextlib import suppress
 from copy import copy
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Mapping, overload
 
-from cashews.serialize import SerializerMixin
 from cashews.utils import Bitarray
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
@@ -22,7 +21,7 @@ __all__ = ["Memory"]
 _missed = object()
 
 
-class _Memory(Backend):
+class Memory(Backend):
     """
     Inmemory backend lru with ttl
     """
@@ -78,13 +77,16 @@ class _Memory(Backend):
         return True
 
     async def set_raw(self, key: Key, value: Value, **kwargs: Any) -> None:
-        self.store[key] = value
+        self.store[key] = (None, value)
 
     async def get(self, key: Key, default: Value | None = None) -> Value:
         return await self._get(key, default=default)
 
     async def get_raw(self, key: Key) -> Value:
-        return self.store.get(key)
+        val = self.store.get(key)
+        if val:
+            return val[1]
+        return None
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         values = []
@@ -274,7 +276,3 @@ class _Memory(Backend):
             del self.__remove_expired_stop
             self.__remove_expired_stop = None
         self.__is_init = False
-
-
-class Memory(SerializerMixin, _Memory):
-    pass

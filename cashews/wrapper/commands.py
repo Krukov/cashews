@@ -25,6 +25,7 @@ class CommandWrapper(Wrapper):
         exist: bool | None = None,
     ) -> bool:
         backend = self._get_backend(key)
+        value = await self._serializers[backend._id].encode(backend, key, value, expire)
         return await self._call_with_middlewares_for_backend(
             call=backend.set,
             cmd=Command.SET,
@@ -35,6 +36,24 @@ class CommandWrapper(Wrapper):
             expire=ttl_to_seconds(expire),
             exist=exist,
         )
+
+    async def set_many(self, pairs: Mapping[Key, Value], expire: TTL = None):
+        backends: dict[Backend, list[Key]] = {}
+        for key in pairs:
+            backend = self._get_backend(key)
+            backends.setdefault(backend, []).append(key)
+        for backend, keys in backends.items():
+            serializer = self._serializers[backend._id]
+            data = {key: await serializer.encode(backend, key, pairs[key], expire) for key in keys}
+
+            await self._call_with_middlewares_for_backend(
+                call=backend.set_many,
+                cmd=Command.SET_MANY,
+                backend=backend,
+            )(
+                pairs=data,
+                expire=ttl_to_seconds(expire),
+            )
 
     async def set_raw(self, key: Key, value: Value, **kwargs) -> None:
         backend = self._get_backend(key)
@@ -48,11 +67,12 @@ class CommandWrapper(Wrapper):
 
     async def get(self, key: Key, default: Default | None = None) -> Value | Default | None:
         backend = self._get_backend(key)
-        return await self._call_with_middlewares_for_backend(
+        value = await self._call_with_middlewares_for_backend(
             call=backend.get,
             cmd=Command.GET,
             backend=backend,
         )(key=key, default=default)
+        return await self._serializers[backend._id].decode(backend, key, value, default)
 
     async def get_or_set(
         self, key: Key, default: Default | AsyncCallable_T | Callable_T, expire: TTL = None
@@ -84,7 +104,9 @@ class CommandWrapper(Wrapper):
         pattern: str,
         batch_size: int = 100,
     ) -> AsyncIterator[tuple[Key, Value]]:
-        backend, middlewares = self._get_backend_and_config(pattern)
+        backend = self._get_backend(pattern)
+        middlewares = self._middlewares[backend._id]
+        serializer = self._serializers[backend._id]
 
         async def call(pattern, batch_size):
             return backend.get_match(pattern=pattern, batch_size=batch_size)
@@ -92,7 +114,9 @@ class CommandWrapper(Wrapper):
         for middleware in middlewares:
             call = partial(middleware, call, Command.GET_MATCH, backend)
         async for key, value in await call(pattern=pattern, batch_size=batch_size):
-            yield key, value
+            value = await serializer.decode(backend, key, value, default=_empty)
+            if value is not _empty:
+                yield key, value
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         backends: dict[Backend, list[str]] = {}
@@ -101,29 +125,14 @@ class CommandWrapper(Wrapper):
             backends.setdefault(backend, []).append(key)
         result: dict[Key, Value] = {}
         for backend, _keys in backends.items():
+            serializer = self._serializers[backend._id]
             _values = await self._call_with_middlewares_for_backend(
                 call=backend.get_many,
                 cmd=Command.GET_MANY,
                 backend=backend,
             )(*_keys, default=default)
-            result.update(dict(zip(_keys, _values)))
+            result.update({k: await serializer.decode(backend, k, v, default) for k, v in zip(_keys, _values)})
         return tuple(result.get(key) for key in keys)
-
-    async def set_many(self, pairs: Mapping[Key, Value], expire: TTL = None):
-        backends: dict[Backend, list[Key]] = {}
-        for key in pairs:
-            backend = self._get_backend(key)
-            backends.setdefault(backend, []).append(key)
-        for backend, keys in backends.items():
-            data = {key: pairs[key] for key in keys}
-            await self._call_with_middlewares_for_backend(
-                call=backend.set_many,
-                cmd=Command.SET_MANY,
-                backend=backend,
-            )(
-                pairs=data,
-                expire=ttl_to_seconds(expire),
-            )
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         backend = self._get_backend(key)

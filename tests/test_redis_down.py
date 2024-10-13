@@ -16,11 +16,11 @@ def redis_backend():
 
 
 async def test_safe_redis(redis_backend):
-    redis = redis_backend(suppress=True, address="redis://localhost:9223", secret=None)
+    redis = redis_backend(suppress=True, address="redis://localhost:9223")
     await redis.init()
 
     assert await redis.set("test", "test") is False
-    assert await redis.set_raw("test", "test") is False
+    assert await redis.set_raw("test", "test") is None
 
     assert await redis.set_lock("test", "test", 1) is False
     assert await redis.unlock("test", "test") is None
@@ -37,7 +37,7 @@ async def test_safe_redis(redis_backend):
     assert await redis.get_expire("test") == 0
     assert await redis.incr("test") is None
     assert await redis.slice_incr("test", 1, 2, 10) is None
-    assert await redis.get_size("test") == 0
+
     async for _ in redis.scan("*"):
         raise AssertionError()
 
@@ -55,7 +55,7 @@ async def test_safe_redis(redis_backend):
 
 
 async def test_unsafe_redis_down(redis_backend):
-    redis = redis_backend(suppress=False, address="redis://localhost:9223", secret=None)
+    redis = redis_backend(suppress=False, address="redis://localhost:9223")
     await redis.init()
     with pytest.raises(CacheBackendInteractionError):
         await redis.ping()
@@ -66,7 +66,7 @@ async def test_unsafe_redis_down(redis_backend):
 async def test_cache_decorators_on_redis_down(redis_backend):
     mock = Mock(return_value="val")
     cache = Cache()
-    cache._add_backend(redis_backend(suppress=True, address="redis://localhost:9223", secret=None))
+    cache._add_backend(redis_backend(suppress=True, address="redis://localhost:9223"))
 
     @cache(ttl=1)
     @cache.failover(1)

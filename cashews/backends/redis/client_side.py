@@ -86,8 +86,8 @@ class BcastClientSide(Redis):
         super().__init__(*args, suppress=suppress, **kwargs)
 
     async def init(self):
-        self._listen_started = asyncio.Event()
-        self.__listen_stop = asyncio.Event()
+        self._listen_started.clear()
+        self.__listen_stop.clear()
         await self._local_cache.init()
         await self._recently_update.init()
         await super().init()
