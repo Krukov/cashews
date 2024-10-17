@@ -91,16 +91,21 @@ class _ReplaceFormatter(Formatter):
         except (KeyError, AttributeError):
             return self.__default(field_name), None
 
-    def _format_field(self, value):
+    def _format_field(self, value: Any):
         if value is None:
             return ""
+
+        return str(self._type_format(value))
+
+    def _type_format(self, value: Any):
         _type = type(value)
         if _type in self.__type_format:
             return self.__type_format[_type](value)
         for _type_map, func_format in self.__type_format.items():
             if isinstance(value, _type_map):
+                self.__type_format[_type] = func_format  # to avoid isinstance next time
                 return func_format(value)
-        return str(value)
+        return value
 
     def format_field(self, value, format_spec):
         return format(self._format_field(value))
@@ -152,10 +157,13 @@ class _KeyFormatter(_ReplaceFormatter):
         return format_spec, args.replace(")", "").split(",")
 
     def vformat(self, format_string, args, kwargs):
-        key = super().vformat(format_string, args, kwargs)
-        for formatter in self._final_formatters:
-            key = formatter(key)
-        return key
+        try:
+            return format_string.format(**{key: self._type_format(val) for key, val in kwargs.items()})
+        except (ValueError, TypeError, KeyError):
+            key = super().vformat(format_string, args, kwargs)
+            for formatter in self._final_formatters:
+                key = formatter(key)
+            return key
 
 
 default_formatter = _KeyFormatter(lambda name: "")
@@ -196,7 +204,7 @@ def _upper(value: TemplateValue) -> TemplateValue:
 
 
 def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
-    _template_context, rewrite = key_context.get()
+    _template_context = key_context.get()
     _template_context = {**values, "@": _template_context}
     return default_formatter.format(template, **_template_context)
 

@@ -92,7 +92,7 @@ class Memory(Backend):
         values = []
         for key in keys:
             val = await self._get(key, default=default)
-            if isinstance(val, Bitarray):
+            if type(val) == Bitarray:
                 continue
             values.append(val)
         return tuple(values)
@@ -142,7 +142,7 @@ class Memory(Backend):
     ) -> AsyncIterator[tuple[Key, Value]]:
         async for key in self.scan(pattern):
             value = await self.get(key)
-            if not isinstance(value, Bitarray):
+            if type(value) != Bitarray:
                 yield key, value
 
     async def expire(self, key: Key, timeout: float):
