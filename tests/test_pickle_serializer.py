@@ -37,7 +37,7 @@ async def _cache(request, redis_dsn):
     if pickle_type == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis(redis_dsn, secret="test", safe=False, digestmod=digestmod)
+        redis = Redis(redis_dsn, secret="test", suppress=False, digestmod=digestmod)
         await redis.init()
         await redis.clear()
         yield redis
