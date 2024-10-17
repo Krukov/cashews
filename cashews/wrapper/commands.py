@@ -63,12 +63,12 @@ class CommandWrapper(Wrapper):
         return await self._with_middlewares(Command.GET_RAW, key)(key=key)
 
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
-        backend, middlewares = self._get_backend_and_config(pattern)
+        backend = self._get_backend(pattern)
 
         async def call(pattern, batch_size):
             return backend.scan(pattern, batch_size=batch_size)
 
-        for middleware in middlewares:
+        for middleware in self._backend_middleware[backend._id]:
             call = partial(middleware, call, Command.SCAN, backend)
         async for key in await call(pattern=pattern, batch_size=batch_size):
             yield key
@@ -78,12 +78,12 @@ class CommandWrapper(Wrapper):
         pattern: str,
         batch_size: int = 100,
     ) -> AsyncIterator[tuple[Key, Value]]:
-        backend, middlewares = self._get_backend_and_config(pattern)
+        backend = self._get_backend(pattern)
 
         async def call(pattern, batch_size):
             return backend.get_match(pattern, batch_size=batch_size)
 
-        for middleware in middlewares:
+        for middleware in self._backend_middleware[backend._id]:
             call = partial(middleware, call, Command.GET_MATCH, backend)
         async for key, value in await call(pattern=pattern, batch_size=batch_size):
             yield key, value
@@ -174,7 +174,7 @@ class CommandWrapper(Wrapper):
 
     async def get_keys_count(self) -> int:
         result = 0
-        for backend, _ in self._backends.values():
+        for backend in self._backends.values():
             count = await self._with_middlewares_for_backend(
                 Command.GET_KEYS_COUNT, backend, self._default_middlewares
             )()
@@ -182,7 +182,7 @@ class CommandWrapper(Wrapper):
         return result
 
     async def clear(self) -> None:
-        for backend, _ in self._backends.values():
+        for backend in self._backends.values():
             await self._with_middlewares_for_backend(Command.CLEAR, backend, self._default_middlewares)()
 
     async def is_locked(
