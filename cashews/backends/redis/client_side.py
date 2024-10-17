@@ -29,7 +29,7 @@ https://redis.io/topics/client-side-caching
 
 import asyncio
 import logging
-from contextlib import suppress
+from contextlib import suppress as error_suppress
 from typing import Any, AsyncIterator, Mapping, Optional, Tuple
 
 from redis.exceptions import ConnectionError as RedisConnectionError
@@ -305,7 +305,7 @@ class BcastClientSide(Redis):
         await self._recently_update.close()
         self.__listen_stop.set()
         if self._listen_task is not None:
-            with suppress(Exception):
+            with error_suppress(Exception):
                 await self._listen_task
             del self._listen_task
             self._listen_task = None

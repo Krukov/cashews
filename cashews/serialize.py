@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import warnings
 from typing import TYPE_CHECKING, Any, Mapping
 
 from .exceptions import SignIsMissingError, UnSecureDataError
@@ -11,8 +10,6 @@ from .picklers import DEFAULT_PICKLE, NULL_PICKLE, Pickler, get_pickler
 if TYPE_CHECKING:  # pragma: no cover
     from ._typing import ICustomDecoder, ICustomEncoder, Key, Value
     from .backends.interface import Backend
-
-_empty = object()
 
 
 def _seal(digestmod):
@@ -33,7 +30,6 @@ class SerializerMixin:
     def __init__(
         self,
         *args,
-        hash_key: str | bytes | None = _empty,  # type: ignore[assignment]
         secret: str | bytes | None = None,
         digestmod: str | bytes = b"md5",
         check_repr: bool = True,
@@ -41,14 +37,6 @@ class SerializerMixin:
         **kwargs: Any,
     ):
         super().__init__(*args, **kwargs)
-        if hash_key is not _empty:
-            warnings.warn(
-                "`hash_key` property was renamed to `secret` and will be removed in next release",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            secret = hash_key
-
         self._serializer = Serializer(check_repr=check_repr)
         if secret:
             self._serializer.set_signer(HashSigner(secret, digestmod))

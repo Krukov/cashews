@@ -58,12 +58,12 @@ def test_url_but_backend_dependency_is_not_installed(url, error):
             },
         ),
         (
-            "redis://localhost/0/?secret=secret&password=test&safe=1&minsize=3&create_connection_timeout=0.1",  # noqa: E501
+            "redis://localhost/0/?secret=secret&password=test&suppress=1&minsize=3&create_connection_timeout=0.1",  # noqa: E501
             {
                 "address": "redis://localhost/0/",
                 "secret": "secret",
                 "password": "test",
-                "safe": True,
+                "suppress": True,
                 "minsize": 3,
                 "create_connection_timeout": 0.1,
             },
