@@ -50,4 +50,4 @@ class ControlWrapper(Wrapper):
 
     @property
     def is_full_disable(self) -> bool:
-        return all(backend.is_full_disable for backend, _ in self._backends.values())
+        return all(backend.is_full_disable for backend in self._backends.values())

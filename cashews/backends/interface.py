@@ -228,6 +228,7 @@ class ControlMixin:
 class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
+        self._id = uuid.uuid4().hex
         self._on_remove_callbacks: list[OnRemoveCallback] = []
 
     def on_remove_callback(self, callback: OnRemoveCallback) -> None:

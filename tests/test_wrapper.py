@@ -51,7 +51,8 @@ async def test_auto_init(cache):
 
     type(target).is_init = PropertyMock(side_effect=lambda: init)
     target.init.side_effect = set_init
-    cache._backends[""] = (target, (create_auto_init(),))
+    cache._default_middlewares = []
+    cache._add_backend(target, middlewares=(create_auto_init(),))
     await asyncio.gather(cache.ping(), cache.ping(), cache.get("test"))
     target.init.assert_called_once()
 

@@ -19,7 +19,8 @@ class Wrapper:
     default_prefix = ""
 
     def __init__(self, name: str = ""):
-        self._backends: dict[str, tuple[Backend, tuple[Middleware, ...]]] = {}
+        self._backends: dict[str, Backend] = {}
+        self._backend_middleware: dict[str, tuple[Middleware, ...]] = {}
         self._sorted_prefixes: tuple[str, ...] = ()
         self._default_middlewares: list[Middleware] = [
             create_auto_init(),
@@ -31,19 +32,16 @@ class Wrapper:
     def add_middleware(self, middleware: Middleware) -> None:
         self._default_middlewares.append(middleware)
 
-    def _get_backend_and_config(self, key: Key) -> tuple[Backend, tuple[Middleware, ...]]:
+    def _get_backend(self, key: Key) -> Backend:
         for prefix in self._sorted_prefixes:
             if key.startswith(prefix):
                 return self._backends[prefix]
         self._check_setup()
         raise NotConfiguredError("Backend for given key not configured")
 
-    def _get_backend(self, key: Key) -> Backend:
-        backend, _ = self._get_backend_and_config(key)
-        return backend
-
     def _with_middlewares(self, cmd: Command, key: Key):
-        backend, middlewares = self._get_backend_and_config(key)
+        backend = self._get_backend(key)
+        middlewares = self._backend_middleware[backend._id]
         return self._with_middlewares_for_backend(cmd, backend, middlewares)
 
     def _with_middlewares_for_backend(self, cmd: Command, backend, middlewares):
@@ -78,22 +76,20 @@ class Wrapper:
             raise NotConfiguredError("run `cache.setup(...)` before using cache")
 
     def _add_backend(self, backend: Backend, middlewares=(), prefix: str = default_prefix) -> None:
-        self._backends[prefix] = (
-            backend,
-            middlewares + tuple(self._default_middlewares),
-        )
+        self._backends[prefix] = backend
+        self._backend_middleware[backend._id] = middlewares + tuple(self._default_middlewares)
         self._sorted_prefixes = tuple(sorted(self._backends.keys(), reverse=True))
 
     async def init(self, *args, **kwargs) -> None:
         if args or kwargs:
             self.setup(*args, **kwargs)
-        for backend, _ in self._backends.values():
+        for backend in self._backends.values():
             await backend.init()
 
     @property
     def is_init(self) -> bool:
-        return all(backend.is_init for backend, _ in self._backends.values())
+        return all(backend.is_init for backend in self._backends.values())
 
     async def close(self) -> None:
-        for backend, _ in self._backends.values():
+        for backend in self._backends.values():
             await backend.close()
