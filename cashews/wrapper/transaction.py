@@ -11,7 +11,7 @@ from cashews.backends.transaction import LockTransactionBackend, TransactionBack
 from .wrapper import Wrapper
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import DecoratedFunc, Middleware
+    from cashews._typing import DecoratedFunc
 
 _transaction: ContextVar[Transaction | None] = ContextVar("transaction", default=None)
 
@@ -32,12 +32,12 @@ class TransactionWrapper(Wrapper):
     def set_transaction_mode(self, mode: TransactionMode) -> None:
         self.transaction_mode = mode
 
-    def _get_backend_and_config(self, key: str) -> tuple[Backend, tuple[Middleware, ...]]:
-        backend, config = super()._get_backend_and_config(key)
+    def _get_backend(self, key: str) -> Backend:
+        backend = super()._get_backend(key)
         tx: Transaction | None = _transaction.get()
         if not tx:
-            return backend, config
-        return tx.wrap(backend), config
+            return backend
+        return tx.wrap(backend)
 
     def transaction(
         self, mode: TransactionMode | None = None, timeout: float | None = None

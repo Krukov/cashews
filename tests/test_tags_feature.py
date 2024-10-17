@@ -13,7 +13,7 @@ def test_register_tags(cache: Cache):
     cache.register_tag("tag_template", "key{i}")
     cache.register_tag("tag_test:{i}", "key{i:len}:test")
     cache.register_tag("tag_func:{i:hash}", "key{i}:test")
-    cache.register_tag("tag_context:{val}", "key{i}:test")
+    cache.register_tag("tag_context:{@:get(val)}", "key{i}:test")
     cache.register_tag("!@#$%^&*():{i}", "!@#$%^&*(){i}:test")
 
     with key_context(val=10):
@@ -217,14 +217,13 @@ async def test_double_decorator(cache: Cache):
 async def test_delete_tags_separate_backend(cache: Cache, redis_dsn: str):
     tag_backend = cache.setup_tags_backend(redis_dsn)
     tag_backend.set_pop = AsyncMock(side_effect=[["key", "key2"], []])
-    tag_backend.init = AsyncMock(wraps=tag_backend.init)
 
     cache.register_tag(tag="tag", key_template="key")
+    await cache.init()
 
     await cache.delete_tags("tag")
 
     tag_backend.set_pop.assert_awaited_with(key="_tag:tag", count=100)
-    tag_backend.init.assert_awaited_once()
 
     await tag_backend.close()
 

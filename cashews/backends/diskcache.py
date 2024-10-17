@@ -2,19 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Iterable, Mapping
 
 from diskcache import Cache, FanoutCache
 
 from cashews._typing import Key, Value
-from cashews.serialize import SerializerMixin
 from cashews.utils import Bitarray
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
 
 
-class _DiskCache(Backend):
+class DiskCache(Backend):
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         self.__is_init = False
         self._set_locks: dict[str, asyncio.Lock] = {}
@@ -186,10 +185,7 @@ class _DiskCache(Backend):
             return NOT_EXIST
         if expire is None:
             return UNLIMITED
-        return round((datetime.utcfromtimestamp(expire) - datetime.utcnow()).total_seconds())
-
-    async def get_size(self, key: Key) -> int:
-        return -1
+        return round((datetime.fromtimestamp(expire, tz=timezone.utc) - datetime.now(timezone.utc)).total_seconds())
 
     async def ping(self, message: bytes | None = None) -> bytes:
         if message is None or message == b"PING":
@@ -269,7 +265,3 @@ class _DiskCache(Backend):
 
     async def get_keys_count(self) -> int:
         return await self._run_in_executor(lambda: len(self._cache))
-
-
-class DiskCache(SerializerMixin, _DiskCache):
-    pass

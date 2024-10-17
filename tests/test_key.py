@@ -6,7 +6,6 @@ from cashews.exceptions import WrongKeyError
 from cashews.formatter import default_formatter
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.key_context import context as key_context
-from cashews.key_context import register as register_context
 from cashews.ttl import ttl_to_seconds
 
 
@@ -162,8 +161,8 @@ def test_cache_func_key_dict():
         (
             (),
             {"kwarg": "1"},
-            "{context_value:upper}:{kwarg}",
-            "CONTEXT:1",
+            "{@:get(context_value)}:{kwarg}",
+            "context:1",
         ),
     ),
 )
@@ -183,11 +182,10 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
         (Klass.method, None, "tests.test_key:Klass.method:self:{self}:a:{a}:k:{k}"),
         (Klass.method, "key:{k}:{self.data.test}", "key:{k}:{self.data.test}"),
         (func2, "key:{k}", "key:{k}"),
-        (func3, "key:{k:len}:{k:hash(md5)}:{val}", "key:{k:len}:{k:hash(md5)}:{val}"),
+        (func3, "key:{k:len}:{k:hash(md5)}:{@:get(val)}", "key:{k:len}:{k:hash(md5)}:{@:get(val)}"),
     ),
 )
 def test_get_key_template(func, key, template):
-    register_context("val", "k")
     assert get_cache_key_template(func, key) == template
 
 
@@ -195,6 +193,12 @@ def test_get_key_template_error():
     with pytest.raises(WrongKeyError) as exc:
         get_cache_key_template(func1, "key:{wrong_key}:{a}")
     exc.match("wrong_key")
+
+
+def test_get_key_template_func_error():
+    with pytest.raises(WrongKeyError) as exc:
+        get_cache_key_template(func1, "key:{a:wrong_func}")
+    exc.match("wrong_func")
 
 
 @pytest.mark.parametrize(

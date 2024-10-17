@@ -111,13 +111,6 @@ class _BackendInterface(metaclass=ABCMeta):
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]: ...
 
     @abstractmethod
-    async def get_size(self, key: Key) -> int:
-        """
-        Return size in bites that allocated by a value for given key
-        """
-        ...
-
-    @abstractmethod
     async def get_keys_count(self) -> int:
         """
         Return count keys in cache
@@ -130,7 +123,7 @@ class _BackendInterface(metaclass=ABCMeta):
     @abstractmethod
     async def clear(self) -> None: ...
 
-    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
+    async def set_lock(self, key: Key, value: Value, expire: float | None) -> bool:
         return await self.set(key, value, expire=expire, exist=False)
 
     @abstractmethod
@@ -228,6 +221,7 @@ class ControlMixin:
 class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__()
+        self._id = uuid.uuid4().hex
         self._on_remove_callbacks: list[OnRemoveCallback] = []
 
     def on_remove_callback(self, callback: OnRemoveCallback) -> None:

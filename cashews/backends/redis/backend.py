@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import warnings
 from typing import Any, AsyncIterator, Iterable, Mapping
 
 from redis.asyncio import BlockingConnectionPool
@@ -44,24 +43,15 @@ _empty = object()
 
 
 class _Redis(Backend):
-    _client: Redis | SafeRedis
+    _client: Redis | SafeRedis | None
     _client_class: type[Redis] | type[SafeRedis]
 
     def __init__(
         self,
         address: str,
-        safe: bool = _empty,  # type: ignore[assignment]
         suppress: bool = True,
         **kwargs: Any,
     ) -> None:
-        if safe is not _empty:
-            warnings.warn(
-                "`safe` property was renamed to `suppress` and will be removed in next release",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            suppress = safe
-
         kwargs.pop("local_cache", None)
         kwargs.pop("prefix", None)
         kwargs.setdefault("client_name", "cashews")
@@ -86,6 +76,7 @@ class _Redis(Backend):
         self._kwargs = kwargs
         self._address = address
         self.__is_init = False
+        self._client = None
         super().__init__()
 
     @property
@@ -137,8 +128,8 @@ class _Redis(Backend):
     async def expire(self, key: Key, timeout: float):
         return await self._client.pexpire(key, int(timeout * 1000))
 
-    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
-        pexpire = int(expire * 1000)
+    async def set_lock(self, key: Key, value: Value, expire: float | None) -> bool:
+        pexpire = int(expire * 1000) if expire else None
         return bool(await self._client.set(key, value, px=pexpire, nx=True))
 
     async def is_locked(
@@ -214,10 +205,6 @@ class _Redis(Backend):
                     yield key, value
             if not cursor:
                 return
-
-    async def get_size(self, key: Key) -> int:
-        size = await self._client.memory_usage(key) or 0
-        return int(size)
 
     async def get(self, key: Key, default: Value | None = None) -> Value:
         value = await self._client.get(key)

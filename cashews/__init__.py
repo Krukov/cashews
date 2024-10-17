@@ -4,7 +4,7 @@ from .contrib import *  # noqa
 from .decorators import CacheDetect, context_cache_detect, fast_condition, thunder_protection
 from .exceptions import CacheBackendInteractionError, CircuitBreakerOpen, LockedError, RateLimitError
 from .formatter import default_formatter
-from .helpers import add_prefix, all_keys_lower, memory_limit
+from .helpers import memory_limit
 from .key import get_cache_key_template, noself
 from .key_context import context as key_context
 from .key_context import register as register_key_context
@@ -29,6 +29,7 @@ slice_rate_limit = cache.slice_rate_limit
 locked = cache.locked
 
 invalidate = cache.invalidate
+key_formatter = default_formatter
 
 mem = Cache(name="mem")
 mem.setup(
@@ -67,8 +68,7 @@ __all__ = [
     "LockedError",
     "RateLimitError",
     "default_formatter",
-    "add_prefix",
-    "all_keys_lower",
+    "key_formatter",
     "memory_limit",
     "get_cache_key_template",
     "noself",

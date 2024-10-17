@@ -4,7 +4,6 @@ import os
 import random
 from typing import TYPE_CHECKING
 from unittest.mock import Mock
-from uuid import uuid4
 
 import pytest
 
@@ -52,7 +51,6 @@ def backend_factory():
         "memory",
         "transactional",
         pytest.param("redis", marks=pytest.mark.redis),
-        pytest.param("redis_hash", marks=pytest.mark.redis),
         pytest.param("redis_cs", marks=pytest.mark.redis),
         pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
@@ -68,22 +66,9 @@ async def _backend(request, redis_dsn, backend_factory):
         backend = backend_factory(
             Redis,
             redis_dsn,
-            secret=None,
             max_connections=20,
             suppress=False,
             socket_timeout=1,
-            wait_for_connection_timeout=1,
-        )
-    elif request.param == "redis_hash":
-        from cashews.backends.redis import Redis
-
-        backend = backend_factory(
-            Redis,
-            redis_dsn,
-            secret=uuid4().hex,
-            max_connections=20,
-            suppress=False,
-            socket_timeout=10,
             wait_for_connection_timeout=1,
         )
     elif request.param == "redis_cs":
@@ -92,7 +77,6 @@ async def _backend(request, redis_dsn, backend_factory):
         backend = backend_factory(
             BcastClientSide,
             redis_dsn,
-            secret=None,
             max_connections=5,
             suppress=False,
             socket_timeout=0.1,
@@ -120,5 +104,7 @@ async def cache(target: Mock, raw_backend):
     await target.clear()
     target.reset_mock()
     cache = Cache(name=raw_backend[1])
-    cache._add_backend(target)
+    cache._add_backend(
+        target,
+    )
     return cache

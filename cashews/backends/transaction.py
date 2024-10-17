@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import asyncio
 import time
-from typing import Any, AsyncIterator, Iterable, Mapping, Optional, Set, Tuple, Union
+from typing import Any, AsyncIterator, Iterable, Mapping
 from uuid import uuid4
 
 from cashews import LockedError
@@ -24,8 +26,9 @@ class TransactionBackend(Backend):
     def __init__(self, backend: Backend):
         self._backend = backend
         self._local_cache = Memory()
-        self._to_delete: Set[Key] = set()
+        self._to_delete: set[Key] = set()
         super().__init__()
+        self._id = backend._id
 
     def _key_is_delete(self, key: Key) -> bool:
         if key in self._to_delete:
@@ -61,8 +64,8 @@ class TransactionBackend(Backend):
         self,
         key: Key,
         value: Value,
-        expire: Optional[float] = None,
-        exist: Optional[bool] = None,
+        expire: float | None = None,
+        exist: bool | None = None,
     ) -> bool:
         if (
             exist is not None
@@ -73,11 +76,11 @@ class TransactionBackend(Backend):
         self._to_delete.discard(key)
         return await self._local_cache.set(key, value, expire, exist)
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         self._to_delete.difference_update(pairs.keys())
         return await self._local_cache.set_many(pairs, expire)
 
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         if not await self._local_cache.exists(key) and key not in self._to_delete:
             current = await self._backend.get(key, 0)
             await self._local_cache.set(key, current)
@@ -107,7 +110,7 @@ class TransactionBackend(Backend):
         await self._local_cache.set(key, value, expire=timeout)
 
     # non transaction - proxy methods with custom logic
-    async def get(self, key: str, default: Optional[Value] = None) -> Value:
+    async def get(self, key: str, default: Value | None = None) -> Value:
         if self._key_is_delete(key):
             return default
         value = await self._local_cache.get(key, default=_empty)
@@ -115,7 +118,7 @@ class TransactionBackend(Backend):
             return value
         return await self._backend.get(key, default=default)
 
-    async def get_many(self, *keys: Key, default: Optional[Value] = None) -> Tuple[Optional[Value], ...]:
+    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         missed_keys = set(keys)
         values = {key: default for key in keys}
 
@@ -133,7 +136,7 @@ class TransactionBackend(Backend):
                 values[key] = value
         return tuple(values[key] for key in keys)
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Tuple[Key, Value]]:
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         _local_state = set()
         async for key, value in self._local_cache.get_match(pattern):
             yield key, value
@@ -195,26 +198,23 @@ class TransactionBackend(Backend):
     async def get_raw(self, key: Key) -> Value:
         return await self._backend.get_raw(key)
 
-    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> Tuple[int, ...]:
+    async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         return await self._backend.get_bits(key, *indexes, size=size)
 
-    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> Tuple[int, ...]:
+    async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
         return await self._backend.incr_bits(key, *indexes, size=size, by=by)
 
     async def slice_incr(
         self,
         key: Key,
-        start: Union[int, float],
-        end: Union[int, float],
+        start: int | float,
+        end: int | float,
         maxvalue: int,
-        expire: Optional[float] = None,
+        expire: float | None = None,
     ) -> int:
         return await self._backend.slice_incr(key, start, end, maxvalue, expire)
 
-    async def get_size(self, key: Key) -> int:
-        return await self._backend.get_size(key)
-
-    async def ping(self, message: Optional[bytes] = None) -> bytes:
+    async def ping(self, message: bytes | None = None) -> bytes:
         return await self._backend.ping(message)
 
     async def clear(self):
@@ -222,13 +222,13 @@ class TransactionBackend(Backend):
         await self._local_cache.clear()
         return await self._backend.clear()
 
-    async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
+    async def set_lock(self, key: Key, value: Value, expire: float | None) -> bool:
         return await self._backend.set_lock(key, value, expire)
 
     async def is_locked(
         self,
         key: Key,
-        wait: Optional[float] = None,
+        wait: float | None = None,
         step: float = 0.1,
     ) -> bool:
         return await self._backend.is_locked(key, wait, step)
@@ -236,7 +236,7 @@ class TransactionBackend(Backend):
     async def unlock(self, key: Key, value: Value) -> bool:
         return await self._backend.unlock(key, value)
 
-    async def set_add(self, key: Key, *values: str, expire: Optional[float] = None):
+    async def set_add(self, key: Key, *values: str, expire: float | None = None):
         return await self._backend.set_add(key, *values, expire=expire)
 
     async def set_remove(self, key: Key, *values: str):
@@ -260,7 +260,7 @@ class LockTransactionBackend(TransactionBackend):
 
     def __init__(self, backend: Backend, serializable=False, timeout=10):
         super().__init__(backend)
-        self._locks: Set[Key] = set()
+        self._locks: set[Key] = set()
         self._lock_id = uuid4().hex
         self._serializable = serializable
         self._timeout = timeout
@@ -308,19 +308,19 @@ class LockTransactionBackend(TransactionBackend):
         self,
         key: Key,
         value: Value,
-        expire: Optional[float] = None,
-        exist: Optional[bool] = None,
+        expire: float | None = None,
+        exist: bool | None = None,
     ) -> bool:
         await self._lock_updates(key)
         return await super().set(key, value, expire=expire, exist=exist)
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: Optional[float] = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         for key in pairs:
             await self._lock_updates(key)
         res = await super().set_many(pairs, expire=expire)
         return res
 
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         await self._lock_updates(key)
         return await super().incr(key, value, expire=expire)
 

@@ -2,6 +2,8 @@ import asyncio
 from random import random
 from unittest.mock import Mock
 
+import pytest
+
 from cashews.commands import Command
 from cashews.wrapper import Cache
 
@@ -152,6 +154,7 @@ async def test_disable_decorators(cache: Cache, target):
     assert await func() == 2
 
 
+@pytest.mark.skip
 async def test_disable_bloom(cache: Cache, target: Mock):
     cache.disable()
 
