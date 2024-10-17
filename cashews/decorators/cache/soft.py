@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 from typing import TYPE_CHECKING, Callable
 
@@ -56,7 +56,7 @@ def soft(
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
                 soft_expire_at, result = cached
-                if soft_expire_at > datetime.utcnow():
+                if soft_expire_at > datetime.now(timezone.utc):
                     context_cache_detect._set(
                         _cache_key,
                         ttl=ttl,
@@ -88,7 +88,7 @@ def soft(
                 if condition(result, args, kwargs, _cache_key):
                     _ttl = ttl_to_seconds(ttl, *args, result=result, **kwargs, with_callable=True)
                     _soft_ttl = ttl_to_seconds(soft_ttl, *args, result=result, **kwargs) or _ttl * 0.33
-                    soft_expire_at = datetime.utcnow() + timedelta(seconds=_soft_ttl)
+                    soft_expire_at = datetime.now(timezone.utc) + timedelta(seconds=_soft_ttl)
                     await backend.set(_cache_key, [soft_expire_at, result], expire=_ttl, tags=_tags)
                 return result
 

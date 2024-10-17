@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import TYPE_CHECKING, Callable
 
@@ -74,5 +74,5 @@ def circuit_breaker(
 
 
 async def _get_requests_count(backend: _BackendInterface, key: Key, period: int) -> int:
-    timestamp = datetime.utcnow().timestamp()
+    timestamp = datetime.now(timezone.utc).timestamp()
     return await backend.slice_incr(key, timestamp - period, timestamp, 9999, expire=period)
