@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Iterable, Mapping
 
 from diskcache import Cache, FanoutCache
@@ -186,7 +186,7 @@ class _DiskCache(Backend):
             return NOT_EXIST
         if expire is None:
             return UNLIMITED
-        return round((datetime.utcfromtimestamp(expire) - datetime.utcnow()).total_seconds())
+        return round((datetime.fromtimestamp(expire, timezone.utc) - datetime.now(timezone.utc)).total_seconds())
 
     async def get_size(self, key: Key) -> int:
         return -1
