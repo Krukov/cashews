@@ -39,13 +39,9 @@ class Wrapper:
         self._check_setup()
         raise NotConfiguredError("Backend for given key not configured")
 
-    def _with_middlewares(self, cmd: Command, key: Key):
-        backend = self._get_backend(key)
+    def _with_middlewares(self, *, call, cmd: Command, backend: Backend):
         middlewares = self._backend_middleware[backend._id]
-        return self._with_middlewares_for_backend(cmd, backend, middlewares)
 
-    def _with_middlewares_for_backend(self, cmd: Command, backend, middlewares):
-        call = getattr(backend, cmd.value)
         for middleware in middlewares:
             call = partial(middleware, call, cmd, backend)
         return call
