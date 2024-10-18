@@ -18,7 +18,6 @@ class Command(Enum):
     INCR = "incr"
     EXPIRE = "expire"
     GET_EXPIRE = "get_expire"
-    CLEAR = "clear"
 
     SET_LOCK = "set_lock"
     UNLOCK = "unlock"
@@ -35,7 +34,6 @@ class Command(Enum):
 
     PING = "ping"
     GET_SIZE = "get_size"
-    GET_KEYS_COUNT = "get_keys_count"
 
 
 ALL = set(Command)
