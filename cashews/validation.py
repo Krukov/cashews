@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Iterator
 
 from ._typing import AsyncCallable_T
 from .backends.interface import _BackendInterface
@@ -14,8 +16,8 @@ from .key_context import context as template_context
 def invalidate(
     backend: _BackendInterface,
     key_template: str,
-    args_map: Optional[Dict[str, str]] = None,
-    defaults: Optional[Dict[str, Any]] = None,
+    args_map: dict[str, str] | None = None,
+    defaults: dict[str, Any] | None = None,
 ):
     args_map = args_map or {}
     defaults = defaults or {}

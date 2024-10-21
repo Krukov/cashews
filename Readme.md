@@ -698,9 +698,6 @@ class MyClass:
     async def get_name(self, user, version="v1"):
          ...
 
-    @noself_cache(ttl="2h")  # for python <= 3.8
-    async def get_name(self, user, version="v1"):
-         ...
 # a key template will be "__module__:MyClass.get_name:user:{user}:version:{version}
 
 await MyClass().get_name("me", version="v2")

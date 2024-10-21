@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from functools import lru_cache
-from typing import Dict, Iterable, List, Match, Optional, Pattern, Tuple
+from typing import Iterable, Match, Pattern
 
 from cashews._typing import TTL, Key, KeyOrTemplate, OnRemoveCallback, Tag, Tags, Value
 from cashews.backends.interface import Backend
@@ -11,7 +13,7 @@ from .commands import CommandWrapper
 class TagsRegistry:
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self._registry_template: Dict[Tag, List[Pattern]] = {}
+        self._registry_template: dict[Tag, list[Pattern]] = {}
 
     def register_tag(self, tag: Tag, key_template: KeyOrTemplate):
         self._registry_template.setdefault(tag, [])
@@ -28,7 +30,7 @@ class TagsRegistry:
         return tags
 
     @staticmethod
-    def _match_patterns(key: Key, patterns: List[Pattern]) -> Optional[Match]:
+    def _match_patterns(key: Key, patterns: list[Pattern]) -> Match | None:
         for pattern in patterns:
             match = pattern.fullmatch(key)
             if match:
@@ -43,7 +45,7 @@ class CommandsTagsWrapper(CommandWrapper):
         self._tags_key_prefix = "_tag:"
         self._on_remove_cb = self._on_remove_callback()
 
-    def setup_tags_backend(self, settings_url: str, middlewares: Tuple = (), **kwargs) -> Backend:
+    def setup_tags_backend(self, settings_url: str, middlewares: tuple = (), **kwargs) -> Backend:
         return self.setup(
             settings_url,
             middlewares=middlewares,
@@ -73,8 +75,8 @@ class CommandsTagsWrapper(CommandWrapper):
 
         return _callback
 
-    def _group_by_tags(self, keys: Iterable[Key]) -> Dict[Tag, List[Key]]:
-        tags: Dict[Tag, List[Key]] = {}
+    def _group_by_tags(self, keys: Iterable[Key]) -> dict[Tag, list[Key]]:
+        tags: dict[Tag, list[Key]] = {}
         for key in keys:
             for tag in self.get_key_tags(key):
                 tags.setdefault(tag, []).append(key)
@@ -101,8 +103,8 @@ class CommandsTagsWrapper(CommandWrapper):
         self,
         key: Key,
         value: Value,
-        expire: Optional[TTL] = None,
-        exist: Optional[bool] = None,
+        expire: TTL = None,
+        exist: bool | None = None,
         tags: Tags = (),
     ) -> bool:
         _set = await super().set(key=key, value=value, expire=expire, exist=exist)
@@ -111,7 +113,7 @@ class CommandsTagsWrapper(CommandWrapper):
                 await self.set_add(self._tags_key_prefix + tag, key, expire=expire)
         return _set
 
-    async def incr(self, key: Key, value: int = 1, expire: Optional[float] = None, tags: Tags = ()) -> int:
+    async def incr(self, key: Key, value: int = 1, expire: float | None = None, tags: Tags = ()) -> int:
         _set = await super().incr(key=key, value=value, expire=expire)
         if _set and tags:
             for tag in tags:

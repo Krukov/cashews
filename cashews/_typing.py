@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Protocol, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Protocol, TypeVar, Union
 
 if TYPE_CHECKING:  # pragma: no cover
     from . import Command
@@ -26,7 +26,7 @@ Value = Any
 Default = TypeVar("Default")
 Tag = str
 Tags = Iterable[Tag]
-Exceptions = Union[Type[Exception], Iterable[Type[Exception]], None]
+Exceptions = Union[type[Exception], Iterable[type[Exception]], None]
 
 CacheCondition = Union[CallableCacheCondition, str, None]
 

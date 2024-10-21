@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import inspect
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Container, Dict, Iterable, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Container, Iterable
 
 from .exceptions import WrongKeyError
 from .formatter import _ReplaceFormatter, default_format
@@ -14,8 +14,8 @@ if TYPE_CHECKING:  # pragma: no cover
 _KWARGS = "__kwargs__"
 _ARGS = "__args__"
 _ARGS_KWARGS = (_ARGS, _KWARGS)
-Args = Tuple[Any, ...]
-Kwargs = Dict[str, Any]
+Args = tuple[Any, ...]
+Kwargs = dict[str, Any]
 
 
 def get_cache_key(

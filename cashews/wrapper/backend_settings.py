@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Union
 from urllib.parse import parse_qsl, urlparse
 
 from cashews.backends.interface import Backend
@@ -8,7 +8,7 @@ from cashews.backends.memory import Memory
 from cashews.exceptions import BackendNotAvailableError
 
 if TYPE_CHECKING:  # pragma: no cover
-    BackendOrFabric = Union[Type[Backend], Callable[..., Backend]]
+    BackendOrFabric = Union[type[Backend], Callable[..., Backend]]
 
 _NO_REDIS_ERROR = "Redis backend requires `redis` to be installed."
 _CUSTOM_ERRORS = {

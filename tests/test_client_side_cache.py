@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import time
-from typing import Optional
 
 import pytest
 
@@ -172,7 +173,7 @@ async def test_simple_cmd_bcast_many(create_cache):
 
 
 @pytest.mark.parametrize("client_side_listen_timeout", [None, 0.1])
-async def test_unsafe_redis_down(client_side_listen_timeout: Optional[float]):
+async def test_unsafe_redis_down(client_side_listen_timeout: float | None):
     from cashews.backends.redis.client_side import BcastClientSide
 
     cache = BcastClientSide(
