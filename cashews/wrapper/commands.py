@@ -49,7 +49,9 @@ class CommandWrapper(Wrapper):
         value = await self.get(key, default=_empty)
         if value is not _empty:
             return value
-        if callable(default):
+        if inspect.isawaitable(default):
+            _default = await default
+        elif callable(default):
             if inspect.iscoroutinefunction(default):
                 _default = await default()
             else:

@@ -33,6 +33,14 @@ async def test_get_or_set_awaitable(cache: Cache):
     assert await cache.get("key") == VALUE
 
 
+async def test_get_or_set_coroutine(cache: Cache):
+    async def _default():
+        return VALUE
+
+    await cache.get_or_set("key", default=_default())
+    assert await cache.get("key") == VALUE
+
+
 async def test_get_or_set_no_set(cache: Cache):
     await cache.set("key", VALUE)
     await cache.get_or_set("key", None)
