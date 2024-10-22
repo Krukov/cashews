@@ -34,7 +34,10 @@ def get_cache_key(
     :return: cache key for call
     """
     kwargs = kwargs or {}
-    key_values = _get_call_values(func, args, kwargs)
+    if not args and template and _KWARGS not in template and _ARGS not in template:
+        key_values = kwargs
+    else:
+        key_values = _get_call_values(func, args, kwargs)
     _key_template = template or get_cache_key_template(func)
     return default_format(_key_template, **key_values)
 

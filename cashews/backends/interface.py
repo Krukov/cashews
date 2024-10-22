@@ -177,7 +177,7 @@ class ControlMixin:
 
     def __init__(self, *args, **kwargs) -> None:
         self.__disable: ContextVar[set[Command]] = ContextVar(str(id(self)), default=set())
-        self._control_set = True
+        self._control_set = False
         super().__init__(*args, **kwargs)
 
     @property
