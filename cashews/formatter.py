@@ -90,14 +90,18 @@ class _ReplaceFormatter(Formatter):
         except (KeyError, AttributeError):
             return self.__default(field_name), None
 
-    def _format_field(self, value):
+    def _format_field(self, value: Any):
         if value is None:
             return ""
+        return str(self._type_format(value))
+
+    def _type_format(self, value: Any):
         _type = type(value)
         if _type in self.__type_format:
             return self.__type_format[_type](value)
         for _type_map, func_format in self.__type_format.items():
             if isinstance(value, _type_map):
+                self.__type_format[_type] = func_format  # to avoid isinstance next time
                 return func_format(value)
         return str(value)
 
@@ -121,6 +125,8 @@ class _FuncFormatter(_ReplaceFormatter):
         return _decorator
 
     def format_field(self, value: Any, format_spec: str) -> TemplateValue:
+        if format_spec == "":
+            return super().format_field(value, format_spec)
         format_spec, args = self.parse_format_spec(format_spec)
         if format_spec not in self._functions:
             return super().format_field(value, format_spec)
@@ -135,6 +141,12 @@ class _FuncFormatter(_ReplaceFormatter):
             return format_spec, ()
         format_spec, args = format_spec.split("(", 1)
         return format_spec, args.replace(")", "").split(",")
+
+    def vformat(self, format_string, args, kwargs):
+        try:
+            return format_string.format(**{key: self._type_format(val) for key, val in kwargs.items()})
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return super().vformat(format_string, args, kwargs)
 
 
 default_formatter = _FuncFormatter(lambda name: "")
