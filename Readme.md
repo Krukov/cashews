@@ -614,16 +614,15 @@ async def convert_price(item):
 
 ```
 
-Not only function arguments can participate in a key formation. Cashews have a `template_context`. You may use any variable registered in it:
+Not only function arguments can participate in a key formation. Cashews have a `template_context', use `@:get` in a template to paste variable from a context:
 
 ```python
-from cashews import cache, key_context, register_key_context
+from cashews import cache, key_context
 
 cache.setup("mem://")
-register_key_context("client_id")
 
 
-@cache(ttl="2h", key="user:{client_id}")
+@cache(ttl="2h", key="user:{@:get(client_id)}")
 async def get_current_user():
   pass
 
