@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 from ._typing import AsyncCallable_T, Middleware, Result_T
 from .backends.interface import Backend
@@ -50,10 +50,8 @@ def all_keys_lower() -> Middleware:
     return _middleware
 
 
-def memory_limit(min_bytes=0, max_bytes=None) -> Middleware:
-    async def _middleware(
-        call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs
-    ) -> Optional[Result_T]:
+def memory_limit(min_bytes: int = 0, max_bytes: int | None = None) -> Middleware:
+    async def _middleware(call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs) -> Result_T | None:
         if cmd != Command.SET:
             return await call(*args, **kwargs)
         value_size = get_obj_size(kwargs["value"])

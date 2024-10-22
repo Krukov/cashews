@@ -13,7 +13,6 @@ from .wrapper import Cache, TransactionMode, register_backend
 
 # pylint: disable=invalid-name
 cache = Cache(name="default")
-noself_cache = noself(cache.cache)
 failover = cache.failover
 early = cache.early
 soft = cache.soft
@@ -40,7 +39,6 @@ mem.setup(
 __all__ = [
     "mem",
     "cache",
-    "noself_cache",
     "failover",
     "early",
     "soft",

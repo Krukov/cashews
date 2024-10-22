@@ -4,9 +4,9 @@ import asyncio
 import math
 from collections import namedtuple
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Iterable, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Union
 
-from cashews.backends.interface import _BackendInterface
+from cashews.backends.interface import Backend
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.utils import get_indexes
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 __all__ = ("bloom",)
 
-TrueFalsePair = Tuple[int, int]
+TrueFalsePair = tuple[int, int]
 IntOrPair = Union[int, TrueFalsePair]
 BloomParams = namedtuple("BloomParams", ("size", "number_of_buckets"))
 
@@ -32,7 +32,7 @@ def not_set(values: Iterable[int]) -> bool:
 
 
 def bloom(
-    backend: _BackendInterface,
+    backend: Backend,
     *,
     capacity: int,
     name: KeyOrTemplate | None = None,
@@ -100,7 +100,7 @@ def bloom(
 
 
 def dual_bloom(
-    backend: _BackendInterface,
+    backend: Backend,
     *,
     capacity: IntOrPair,
     name: KeyOrTemplate | None = None,

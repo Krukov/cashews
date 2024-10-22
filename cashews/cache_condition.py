@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from functools import partial
-from typing import Any, Dict, Tuple, Type, Union
+from typing import Any
 
 from ._typing import CacheCondition, CallableCacheCondition
 
@@ -12,10 +14,10 @@ def _store_all(result, args, kwargs, key=None) -> bool:
     return True
 
 
-def _exceptions(*exceptions: Type[Exception], default: bool = True) -> CacheCondition:
+def _exceptions(*exceptions: type[Exception], default: bool = True) -> CacheCondition:
     exceptions = exceptions or Exception  # type: ignore
 
-    def _cond(result: Any, args: Tuple, kwargs: Dict[str, Any], key: str = "") -> Union[bool, Exception]:
+    def _cond(result: Any, args: tuple, kwargs: dict[str, Any], key: str = "") -> bool | Exception:
         if isinstance(result, exceptions):
             return result
         return default

@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import base64
 import json
 import re
 from hashlib import md5, sha1, sha256
 from string import Formatter
-from typing import Any, Callable, Dict, Iterable, Pattern, Tuple
+from typing import Any, Callable, Iterable, Pattern
 
 from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
@@ -95,7 +97,7 @@ class _ReplaceFormatter(Formatter):
 
 class _FuncFormatter(_ReplaceFormatter):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self._functions: Dict[str, Tuple[Callable, bool]] = {}
+        self._functions: dict[str, tuple[Callable, bool]] = {}
         super().__init__(*args, **kwargs)
 
     def _register(self, alias: str, function: Callable, preformat: bool = True) -> None:
