@@ -162,8 +162,14 @@ def test_cache_func_key_dict():
         (
             (),
             {"kwarg": "1"},
-            "{context_value:upper}:{kwarg}",
-            "CONTEXT:1",
+            "{@:get(context_value)}:{kwarg}",
+            "context:1",
+        ),
+        (
+            (),
+            {"kwarg": "1"},
+            "{@:get(context_value)}:{kwarg}",
+            "context:1",
         ),
     ),
 )
@@ -184,6 +190,7 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
         (Klass.method, "key:{k}:{self.data.test}", "key:{k}:{self.data.test}"),
         (func2, "key:{k}", "key:{k}"),
         (func3, "key:{k:len}:{k:hash(md5)}:{val}", "key:{k:len}:{k:hash(md5)}:{val}"),
+        (func3, "key:{k:len}:{k:hash(md5)}:{@:get(val)}", "key:{k:len}:{k:hash(md5)}:{@:get(val)}"),
     ),
 )
 def test_get_key_template(func, key, template):

@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import re
+from contextlib import contextmanager
 from hashlib import md5, sha1, sha256
 from string import Formatter
 from typing import Any, Callable, Iterable, Pattern
@@ -63,6 +64,15 @@ class _ReplaceFormatter(Formatter):
             dict: _get_decoded_dict(self._format_field),
         }
         super().__init__()
+
+    @contextmanager
+    def default(self, _default):
+        was = self.__default
+        self.__default = _default
+        try:
+            yield
+        finally:
+            self.__default = was
 
     def set_format_for_type(self, value, format_function):
         self.__type_format[value] = format_function
@@ -130,6 +140,11 @@ class _FuncFormatter(_ReplaceFormatter):
 default_formatter = _FuncFormatter(lambda name: "")
 
 
+@default_formatter.register("get", preformat=False)
+def _get(value: Any, key: str) -> TemplateValue:
+    return value.get(key)
+
+
 @default_formatter.register("len")
 def _len(value: TemplateValue):
     return str(len(value))
@@ -161,6 +176,7 @@ def _upper(value: TemplateValue) -> TemplateValue:
 
 def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
     _template_context, rewrite = key_context.get()
+    values["@"] = _template_context
     if rewrite:
         _template_context = {**values, **_template_context}
     else:
