@@ -8,14 +8,15 @@ from typing import Any, AsyncIterator, Iterable, Mapping
 from diskcache import Cache, FanoutCache
 
 from cashews._typing import Key, Value
-from cashews.serialize import SerializerMixin
+from cashews.serialize import DEFAULT_SERIALIZER, Serializer
 from cashews.utils import Bitarray
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
 
 
-class _DiskCache(Backend):
+class DiskCache(Backend):
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
+        serializer = kwargs.pop("serializer", DEFAULT_SERIALIZER)
         self.__is_init = False
         self._set_locks: dict[str, asyncio.Lock] = {}
         self._sharded = shards > 1
@@ -23,7 +24,8 @@ class _DiskCache(Backend):
             self._cache = Cache(directory=directory, **kwargs)
         else:
             self._cache = FanoutCache(directory=directory, shards=shards, **kwargs)
-        super().__init__(**kwargs)
+        super().__init__(serializer=serializer, **kwargs)
+        self._serializer: Serializer
 
     async def init(self):
         self.__is_init = True
@@ -46,6 +48,7 @@ class _DiskCache(Backend):
         expire: float | None = None,
         exist: bool | None = None,
     ) -> bool:
+        value = await self._serializer.encode(self, key=key, value=value, expire=expire)
         future = self._run_in_executor(self._set, key, value, expire, exist)
         if exist is not None:
             # we should have async lock until value real set
@@ -69,25 +72,34 @@ class _DiskCache(Backend):
         return self._cache.set(key, value, **kwargs)
 
     async def get(self, key: Key, default: Value | None = None) -> Value:
-        return await self._run_in_executor(self._cache.get, key, default)
+        value = await self._run_in_executor(self._cache.get, key, default)
+        return await self._serializer.decode(self, key=key, value=value, default=default)
 
     async def get_raw(self, key: Key) -> Value:
         return self._cache.get(key)
 
-    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value]:
-        return await self._run_in_executor(self._get_many, keys, default)
+    async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
+        if not keys:
+            return ()
+        values = await self._run_in_executor(self._get_many, keys, default)
+        values = await asyncio.gather(
+            *[self._serializer.decode(self, key=key, value=value, default=default) for key, value in zip(keys, values)]
+        )
+        return tuple(None if isinstance(value, Bitarray) else value for value in values)
 
     def _get_many(self, keys: list[Key], default: Value | None = None):
         values = []
         for key in keys:
             val = self._cache.get(key, default=default)
-            if isinstance(val, Bitarray):
-                val = None
             values.append(val)
         return values
 
     async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
-        return await self._run_in_executor(self._set_many, pairs, expire)
+        _pairs = {}
+        for key, value in pairs.items():
+            value = await self._serializer.encode(self, key=key, value=value, expire=expire)
+            _pairs[key] = value
+        return await self._run_in_executor(self._set_many, _pairs, expire)
 
     def _set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         for key, value in pairs.items():
@@ -215,6 +227,7 @@ class _DiskCache(Backend):
         return await self.exists(key)
 
     async def unlock(self, key: Key, value: Value) -> bool:
+        value = await self._serializer.encode(self, key=key, value=value, expire=None)
         return await self._run_in_executor(self._unlock, key, value)
 
     def _unlock(self, key: Key, value: Value) -> bool:
@@ -269,7 +282,3 @@ class _DiskCache(Backend):
 
     async def get_keys_count(self) -> int:
         return await self._run_in_executor(lambda: len(self._cache))
-
-
-class DiskCache(SerializerMixin, _DiskCache):
-    pass

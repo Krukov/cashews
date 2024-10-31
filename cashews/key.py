@@ -106,10 +106,13 @@ def generate_key_template(func: Callable, exclude_parameters: Container = ()) ->
 
 class _Star:
     def __getattr__(self, item):
-        return _Star()
+        return self
 
     def __getitem__(self, item):
-        return _Star()
+        return self
+
+    def __call__(self, *args, **kwargs):
+        return "*"
 
 
 def _check_key_params(key: KeyOrTemplate, func_params: Iterable[str]):
@@ -142,7 +145,7 @@ def _get_func_signature(func: Callable):
 
 
 def _get_call_values(func: Callable, args: Args, kwargs: Kwargs):
-    if len(args) == 0:
+    if not args:
         _kwargs = {**kwargs}
         for name, parameter in _get_func_signature(func).parameters.items():
             if parameter.kind != inspect.Parameter.VAR_KEYWORD and name in _kwargs:

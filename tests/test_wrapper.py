@@ -1,5 +1,5 @@
 import asyncio
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import ANY, Mock, PropertyMock
 
 import pytest
 
@@ -51,7 +51,9 @@ async def test_auto_init(cache):
 
     type(target).is_init = PropertyMock(side_effect=lambda: init)
     target.init.side_effect = set_init
-    cache._backends[""] = (target, (create_auto_init(),))
+    cache._backends[""] = target
+    cache._middlewares[target._id] = [create_auto_init()]
+
     await asyncio.gather(cache.ping(), cache.ping(), cache.get("test"))
     target.init.assert_called_once()
 
@@ -60,13 +62,13 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     await cache.set(key="key", value={"any": True}, expire=60, exist=None)
     target.set.assert_called_once_with(
         key="key",
-        value={"any": True},
+        value=ANY,
         expire=60,
         exist=None,
     )
 
-    await cache.set_raw(key="key2", value="value", expire=60)
-    target.set_raw.assert_called_once_with(key="key2", value="value", expire=60)
+    await cache.set_raw(key="key2", value="value")
+    target.set_raw.assert_called_once_with(key="key2", value="value")
 
     await cache.get("key")  # -> Any
     target.get.assert_called_once_with(key="key", default=None)
@@ -75,7 +77,7 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
     target.get_raw.assert_called_once_with(key="key")
 
     await cache.set_many({"key1": "value1", "key2": "value2"}, expire=60)
-    target.set_many.assert_called_once_with(pairs={"key1": "value1", "key2": "value2"}, expire=60)
+    target.set_many.assert_called_once_with(pairs={"key1": ANY, "key2": ANY}, expire=60)
 
     await cache.get_many("key1", "key2")
     target.get_many.assert_called_once_with("key1", "key2", default=None)
@@ -124,10 +126,10 @@ async def test_smoke_cmds(cache: Cache, target: Mock):
 
     await cache.set("key", "value")
     assert [key async for key in cache.scan("key*")] == ["key"]
-    target.scan.assert_called_once_with("key*", batch_size=100)
+    target.scan.assert_called_once_with(pattern="key*", batch_size=100)
 
     assert [key_value async for key_value in cache.get_match("key*")] == [("key", "value")]
-    target.get_match.assert_called_once_with("key*", batch_size=100)
+    target.get_match.assert_called_once_with(pattern="key*", batch_size=100)
 
     await cache.get_size("key")
     target.get_size.assert_called_once_with(key="key")

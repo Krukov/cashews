@@ -21,6 +21,7 @@ class TransactionBackend(Backend):
         "_local_cache",
         "_to_delete",
         "__disable",
+        "_id",
     ]
 
     def __init__(self, backend: Backend):
@@ -28,6 +29,7 @@ class TransactionBackend(Backend):
         self._local_cache = Memory()
         self._to_delete: set[Key] = set()
         super().__init__()
+        self._id = backend._id
 
     def _key_is_delete(self, key: Key) -> bool:
         if key in self._to_delete:
