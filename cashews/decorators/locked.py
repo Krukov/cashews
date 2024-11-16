@@ -12,7 +12,7 @@ from cashews.ttl import ttl_to_seconds
 if TYPE_CHECKING:  # pragma: no cover
     from cashews._typing import TTL, DecoratedFunc, Key, KeyOrTemplate
 
-__all__ = ("locked",)
+__all__ = ("locked", "thunder_protection")
 
 
 def locked(

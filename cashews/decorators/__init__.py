@@ -1,5 +1,3 @@
-from cashews.cache_condition import NOT_NONE
-
 from .bloom import bloom, dual_bloom
 from .cache.defaults import CacheDetect, context_cache_detect
 from .cache.early import early
@@ -14,7 +12,6 @@ from .rate import rate_limit
 from .rate_slide import slice_rate_limit
 
 __all__ = [
-    "NOT_NONE",
     "bloom",
     "dual_bloom",
     "CacheDetect",

@@ -3,6 +3,7 @@ from cashews.decorators import context_cache_detect
 
 from .backend_settings import register_backend  # noqa
 from .callback import CallbackWrapper
+from .contextual import ContextualWrapper
 from .decorators import DecoratorsWrapper
 from .disable_control import ControlWrapper
 from .tags import CommandsTagsWrapper
@@ -20,6 +21,7 @@ class Cache(
     ControlWrapper,
     CallbackWrapper,
     CommandsTagsWrapper,
+    ContextualWrapper,
     DecoratorsWrapper,
     _BackendInterface,
 ):

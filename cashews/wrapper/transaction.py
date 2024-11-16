@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from contextvars import ContextVar
 from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING
@@ -13,7 +12,7 @@ from .wrapper import Wrapper
 if TYPE_CHECKING:  # pragma: no cover
     from cashews._typing import DecoratedFunc
 
-_transaction: ContextVar[Transaction | None] = ContextVar("transaction", default=None)
+_CONTEXT_NAME = "_transaction"
 
 
 class TransactionMode(Enum):
@@ -34,7 +33,7 @@ class TransactionWrapper(Wrapper):
 
     def _get_backend(self, key: str) -> Backend:
         backend = super()._get_backend(key)
-        tx: Transaction | None = _transaction.get()
+        tx: Transaction | None = self._get_cache_context_value(_CONTEXT_NAME)
         if tx:
             return tx.wrap(backend)
         return backend
@@ -44,20 +43,21 @@ class TransactionWrapper(Wrapper):
     ) -> TransactionContextDecorator:
         mode = mode or self.transaction_mode
         timeout = timeout or self.transaction_timeout
-        return TransactionContextDecorator(mode, timeout)
+        return TransactionContextDecorator(mode, timeout, self)
 
 
 class TransactionContextDecorator:
-    __slots__ = ["_mode", "_timeout", "_inner"]
+    __slots__ = ["_mode", "_timeout", "_inner", "_backend"]
 
-    def __init__(self, mode: TransactionMode | None = None, timeout: float | None = None):
+    def __init__(self, mode: TransactionMode | None, timeout: float | None, backend):
         self._mode = mode
         self._timeout = timeout
         self._inner = False
+        self._backend = backend
 
     @property
     def current_tx(self) -> Transaction | None:
-        return _transaction.get()
+        return self._backend._get_cache_context_value(_CONTEXT_NAME)
 
     async def __aenter__(self) -> Transaction:
         if self.current_tx:
@@ -67,11 +67,11 @@ class TransactionContextDecorator:
 
     def start(self) -> Transaction:
         tx = Transaction(self._mode, self._timeout)
-        _transaction.set(tx)
+        self._backend._set_cache_context(name=_CONTEXT_NAME, value=tx)
         return tx
 
     def close(self):
-        _transaction.set(None)
+        self._backend._set_cache_context(name=_CONTEXT_NAME, value=None)
 
     async def __aexit__(self, exc_type, exc_value, exc_tb) -> None:
         if not self.current_tx or self._inner:

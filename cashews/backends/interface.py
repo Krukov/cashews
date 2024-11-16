@@ -4,10 +4,8 @@ import asyncio
 import uuid
 from abc import ABCMeta, abstractmethod
 from contextlib import asynccontextmanager
-from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Iterable, Mapping, overload
 
-from cashews.commands import ALL, Command
 from cashews.exceptions import CacheBackendInteractionError, LockedError
 from cashews.serialize import Serializer
 
@@ -173,60 +171,7 @@ class _BackendInterface(metaclass=ABCMeta):
             return
 
 
-class ControlMixin:
-    enable_by_default = True
-
-    def __init__(self, *args, **kwargs) -> None:
-        self.__disable: ContextVar[set[Command]] = ContextVar(str(id(self)), default=set())
-        self._control_set = False
-        super().__init__(*args, **kwargs)
-
-    @property
-    def _disable(self) -> set[Command]:
-        return self.__disable.get()
-
-    def _set_disable(self, value: set[Command]) -> None:
-        self.__disable.set(value)
-        self._control_set = True
-
-    def is_disable(self, *cmds: Command) -> bool:
-        if not self._control_set:
-            return not self.enable_by_default
-        _disable = self._disable
-        if not cmds and _disable:
-            return True
-        for cmd in cmds:
-            if cmd in _disable:
-                return True
-        return False
-
-    def is_enable(self, *cmds: Command) -> bool:
-        return not self.is_disable(*cmds)
-
-    @property
-    def is_full_disable(self) -> bool:
-        if not self._control_set:
-            return not self.enable_by_default
-        return self._disable == ALL
-
-    def disable(self, *cmds: Command) -> None:
-        if not cmds:
-            _disable = ALL.copy()
-        else:
-            _disable = self._disable.copy()
-            _disable.update(cmds)
-        self._set_disable(_disable)
-
-    def enable(self, *cmds: Command) -> None:
-        if not cmds:
-            _disable = set()
-        else:
-            _disable = self._disable.copy()
-            _disable -= set(cmds)
-        self._set_disable(_disable)
-
-
-class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
+class Backend(_BackendInterface, metaclass=ABCMeta):
     def __init__(self, *args, serializer: Serializer | None = None, **kwargs) -> None:
         super().__init__()
         self._id = uuid.uuid4().hex

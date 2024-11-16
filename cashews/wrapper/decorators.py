@@ -43,7 +43,7 @@ class DecoratorsWrapper(Wrapper):
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         def _decorator(func: DecoratedFunc) -> DecoratedFunc:
             if time_condition is not None:
-                condition, _decor = create_time_condition(time_condition)
+                condition, _decor = create_time_condition(time_condition, self)
                 func = _decor(func)
                 decor_kwargs["condition"] = condition
 

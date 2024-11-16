@@ -8,7 +8,6 @@ from hashlib import md5, sha1, sha256
 from string import Formatter
 from typing import Any, Callable, Iterable, Pattern
 
-from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
 
 TemplateValue = str
@@ -133,7 +132,7 @@ class _FuncFormatter(_ReplaceFormatter):
         func, preformat = self._functions[format_spec]
         if preformat:
             value = super().format_field(value, "")
-        return func(value, *args)
+        return str(self._type_format(func(value, *args)))
 
     @staticmethod
     def parse_format_spec(format_spec: str):
@@ -187,13 +186,7 @@ def _upper(value: TemplateValue) -> TemplateValue:
 
 
 def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
-    _template_context, rewrite = key_context.get()
-    values["@"] = _template_context
-    if rewrite:
-        _template_context = {**values, **_template_context}
-    else:
-        _template_context = {**_template_context, **values}
-    return default_formatter.format(template, **_template_context)
+    return default_formatter.format(template, **values)
 
 
 def _re_default(field_name):

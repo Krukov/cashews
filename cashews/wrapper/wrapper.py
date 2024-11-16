@@ -42,8 +42,13 @@ class Wrapper:
         raise NotConfiguredError("Backend for given key not configured")
 
     def _call_with_middlewares_for_backend(self, *, call, cmd: Command, backend: Backend):
+        """
+        Main perf issue is here - middleware parttern should be redone
+
+        it is better to do not  partial  - for this we need to remove
+        """
         for middleware in reversed(self._default_middlewares):
-            call = partial(middleware, call, cmd, backend)
+            call = middleware(call)
 
         for middleware in self._middlewares[backend._id]:
             call = partial(middleware, call, cmd, backend)
@@ -69,7 +74,7 @@ class Wrapper:
         )
         backend = backend_class(**params, serializer=serializer)
         if disable:
-            backend.disable()
+            self.disable()
         self._add_backend(backend, middlewares, prefix)
         return backend
 

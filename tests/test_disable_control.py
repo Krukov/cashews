@@ -91,25 +91,6 @@ async def test_init_enable(cache):
     assert not cache.is_disable()
 
 
-async def test_prefix_cache(cache):
-    await cache.set("-:key", "value")
-
-    cache.setup("://", prefix="-", disable=True)
-    assert not cache.is_disable()
-    assert cache.is_disable(prefix="-")
-
-    await cache.set("key", "value")
-    await cache.set("-:key", "new")
-
-    assert await cache.get("key") == "value"
-    assert await cache.get("-:key") is None
-
-    cache.enable(prefix="-")
-    assert cache.is_enable(prefix="-")
-
-    assert await cache.get("-:key") is None  # new backend haven't this key
-
-
 async def test_disable_ctz(cache):
     cache.enable()
 
@@ -179,9 +160,9 @@ async def test_disable_decorators_get(cache: Cache):
         return next(data)
 
     assert cache.is_enable()
-    assert cache.is_enable(Command.SET, prefix="cache")
-    assert cache.is_enable(Command.GET, prefix="cache")
-    assert cache.is_enable(Command.SET, prefix="")
+    assert cache.is_enable(Command.SET)
+    assert cache.is_enable(Command.GET)
+    assert cache.is_enable(Command.SET)
     assert await func() == 0
     assert await func() == 0
 
