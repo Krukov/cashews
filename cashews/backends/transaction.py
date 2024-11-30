@@ -280,6 +280,7 @@ class LockTransactionBackend(TransactionBackend):
         step = 0.1
         while wait > 0.0:
             wait -= step
+            wait = round(wait, 1)
             if await self._backend.set_lock(lock_key, self._lock_id, expire=self._timeout):
                 self._locks.add(lock_key)
                 return
