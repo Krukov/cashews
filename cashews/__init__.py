@@ -6,8 +6,6 @@ from .exceptions import CacheBackendInteractionError, CircuitBreakerOpen, Locked
 from .formatter import default_formatter
 from .helpers import add_prefix, all_keys_lower, memory_limit
 from .key import get_cache_key_template, noself
-from .key_context import context as key_context
-from .key_context import register as register_key_context
 from .validation import invalidate_further
 from .wrapper import Cache, TransactionMode, register_backend
 
@@ -28,6 +26,7 @@ slice_rate_limit = cache.slice_rate_limit
 locked = cache.locked
 
 invalidate = cache.invalidate
+key_context = cache.template_context
 
 mem = Cache(name="mem")
 mem.setup(
@@ -75,5 +74,4 @@ __all__ = [
     "TransactionMode",
     "register_backend",
     "key_context",
-    "register_key_context",
 ]

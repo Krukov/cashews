@@ -6,7 +6,7 @@ from cashews import Command, add_prefix, all_keys_lower, cache  # noqa: F401
 cache.setup(
     "redis://0.0.0.0/2",
     client_name=None,
-    hash_key="test",
+    secret="test",
     digestmod="md5",
     middlewares=(add_prefix("test:"), all_keys_lower()),
 )
@@ -23,11 +23,12 @@ async def basic():
 
     await cache.set_many({"key2": "test", "key3": Decimal("10.1")}, expire="1m")
     print("Get: ", await cache.get("key1"))  # -> Any
+    print("Get: ", await cache.get("key2"))  # -> Any
 
     async for key in cache.scan("key*"):
         print("Scan:", key)  # -> Any
 
-    async for key, value in cache.get_match("key*"):
+    async for key, value in cache.get_match("*"):
         print("Get match:", key, value)  # -> Any
 
     print("Get many:", await cache.get_many("key2", "key3"))  # -> Any

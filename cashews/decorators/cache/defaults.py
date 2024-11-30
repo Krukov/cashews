@@ -16,7 +16,7 @@ class CacheDetect:
         self._previous_level = previous_level
 
     def _set(self, key: Key, **kwargs: Any) -> None:
-        self._value.append((key, [kwargs]))
+        self._value.append((key, kwargs))
 
     @property
     def calls(self):

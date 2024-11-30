@@ -13,25 +13,15 @@ class Command(Enum):
     DELETE_MANY = "delete_many"
     DELETE_MATCH = "delete_match"
 
-    EXIST = "exists"
+    EXISTS = "exists"
     SCAN = "scan"
     INCR = "incr"
     EXPIRE = "expire"
     GET_EXPIRE = "get_expire"
     CLEAR = "clear"
 
-    SET_LOCK = "set_lock"
-    UNLOCK = "unlock"
-    IS_LOCKED = "is_locked"
-
     GET_BITS = "get_bits"
     INCR_BITS = "incr_bits"
-
-    SLICE_INCR = "slice_incr"
-
-    SET_ADD = "set_add"
-    SET_REMOVE = "set_remove"
-    SET_POP = "set_pop"
 
     PING = "ping"
     GET_SIZE = "get_size"

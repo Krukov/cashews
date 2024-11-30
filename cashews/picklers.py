@@ -1,5 +1,6 @@
 import json
 import pickle
+from enum import Enum
 
 from ._typing import Value
 from .exceptions import UnsupportedPicklerError
@@ -76,29 +77,34 @@ class JsonPickler(Pickler):
         return json.dumps(value, default=cls.json_serial).encode()
 
 
-DEFAULT_PICKLE = "default"
-NULL_PICKLE = "null"
+class PicklerType(Enum):
+    DEFAULT = "default"
+    NULL = "null"
+    JSON = "json"
+    DILL = "dill"
+    SQLALCHEMY = "sqlalchemy"
+
 
 _picklers = {
-    DEFAULT_PICKLE: Pickler,
-    "sqlalchemy": SQLAlchemyPickler,
-    "dill": DillPickler,
-    NULL_PICKLE: NonPickler,
-    "json": JsonPickler,
+    PicklerType.DEFAULT: Pickler,
+    PicklerType.SQLALCHEMY: SQLAlchemyPickler,
+    PicklerType.DILL: DillPickler,
+    PicklerType.NULL: NonPickler,
+    PicklerType.JSON: JsonPickler,
 }
 
 
-def get_pickler(name: str):
-    if name not in _picklers:
+def get_pickler(pickler_type: PicklerType):
+    if pickler_type not in _picklers:
         raise UnsupportedPicklerError()
 
-    if name == "sqlalchemy" and not _SQLALC_PICKLE:
+    if pickler_type == PicklerType.SQLALCHEMY and not _SQLALC_PICKLE:
         raise UnsupportedPicklerError()
 
-    if name == "dill" and not _DILL_PICKLE:
+    if pickler_type == PicklerType.DILL and not _DILL_PICKLE:
         raise UnsupportedPicklerError()
 
-    return _picklers[name]
+    return _picklers[pickler_type]
 
 
-DEFAULT_PICKLER = get_pickler(DEFAULT_PICKLE)
+DEFAULT_PICKLER = get_pickler(PicklerType.DEFAULT)

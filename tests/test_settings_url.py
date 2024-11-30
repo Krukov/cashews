@@ -16,7 +16,7 @@ from cashews.wrapper.backend_settings import BackendNotAvailableError, settings_
     ),
 )
 def test_url(url, params):
-    backend_class, _params = settings_url_parse(url)
+    backend_class, _params, _ = settings_url_parse(url)
     assert backend_class is Memory
     assert params == _params
 
@@ -85,7 +85,7 @@ def test_url_but_backend_dependency_is_not_installed(url, error):
 def test_url_with_redis_as_backend(url, params):
     from cashews.backends.redis import Redis
 
-    backend_class, _params = settings_url_parse(url)
+    backend_class, _params, _ = settings_url_parse(url)
     assert isinstance(backend_class(**params), Redis)
     assert params == _params
 
@@ -105,6 +105,6 @@ def test_url_with_redis_as_backend(url, params):
 def test_url_with_diskcache_as_backend(url, params):
     from cashews.backends.diskcache import DiskCache
 
-    backend_class, _params = settings_url_parse(url)
+    backend_class, _params, _ = settings_url_parse(url)
     assert backend_class is DiskCache
     assert params == _params

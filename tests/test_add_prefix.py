@@ -1,3 +1,5 @@
+from unittest.mock import ANY
+
 import pytest
 
 from cashews import Cache
@@ -6,7 +8,7 @@ from cashews.helpers import add_prefix
 
 @pytest.fixture(autouse=True)
 def _add_prefix(cache: Cache, target):
-    cache._add_backend(target, (add_prefix("prefix!"),))
+    cache.add_middleware(add_prefix("prefix!"))
 
 
 async def test_add_prefix_get(cache: Cache, target):
@@ -18,7 +20,7 @@ async def test_add_prefix_set(cache: Cache, target):
     await cache.set(key="key", value="value")
     target.set.assert_called_once_with(
         key="prefix!key",
-        value="value",
+        value=ANY,
         exist=None,
         expire=None,
     )
@@ -36,7 +38,7 @@ async def test_add_prefix_get_many(cache: Cache, target):
 
 async def test_add_prefix_set_many(cache: Cache, target):
     await cache.set_many({"key": "value"})
-    target.set_many.assert_called_once_with(pairs={"prefix!key": "value"}, expire=None)
+    target.set_many.assert_called_once_with(pairs={"prefix!key": ANY}, expire=None)
 
 
 async def test_add_prefix_delete(cache: Cache, target):

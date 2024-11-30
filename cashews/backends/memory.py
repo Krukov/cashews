@@ -8,7 +8,6 @@ from contextlib import suppress
 from copy import copy
 from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Mapping, overload
 
-from cashews.serialize import SerializerMixin
 from cashews.utils import Bitarray, get_obj_size
 
 from .interface import NOT_EXIST, UNLIMITED, Backend
@@ -22,7 +21,7 @@ __all__ = ["Memory"]
 _missed = object()
 
 
-class _Memory(Backend):
+class Memory(Backend):
     """
     Inmemory backend lru with ttl
     """
@@ -74,17 +73,22 @@ class _Memory(Backend):
     ) -> bool:
         if exist is not None and (key in self.store) is not exist:
             return False
+        if self._serializer:
+            value = await self._serializer.encode(self, key=key, value=value, expire=expire)
         self._set(key, value, expire)
         return True
 
     async def set_raw(self, key: Key, value: Value, **kwargs: Any) -> None:
-        self.store[key] = value
+        self.store[key] = (None, value)
 
     async def get(self, key: Key, default: Value | None = None) -> Value:
         return await self._get(key, default=default)
 
     async def get_raw(self, key: Key) -> Value:
-        return self.store.get(key)
+        val = self.store.get(key)
+        if val:
+            return val[1]
+        return None
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         values = []
@@ -97,6 +101,8 @@ class _Memory(Backend):
 
     async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         for key, value in pairs.items():
+            if self._serializer:
+                value = await self._serializer.encode(self, key=key, value=value, expire=expire)
             self._set(key, value, expire)
 
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
@@ -200,7 +206,9 @@ class _Memory(Backend):
         if expire_at and expire_at < time.time():
             await self._delete(key)
             return default
-        return value
+        if not self._serializer:
+            return value
+        return await self._serializer.decode(self, key=key, value=value, default=default)
 
     async def _key_exist(self, key: Key) -> bool:
         return (await self._get(key, default=_missed)) is not _missed
@@ -279,7 +287,3 @@ class _Memory(Backend):
             del self.__remove_expired_stop
             self.__remove_expired_stop = None
         self.__is_init = False
-
-
-class Memory(SerializerMixin, _Memory):
-    pass

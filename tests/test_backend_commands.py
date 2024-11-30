@@ -78,7 +78,9 @@ async def test_incr_expire(cache: Cache):
 
 async def test_set_get_many(cache: Cache):
     await cache.set("key", VALUE)
+    await cache.set("key2", 1)
     assert await cache.get_many("key", "no_exists") == (VALUE, None)
+    assert await cache.get_many("key2", "no_exists", "key") == (1, None, VALUE)
 
 
 async def test_diff_types_get_many(cache: Cache):

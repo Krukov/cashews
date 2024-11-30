@@ -5,8 +5,6 @@ import pytest
 from cashews.exceptions import WrongKeyError
 from cashews.formatter import default_formatter
 from cashews.key import get_cache_key, get_cache_key_template
-from cashews.key_context import context as key_context
-from cashews.key_context import register as register_context
 from cashews.ttl import ttl_to_seconds
 
 
@@ -176,8 +174,7 @@ def test_cache_func_key_dict():
 def test_cache_key_args_kwargs(args, kwargs, template, key):
     async def func(arg1, arg2, *args, kwarg1=None, kwarg2=b"true", **kwargs): ...
 
-    with key_context(context_value="context", kwarg1="test"):
-        assert get_cache_key(func, template, args=args, kwargs=kwargs) == key
+    assert get_cache_key(func, template, args=args, kwargs=kwargs) == key
 
 
 @pytest.mark.parametrize(
@@ -194,7 +191,6 @@ def test_cache_key_args_kwargs(args, kwargs, template, key):
     ),
 )
 def test_get_key_template(func, key, template):
-    register_context("val", "k")
     assert get_cache_key_template(func, key) == template
 
 

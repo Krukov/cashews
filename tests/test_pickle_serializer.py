@@ -8,7 +8,8 @@ from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 from cashews.backends.memory import Memory
-from cashews.serialize import UnSecureDataError
+from cashews.picklers import PicklerType
+from cashews.serialize import UnSecureDataError, get_serializer
 
 
 @dataclasses.dataclass()
@@ -37,13 +38,13 @@ async def _cache(request, redis_dsn):
     if pickle_type == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis(redis_dsn, secret="test", suppress=False, digestmod=digestmod)
+        redis = Redis(redis_dsn, suppress=False, serializer=get_serializer(secret=b"test", digestmod=digestmod))
         await redis.init()
         await redis.clear()
         yield redis
         await redis.close()
     else:
-        yield Memory(secret=b"test", digestmod=digestmod, pickle_type=pickle_type)
+        yield Memory(serializer=get_serializer(secret=b"test", digestmod=digestmod))
 
 
 @pytest.mark.parametrize(
@@ -217,10 +218,7 @@ async def test_replace_values(cache):
 
 
 async def test_pickle_error_value(cache):
-    await cache.set_raw(
-        "key",
-        cache._serializer._signer.sign("key", b"no_pickle_data"),
-    )
+    await cache.set_raw("key", b"nopickledata")
     assert await cache.get("key", default="default") == "default"
 
 
@@ -264,29 +262,29 @@ async def test_get_set_raw(cache):
 @settings(max_examples=500)
 @example(key="_key:_!@#$%^&*()", value='_value:_!@_#$%^&:*(?)".,4й')
 async def test_no_hash(key, value):
-    cache = Memory()
+    cache = Memory(serializer=get_serializer())
     await cache.set(key, value)
     assert await cache.get(key) == value
 
 
 async def test_cache_from_hash_to_no_hash():
     val = Decimal("10.2")
-    cache = Memory(secret="test")
+    cache = Memory(serializer=get_serializer(secret="test"))
     await cache.set("key", val)
 
     assert await cache.get("key") == val
-    cache_no_hash = Memory()
+    cache_no_hash = Memory(serializer=get_serializer())
     cache_no_hash.store = cache.store
     assert await cache_no_hash.get("key", default="default") == "default"
 
 
 async def test_cache_from_no_hash_to_hash():
     val = Decimal("10.2")
-    cache = Memory()
+    cache = Memory(serializer=get_serializer())
     await cache.set("key", val)
 
     assert await cache.get("key") == val
-    cache_hash = Memory(secret="test")
+    cache_hash = Memory(serializer=get_serializer(secret="test"))
     cache_hash.store = cache.store
 
     assert await cache_hash.get("key") == val
@@ -303,6 +301,6 @@ async def test_cache_from_no_hash_to_hash():
     ),
 )
 async def test_json_serialize(value):
-    cache = Memory(secret=b"test", pickle_type="json")
+    cache = Memory(serializer=get_serializer(secret=b"test", pickle_type=PicklerType.JSON))
     await cache.set("key", value)
     assert await cache.get("key") == value

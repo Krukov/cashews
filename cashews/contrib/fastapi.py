@@ -154,7 +154,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
                 _data = None
             else:
                 _key = calls[0][0]
-                _data = calls[0][1][0]["value"]
+                _data = calls[0][1]["value"]
             _etag = await self._set_etag(_key, _data)
             return self._response_etag(response, _etag, request_etag)
 

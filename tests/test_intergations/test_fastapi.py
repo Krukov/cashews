@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager, contextmanager
 from random import random
+from unittest.mock import Mock
 
 import pytest
 
@@ -95,7 +96,10 @@ def test_cache(client):
 def test_cache_stream(client, app, cache):
     from starlette.responses import StreamingResponse
 
+    call = Mock()
+
     def iterator():
+        call()
         for i in range(10):
             yield f"{i}"
 
@@ -110,6 +114,7 @@ def test_cache_stream(client, app, cache):
     assert response.content == b"0123456789"
 
     response = client.get("/stream")
+    call.assert_called_once()
     assert response.status_code == 201
     assert response.headers["X-Test"] == "TRUE"
     assert response.content == b"0123456789"

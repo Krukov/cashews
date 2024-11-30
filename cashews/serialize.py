@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING
 
 from .exceptions import SignIsMissingError, UnSecureDataError
-from .picklers import DEFAULT_PICKLE, NULL_PICKLE, Pickler, get_pickler
+from .picklers import Pickler, PicklerType, get_pickler
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._typing import ICustomDecoder, ICustomEncoder, Key, Value
@@ -22,72 +22,6 @@ def _seal(digestmod):
 def simple_sign(key: bytes, value: bytes) -> bytes:
     s = sum(key) + sum(value)
     return f"{s:x}".encode()
-
-
-class SerializerMixin:
-    pickle_type = NULL_PICKLE
-
-    def __init__(
-        self,
-        *args,
-        secret: str | bytes | None = None,
-        digestmod: str | bytes = b"md5",
-        check_repr: bool = True,
-        pickle_type: str | None = None,
-        **kwargs: Any,
-    ):
-        super().__init__(*args, **kwargs)
-        self._serializer = Serializer(check_repr=check_repr)
-        if secret:
-            self._serializer.set_signer(HashSigner(secret, digestmod))
-
-        self._serializer.set_pickler(self._get_pickler(pickle_type, bool(secret)))
-
-    @classmethod
-    def _get_pickler(cls, pickle_type: str | None, hash_key: bool) -> Pickler:
-        pickle_type = pickle_type or cls.pickle_type
-        if pickle_type is NULL_PICKLE and hash_key:
-            pickle_type = DEFAULT_PICKLE
-        return get_pickler(pickle_type)
-
-    async def get(self, key: Key, default: Value | None = None):
-        raw_value = await super().get(key, default=default)  # type: ignore[misc]
-        return await self._serializer.decode(self, key, raw_value, default=default)  # type: ignore[arg-type]
-
-    async def get_many(self, *keys: Key, default: Value | None = None) -> Value:
-        encoded_values = await super().get_many(*keys, default=default)  # type: ignore[misc]
-        values = []
-        for key, value in zip(keys, encoded_values):
-            deserialized_value = await self._serializer.decode(
-                backend=self,  # type: ignore[arg-type]
-                key=key,
-                value=value,
-                default=default,
-            )
-            values.append(deserialized_value)
-        return tuple(values)
-
-    async def set(
-        self,
-        key: Key,
-        value: Value,
-        expire: float | None = None,
-        exist: bool | None = None,
-    ):
-        value = await self._serializer.encode(self, key, value, expire=expire)  # type: ignore[arg-type]
-        return await super().set(key, value, expire=expire, exist=exist)  # type: ignore[misc]
-
-    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
-        transformed_pairs = {}
-        for key, value in pairs.items():
-            transformed_pairs[key] = await self._serializer.encode(self, key, value, expire)  # type: ignore[arg-type]
-        return await super().set_many(transformed_pairs, expire=expire)  # type: ignore[misc]
-
-    def set_raw(self, *args: Any, **kwargs: Any):
-        return super().set(*args, **kwargs)  # type: ignore
-
-    def get_raw(self, *args: Any, **kwargs: Any):
-        return super().get(*args, **kwargs)  # type: ignore
 
 
 def _to_bytes(value: str | bytes) -> bytes:
@@ -152,7 +86,7 @@ class Serializer:
 
     def __init__(self, check_repr=False):
         self._check_repr = check_repr
-        self._pickler = get_pickler(NULL_PICKLE)
+        self._pickler = get_pickler(PicklerType.NULL)
         self._signer = NullSigner()
 
     def set_signer(self, signer):
@@ -239,3 +173,26 @@ async def bytes_decoder(value: bytes, *args, **kwargs):
 
 
 register_type(bytes, bytes_encoder, bytes_decoder)
+
+
+def get_serializer(
+    secret: str | bytes | None = None,
+    digestmod: str | bytes = b"md5",
+    check_repr: bool = True,
+    pickle_type: PicklerType | None = None,
+) -> Serializer:
+    _serializer = Serializer(check_repr=check_repr)
+    if secret:
+        _serializer.set_signer(HashSigner(secret, digestmod))
+    _serializer.set_pickler(_get_pickler(pickle_type or PicklerType.NULL, bool(secret)))
+    return _serializer
+
+
+def _get_pickler(pickle_type: PicklerType, hash_key: bool) -> Pickler:
+    if pickle_type is PicklerType.NULL and hash_key:
+        pickle_type = PicklerType.DEFAULT
+    return get_pickler(pickle_type)
+
+
+DEFAULT_SERIALIZER = get_serializer(pickle_type=PicklerType.DEFAULT)
+NULL_SERIALIZER = get_serializer(pickle_type=PicklerType.NULL)

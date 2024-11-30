@@ -6,7 +6,7 @@ cache.setup("mem://")
 
 
 @cache(ttl="10m", prefix="auto")
-async def auto_key(foo, **kwargs):
+async def auto_key(foo, *ar, test="val", **all):
     return
 
 
@@ -35,7 +35,10 @@ def _human(value, upper=False):
     for char in value:
         if res:
             res += "-"
-        res += INT_TO_STR_MAP.get(char)
+        if char in INT_TO_STR_MAP:
+            res += INT_TO_STR_MAP.get(char)
+        else:
+            res += char
     if upper:
         return res.upper()
     return res
@@ -48,8 +51,10 @@ async def key_with_format(foo):
 
 async def main():
     await _call(auto_key, "fooval", key="test")
-    await _call(manual_key, "fooval", key="test")
-    await _call(key_with_format, 521)
+    await _call(auto_key, "fooval", test="my", key="test")
+    await _call(auto_key, foo="fooval", test="my", key="test")
+    # await _call(manual_key, "fooval", key="test")
+    # await _call(key_with_format, 521)
 
 
 async def _call(function, *args, **kwargs):
@@ -57,11 +62,12 @@ async def _call(function, *args, **kwargs):
     with cache.detect as detector:
         await function(*args, **kwargs)
         key = list(detector.calls.keys())[-1]
-
+        template = detector.calls[key]["template"]
     print(
         f"""
     function "{function.__name__}" called with args={args} and kwargs={kwargs}
     the key:             {key}
+    the template:        {template}
     """
     )
 
