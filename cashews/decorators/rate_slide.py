@@ -52,7 +52,7 @@ def slice_rate_limit(
             requests_count = await _get_requests_count(backend, _cache_key, limit, _period)
             if requests_count and requests_count > limit:
                 logger.info("Rate limit reach for %s", _cache_key)
-                action(*args, **kwargs)
+                return action(*args, **kwargs)
             return await func(*args, **kwargs)
 
         return wrapped_func  # type: ignore[return-value]

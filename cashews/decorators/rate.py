@@ -57,7 +57,7 @@ def rate_limit(
                 if ttl and requests_count == limit + 1:
                     await backend.expire(key=_cache_key, timeout=_ttl)
                 logger.info("Rate limit reach for %s", _cache_key)
-                action(*args, **kwargs)
+                return action(*args, **kwargs)
             return await func(*args, **kwargs)
 
         return wrapped_func  # type: ignore[return-value]
