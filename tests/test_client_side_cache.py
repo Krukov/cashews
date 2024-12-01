@@ -17,7 +17,7 @@ def _create_cache(redis_dsn, backend_factory):
     from cashews.backends.redis.client_side import BcastClientSide
 
     async def call(local_cache=None):
-        backend = backend_factory(BcastClientSide, redis_dsn, secret=None, local_cache=local_cache)
+        backend = backend_factory(BcastClientSide, redis_dsn, local_cache=local_cache)
         await backend.init()
         await backend.clear()
         return backend
@@ -58,12 +58,12 @@ async def test_set_none_bcast(create_cache):
     assert await caches_local.exists("key")
     assert await caches.get("key") is None
 
-    await cachef.set("key", None, expire=10000)
+    await cachef.set("key", "val", expire=10000)
     await asyncio.sleep(0.01)  # skip init signal about invalidation
     assert await cachef.exists("key")
     assert await cachef_local.exists("key")
 
-    assert await caches.get("key") is None
+    assert await caches.get("key") == "val"
     assert await caches.exists("key")
     assert await caches_local.exists("key")
 

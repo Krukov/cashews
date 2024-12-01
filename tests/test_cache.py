@@ -177,7 +177,7 @@ async def test_early_cache_simple(cache: Cache):
 async def test_early_cache_no_background(cache: Cache):
     mock = Mock()
 
-    @cache.early(ttl=EXPIRE, key="key", background=False)
+    @cache.early(ttl=EXPIRE, early_ttl=0.01, key="key", background=False)
     async def func(resp=b"ok"):
         mock()
         return resp
