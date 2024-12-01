@@ -64,7 +64,7 @@ async def test_rate_limit_action(cache):
     assert await func() == 1
     action.assert_not_called()
 
-    assert await func(k="test") == 1
+    assert await func(k="test") == action(k="test")
     action.assert_called_with(k="test")
 
 
