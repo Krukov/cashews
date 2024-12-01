@@ -13,6 +13,7 @@ class Command(Enum):
     DELETE_MANY = "delete_many"
     DELETE_MATCH = "delete_match"
 
+    EXISTS = "exists"
     EXIST = "exists"
     SCAN = "scan"
     INCR = "incr"

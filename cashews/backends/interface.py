@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator, AsyncIterator, Iterable, 
 
 from cashews.commands import ALL, Command
 from cashews.exceptions import CacheBackendInteractionError, LockedError
+from cashews.serialize import Serializer
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews._typing import Default, Key, OnRemoveCallback, Value
@@ -226,8 +227,10 @@ class ControlMixin:
 
 
 class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args, serializer: Serializer | None = None, **kwargs) -> None:
         super().__init__()
+        self._id = uuid.uuid4().hex
+        self._serializer = serializer
         self._on_remove_callbacks: list[OnRemoveCallback] = []
 
     def on_remove_callback(self, callback: OnRemoveCallback) -> None:

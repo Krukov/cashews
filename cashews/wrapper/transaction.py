@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from enum import Enum
 from functools import wraps
 from typing import TYPE_CHECKING
@@ -11,7 +11,7 @@ from cashews.backends.transaction import LockTransactionBackend, TransactionBack
 from .wrapper import Wrapper
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import DecoratedFunc, Middleware
+    from cashews._typing import DecoratedFunc
 
 _transaction: ContextVar[Transaction | None] = ContextVar("transaction", default=None)
 
@@ -32,12 +32,12 @@ class TransactionWrapper(Wrapper):
     def set_transaction_mode(self, mode: TransactionMode) -> None:
         self.transaction_mode = mode
 
-    def _get_backend_and_config(self, key: str) -> tuple[Backend, tuple[Middleware, ...]]:
-        backend, config = super()._get_backend_and_config(key)
+    def _get_backend(self, key: str) -> Backend:
+        backend = super()._get_backend(key)
         tx: Transaction | None = _transaction.get()
-        if not tx:
-            return backend, config
-        return tx.wrap(backend), config
+        if tx:
+            return tx.wrap(backend)
+        return backend
 
     def transaction(
         self, mode: TransactionMode | None = None, timeout: float | None = None
@@ -48,12 +48,13 @@ class TransactionWrapper(Wrapper):
 
 
 class TransactionContextDecorator:
-    __slots__ = ["_mode", "_timeout", "_inner"]
+    __slots__ = ["_mode", "_timeout", "_inner", "_return_token"]
 
     def __init__(self, mode: TransactionMode | None = None, timeout: float | None = None):
         self._mode = mode
         self._timeout = timeout
         self._inner = False
+        self._return_token: Token | None = None
 
     @property
     def current_tx(self) -> Transaction | None:
@@ -67,11 +68,11 @@ class TransactionContextDecorator:
 
     def start(self) -> Transaction:
         tx = Transaction(self._mode, self._timeout)
-        _transaction.set(tx)
+        self._return_token = _transaction.set(tx)
         return tx
 
     def close(self):
-        _transaction.set(None)
+        _transaction.reset(self._return_token)
 
     async def __aexit__(self, exc_type, exc_value, exc_tb) -> None:
         if not self.current_tx or self._inner:
@@ -106,12 +107,12 @@ class Transaction:
     def __init__(self, mode: TransactionMode | None = None, timeout: float | None = None):
         self._mode = mode
         self._timeout = timeout
-        self._backends: dict[int, TransactionBackend] = {}
+        self._backends: dict[str, TransactionBackend] = {}
 
     def wrap(self, backend: Backend) -> Backend:
-        if id(backend) not in self._backends:
-            self._backends[id(backend)] = self._get_tx_backend(backend)
-        return self._backends[id(backend)]
+        if backend._id not in self._backends:
+            self._backends[backend._id] = self._get_tx_backend(backend)
+        return self._backends[backend._id]
 
     def _get_tx_backend(self, backend: Backend) -> TransactionBackend:
         if self._mode == TransactionMode.FAST:
