@@ -146,7 +146,9 @@ class _BackendInterface(metaclass=ABCMeta):
     async def unlock(self, key: Key, value: Value) -> bool: ...
 
     @asynccontextmanager
-    async def lock(self, key: Key, expire: float, wait: bool = True) -> AsyncGenerator[None, None]:
+    async def lock(
+        self, key: Key, expire: float, wait: bool = True, check_interval: float = 0
+    ) -> AsyncGenerator[None, None]:
         identifier = str(uuid.uuid4())
         while True:
             lock = await self.set_lock(key, identifier, expire=expire)
@@ -163,7 +165,7 @@ class _BackendInterface(metaclass=ABCMeta):
                     return
 
                 if wait:
-                    await asyncio.sleep(0)
+                    await asyncio.sleep(check_interval)
                     continue
                 raise LockedError(f"Key {key} is already locked")
             try:

@@ -360,6 +360,7 @@ class DecoratorsWrapper(Wrapper):
         key: KeyOrTemplate | None = None,
         wait: bool = True,
         prefix: str = "locked",
+        check_interval: float = 0,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.locked(
             backend=self,  # type: ignore[arg-type]
@@ -367,6 +368,7 @@ class DecoratorsWrapper(Wrapper):
             key=key,
             wait=wait,
             prefix=prefix,
+            check_interval=check_interval,
         )
 
     def bloom(
