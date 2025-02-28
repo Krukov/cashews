@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any, AsyncIterator, Iterable, Mapping
 
 from redis.asyncio import BlockingConnectionPool
@@ -10,7 +11,7 @@ from cashews._typing import Key, Value
 from cashews.backends.interface import Backend
 from cashews.serialize import DEFAULT_SERIALIZER, Serializer
 
-from .client import Redis, SafePipeline, SafeRedis
+from .client import NoScriptError, Redis, SafePipeline, SafeRedis
 
 _UNLOCK = """
 if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -41,6 +42,8 @@ return current_count
 _empty = object()
 # pylint: disable=arguments-differ
 # pylint: disable=abstract-method
+
+logger = logging.getLogger(__name__)
 
 
 class _Redis(Backend):
@@ -151,9 +154,15 @@ class _Redis(Backend):
         return True
 
     async def unlock(self, key: Key, value: Value) -> bool:
-        if "UNLOCK" not in self._sha:
-            self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
-        return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
+        for _ in range(2):
+            if self._sha.get("UNLOCK") is None:
+                self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
+            try:
+                return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
+            except NoScriptError as e:
+                save_e = e
+                self._sha["UNLOCK"] = None
+            logger.error("redis: can not execute command: EVALSHA", exc_info=save_e)
 
     async def delete(self, key: Key) -> bool:
         try:
@@ -237,11 +246,17 @@ class _Redis(Backend):
     async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         if not expire:
             return await self._client.incr(key, amount=value)
-        if "INCR_EXPIRE" not in self._sha:
-            self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
         expire = expire or 0
         expire = int(expire * 1000)
-        return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)
+        for _ in range(2):
+            if self._sha.get("INCR_EXPIRE") is None:
+                self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
+            try:
+                return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)
+            except NoScriptError as e:
+                save_e = e
+                self._sha["INCR_EXPIRE"] = None
+            logger.error("redis: can not execute command: EVALSHA", exc_info=save_e)
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         """
@@ -282,9 +297,15 @@ class _Redis(Backend):
     ) -> int:
         expire = expire or 0
         expire = int(expire * 1000)
-        if "INCR_SLICE" not in self._sha:
-            self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
-        return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
+        for _ in range(2):
+            if self._sha.get("INCR_SLICE") is None:
+                self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
+            try:
+                return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
+            except NoScriptError as e:
+                save_e = e
+                self._sha["INCR_SLICE"] = None
+        logger.error("redis: can not execute command: EVALSHA", exc_info=save_e)
 
     async def set_add(self, key: Key, *values: str, expire: float | None = None):
         if expire is None:
