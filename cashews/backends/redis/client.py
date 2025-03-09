@@ -5,7 +5,7 @@ from typing import Any
 
 from redis.asyncio import Redis as _Redis
 from redis.asyncio.client import Pipeline
-from redis.exceptions import RedisError as RedisConnectionError
+from redis.exceptions import NoScriptError, RedisError as RedisConnectionError
 
 from cashews.exceptions import CacheBackendInteractionError
 
@@ -29,6 +29,8 @@ class SafeRedis(_Redis):
     async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
+        except NoScriptError:
+            raise
         except (
             RedisConnectionError,
             socket.gaierror,
