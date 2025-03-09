@@ -88,6 +88,7 @@ async def _backend(request, redis_dsn, backend_factory):
         backend = backend_factory(Memory, check_interval=0.01)
     try:
         await backend.init()
+        await backend.clear()
         yield backend, request.param
     finally:
         await backend.close()

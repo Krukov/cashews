@@ -35,6 +35,28 @@ async def test_lock_cache_parallel_with_ttl(cache):
     assert mock.call_count == 20
 
 
+async def test_lock_cache_parallel_check_interval(cache):
+    mock = Mock()
+    mock_middleware = Mock()
+
+    async def middleware(call, cmd, backend, *args, **kwargs):
+        mock_middleware()
+        return await call(*args, **kwargs)
+
+    cache.add_middleware(middleware)
+
+    @cache.locked(key="key", ttl=1, wait=True, check_interval=0.05)
+    async def func_interval():
+        await asyncio.sleep(0.01)
+        mock()
+
+    for _ in range(2):
+        await asyncio.gather(*[func_interval() for _ in range(2)])
+
+    assert mock.call_count == 4
+    assert mock_middleware.call_count == 12
+
+
 async def test_lock_cache_iterator(cache):
     mock = Mock()
     chunks = range(10)

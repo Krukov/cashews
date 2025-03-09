@@ -209,7 +209,7 @@ async def test_multilayer_cache(cache: Cache):
 async def test_cache_lock(cache: Cache):
     m = Mock()
 
-    @cache(ttl=3, lock=True)
+    @cache(ttl=3, lock=True, protected=False)
     async def my_func(val=1):
         await asyncio.sleep(0)  # for task switching
         m(val)
