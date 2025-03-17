@@ -151,7 +151,7 @@ class _Redis(Backend):
         return True
 
     async def unlock(self, key: Key, value: Value) -> bool:
-        if "UNLOCK" not in self._sha:
+        if self._sha.get("UNLOCK") is None:
             self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
         return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
 
@@ -237,7 +237,7 @@ class _Redis(Backend):
     async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         if not expire:
             return await self._client.incr(key, amount=value)
-        if "INCR_EXPIRE" not in self._sha:
+        if self._sha.get("INCR_EXPIRE") is None:
             self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
         expire = expire or 0
         expire = int(expire * 1000)
@@ -282,7 +282,7 @@ class _Redis(Backend):
     ) -> int:
         expire = expire or 0
         expire = int(expire * 1000)
-        if "INCR_SLICE" not in self._sha:
+        if self._sha.get("INCR_SLICE") is None:
             self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
         return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
 
