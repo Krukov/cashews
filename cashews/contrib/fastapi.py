@@ -192,7 +192,7 @@ def _get_etag(cached_data: Any) -> str:
 
 
 def _is_early_cache(data: Any) -> bool:
-    return isinstance(data, list) and isinstance(data[0], datetime)
+    return isinstance(data, list) and data and isinstance(data[0], datetime)
 
 
 class CacheDeleteMiddleware(BaseHTTPMiddleware):
