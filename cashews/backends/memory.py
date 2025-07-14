@@ -105,7 +105,7 @@ class Memory(Backend):
                 value = await self._serializer.encode(self, key=key, value=value, expire=expire)
             self._set(key, value, expire)
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         pattern = pattern.replace("*", ".*")
         regexp = re.compile(pattern)
         for key in dict(self.store):
