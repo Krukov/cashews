@@ -18,12 +18,12 @@ async def encode_streaming_response(
 async def decode_streaming_response(value: bytes, backend: Backend, key: str, **kwargs) -> StreamingResponse:
     if not await backend.get(f"{key}:done"):
         raise DecodeError()
-    status_code, headers = value.split(b":")
+    status_code, headers = value.split(b":", maxsplit=1)
     raw_headers = []
-    for header in headers.split(b";"):
+    for header in headers.split(b";", maxsplit=1):
         if not header:
             continue
-        header_name, header_value = header.split(b"=")
+        header_name, header_value = header.split(b"=", maxsplit=1)
         raw_headers.append((header_name, header_value))
 
     content = get_iterator(backend, key)

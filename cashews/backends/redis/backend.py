@@ -164,7 +164,7 @@ class _Redis(Backend):
     async def exists(self, key: Key) -> bool:
         return bool(await self._client.exists(key))
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -193,7 +193,7 @@ class _Redis(Backend):
             await self._client.unlink(*keys)
             await self._call_on_remove_callbacks(*[key.decode() for key in keys])
 
-    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:  # type: ignore
+    async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)

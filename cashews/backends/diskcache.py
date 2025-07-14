@@ -111,7 +111,7 @@ class DiskCache(Backend):
     def _exists(self, key: Key) -> bool:
         return key in self._cache
 
-    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Value]:  # type: ignore
+    async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Value]:
         if not self._sharded:
             for key in await self._run_in_executor(self._scan, pattern):
                 yield key

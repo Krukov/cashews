@@ -106,11 +106,12 @@ def test_cache_stream(client, app, cache):
     @app.get("/stream")
     @cache(ttl="10s", key="stream")
     async def stream():
-        return StreamingResponse(iterator(), status_code=201, headers={"X-Test": "TRUE"})
+        return StreamingResponse(iterator(), status_code=201, headers={"X-Test": "TRUE", "X-Header": "Some;:=Value"})
 
     response = client.get("/stream")
     assert response.status_code == 201
     assert response.headers["X-Test"] == "TRUE"
+    assert response.headers["X-Header"] == "Some;:=Value"
     assert response.content == b"0123456789"
 
     response = client.get("/stream")

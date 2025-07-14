@@ -139,7 +139,7 @@ class _FuncFormatter(_ReplaceFormatter):
     def parse_format_spec(format_spec: str):
         if not format_spec or "(" not in format_spec:
             return format_spec, ()
-        format_spec, args = format_spec.split("(", 1)
+        format_spec, args = format_spec.split("(", maxsplit=1)
         return format_spec, args.replace(")", "").split(",")
 
     def vformat(self, format_string, args, kwargs):
@@ -154,7 +154,7 @@ default_formatter = _FuncFormatter(lambda name: "")
 
 @default_formatter.register("get", preformat=False)
 def _get(value: Any, key: str) -> TemplateValue:
-    return value.get(key)
+    return str(value.get(key))
 
 
 @default_formatter.register("len")
@@ -164,7 +164,7 @@ def _len(value: TemplateValue):
 
 @default_formatter.register("jwt")
 def _jwt_func(jwt: TemplateValue, key: str) -> TemplateValue:
-    _, payload, _ = jwt.split(".", 2)
+    _, payload, _ = jwt.split(".", maxsplit=2)
     payload_dict = json.loads(base64.b64decode(payload))
     return payload_dict.get(key)
 

@@ -25,7 +25,8 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: python3 -m mypy
+        entry: python3 -m mypy cashews
         exclude: (^tests/|^perf/|^examples/|setup.py)
+        pass_filenames: false
         language: system
         types: [python]
