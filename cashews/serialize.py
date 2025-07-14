@@ -48,7 +48,7 @@ class HashSigner:
 
     def check_sign(self, key: Key, value: bytes) -> bytes:
         try:
-            sign, value = value.split(b"_", 1)
+            sign, value = value.split(b"_", maxsplit=1)
         except ValueError as exc:
             raise SignIsMissingError(f"key: {key}") from exc
 
@@ -65,7 +65,7 @@ class HashSigner:
     def _get_sign_and_digestmod(self, sign: bytes) -> tuple[bytes, bytes]:
         digestmod = self._digestmod
         if b":" in sign:
-            digestmod, sign = sign.split(b":")
+            digestmod, sign = sign.split(b":", maxsplit=1)
         if digestmod not in self._digestmods:
             raise UnSecureDataError()
         return sign, digestmod
@@ -145,7 +145,7 @@ class Serializer:
 
     async def _custom_decode(self, backend: Backend, key: Key, value: bytes, default: Value) -> Value:
         try:
-            value_type, value = value.split(b":", 1)
+            value_type, value = value.split(b":", maxsplit=1)
         except ValueError:
             return default
         if value_type not in self._type_mapping:
