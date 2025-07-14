@@ -154,7 +154,7 @@ default_formatter = _FuncFormatter(lambda name: "")
 
 @default_formatter.register("get", preformat=False)
 def _get(value: Any, key: str) -> TemplateValue:
-    return value.get(key)
+    return str(value.get(key))
 
 
 @default_formatter.register("len")

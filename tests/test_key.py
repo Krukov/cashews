@@ -167,7 +167,7 @@ def test_cache_func_key_dict():
         ),
         (
             (),
-            {"kwarg": "1"},
+            {"kwarg": 1},
             "{@:get(context_value)}:{kwarg}",
             "context:1",
         ),
