@@ -128,8 +128,9 @@ def _get_max_age(cache_control_value: str) -> int | None:
 
 
 class CacheEtagMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, cache_instance: Cache = cache):
+    def __init__(self, app: ASGIApp, cache_instance: Cache = cache, prefix: str = PREFIX):
         self._cache = cache_instance
+        self._prefix = prefix
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -181,9 +182,8 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         await self._cache.set(self._get_etag_key(etag), True, expire=expire)
         return etag
 
-    @staticmethod
-    def _get_etag_key(etag: str) -> str:
-        return f"{PREFIX}:etag:{etag}"
+    def _get_etag_key(self, etag: str) -> str:
+        return f"{self._prefix}:etag:{etag}"
 
 
 def _get_etag(cached_data: Any) -> str:
