@@ -19,7 +19,7 @@ from cashews.ttl import ttl_to_seconds
 
 _cache_max_age: ContextVar[int] = ContextVar("cache_control_max_age")
 
-PREFIX = "fastapi:"
+PREFIX = "fastapi"
 _CACHE_CONTROL_HEADER = "Cache-Control"
 _AGE_HEADER = "Age"
 _ETAG_HEADER = "ETag"
