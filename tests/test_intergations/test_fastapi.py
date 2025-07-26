@@ -170,7 +170,7 @@ def test_cache_etag(client_with_middleware, app, cache):
     with client_with_middleware(CacheEtagMiddleware, cache_instance=cache) as client:
         response = client.get("/to_cache")
         etag = response.headers["ETag"]
-        assert True == bool(re.search(r'^"[a-f0-9]+"$', etag))
+        assert bool(re.search(r'^"[a-f0-9]+"$', etag))
 
         response2 = client.get("/to_cache", headers={"If-None-Match": etag})
         assert response2.status_code == 304
@@ -179,7 +179,7 @@ def test_cache_etag(client_with_middleware, app, cache):
         assert response3.status_code == 200
         assert response.content == response3.content
         assert etag == response3.headers["ETag"]
-        assert True == bool(re.search(r'^"[a-f0-9]+"$', etag))
+        assert bool(re.search(r'^"[a-f0-9]+"$', etag))
 
 
 def test_cache_etag_early(client_with_middleware, app, cache):
@@ -193,7 +193,7 @@ def test_cache_etag_early(client_with_middleware, app, cache):
     with client_with_middleware(CacheEtagMiddleware, cache_instance=cache) as client:
         response = client.get("/to_cache")
         etag = response.headers["ETag"]
-        assert True == bool(re.search(r'^"[a-f0-9]+"$', etag))
+        assert bool(re.search(r'^"[a-f0-9]+"$', etag))
 
         response2 = client.get("/to_cache", headers={"If-None-Match": etag})
         assert response2.status_code == 304
@@ -202,7 +202,7 @@ def test_cache_etag_early(client_with_middleware, app, cache):
         assert response3.status_code == 200
         assert response.content == response3.content
         assert etag == response3.headers["ETag"]
-        assert True == bool(re.search(r'^"[a-f0-9]+"$', etag))
+        assert bool(re.search(r'^"[a-f0-9]+"$', etag))
 
 
 @pytest.fixture(name="app_with_cache_control")

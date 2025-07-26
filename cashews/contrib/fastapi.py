@@ -135,7 +135,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_etag = request.headers.get(_IF_NOT_MATCH_HEADER)
-        request_etag = request_etag.replace("\"", "") if request_etag else None
+        request_etag = request_etag.replace('"', "") if request_etag else None
         if request_etag and await self._cache.exists(self._get_etag_key(request_etag)):
             return Response(status_code=304)
 
