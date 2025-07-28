@@ -19,7 +19,7 @@ from cashews.ttl import ttl_to_seconds
 
 _cache_max_age: ContextVar[int] = ContextVar("cache_control_max_age")
 
-PREFIX = "fastapi:"
+PREFIX = "fastapi"
 _CACHE_CONTROL_HEADER = "Cache-Control"
 _AGE_HEADER = "Age"
 _ETAG_HEADER = "ETag"
@@ -128,12 +128,14 @@ def _get_max_age(cache_control_value: str) -> int | None:
 
 
 class CacheEtagMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app: ASGIApp, cache_instance: Cache = cache):
+    def __init__(self, app: ASGIApp, cache_instance: Cache = cache, prefix: str = PREFIX):
         self._cache = cache_instance
+        self._prefix = prefix
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_etag = request.headers.get(_IF_NOT_MATCH_HEADER)
+        request_etag = request_etag.replace('"', "") if request_etag else None
         if request_etag and await self._cache.exists(self._get_etag_key(request_etag)):
             return Response(status_code=304)
 
@@ -164,7 +166,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         if etag == request_etag:
             return Response(status_code=304)
         if etag:
-            response.headers[_ETAG_HEADER] = etag
+            response.headers[_ETAG_HEADER] = f'"{etag}"'
         return response
 
     async def _set_etag(self, key: str, data: Any = None) -> str | None:
@@ -180,9 +182,8 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         await self._cache.set(self._get_etag_key(etag), True, expire=expire)
         return etag
 
-    @staticmethod
-    def _get_etag_key(etag: str) -> str:
-        return f"{PREFIX}:etag:{etag}"
+    def _get_etag_key(self, etag: str) -> str:
+        return f"{self._prefix}:etag:{etag}"
 
 
 def _get_etag(cached_data: Any) -> str:
