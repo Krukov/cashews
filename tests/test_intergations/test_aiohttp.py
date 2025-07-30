@@ -1,6 +1,8 @@
+import asyncio
 from datetime import timedelta
 
 import pytest
+import pytest_asyncio
 
 from cashews import mem
 
@@ -8,9 +10,9 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.integration]
 
 
 # just an alias, required by aiohttp
-@pytest.fixture
-def loop(event_loop):
-    return event_loop
+@pytest_asyncio.fixture()
+async def loop():
+    return asyncio.get_running_loop()
 
 
 @pytest.fixture(name="app")
