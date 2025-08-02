@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any, Iterator
+from typing import Any
 
 _REWRITE = "__rewrite"
-_template_context: ContextVar[dict[str, Any]] = ContextVar("template_context", default={_REWRITE: False})
+_template_context: ContextVar[dict[str, Any]] = ContextVar("template_context")
+_template_context.set({_REWRITE: False})
 _empty = object()
 
 
@@ -40,5 +42,5 @@ def register(*names: str) -> None:
         DeprecationWarning,
         stacklevel=2,
     )
-    new_names = {name: "" for name in names}
+    new_names = dict.fromkeys(names, "")
     _template_context.set({**new_names, **_template_context.get()})

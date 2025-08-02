@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
-from typing import Any, Iterator
+from typing import Any
 
 from ._typing import AsyncCallable_T
 from .backends.interface import _BackendInterface

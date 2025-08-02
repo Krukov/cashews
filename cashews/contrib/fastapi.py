@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import contextlib
-from contextlib import nullcontext
+from collections.abc import Sequence
+from contextlib import AbstractContextManager, nullcontext
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from hashlib import blake2s
-from typing import Any, ContextManager, Sequence
+from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
@@ -64,7 +65,7 @@ class CacheRequestControlMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
-        context: ContextManager = nullcontext()
+        context: AbstractContextManager = nullcontext()
         cache_control_value = request.headers.get(_CACHE_CONTROL_HEADER)
         if request.method.lower() not in self._methods:
             return await call_next(request)

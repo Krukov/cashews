@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Iterable
 from datetime import timedelta
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Iterable, Protocol, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Protocol, TypeVar, Union
 
 if TYPE_CHECKING:  # pragma: no cover
     from . import Command

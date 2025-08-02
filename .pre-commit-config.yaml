@@ -1,13 +1,13 @@
 repos:
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.15.1
+    rev: v3.20.0
     hooks:
       - id: pyupgrade
         # Specify the oldest Python version that "cashews" supports.
         args: [--py37-plus]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: check-added-large-files
       - id: end-of-file-fixer
@@ -15,10 +15,10 @@ repos:
       - id: debug-statements
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.3.2
+    rev: v0.12.7
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [--fix, --unsafe-fixes]
       - id: ruff-format
 
   - repo: local

@@ -1,6 +1,7 @@
 import random
+from contextlib import AbstractContextManager
 from contextvars import ContextVar
-from typing import Any, ContextManager, Dict
+from typing import Any
 
 from cashews._typing import Key
 
@@ -35,7 +36,7 @@ _level = ContextVar("level", default=0)
 
 class _ContextCacheDetect:
     def __init__(self) -> None:
-        self._levels: Dict[int, CacheDetect] = {}
+        self._levels: dict[int, CacheDetect] = {}
 
     @property
     def level(self):
@@ -77,4 +78,4 @@ class _ContextCacheDetect:
         self._stop()
 
 
-context_cache_detect: ContextManager[CacheDetect] = _ContextCacheDetect()
+context_cache_detect: AbstractContextManager[CacheDetect] = _ContextCacheDetect()

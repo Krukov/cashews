@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import gc
 import sys
-from typing import Iterable
+from collections.abc import Iterable
 
 
 def get_obj_size(obj) -> int:

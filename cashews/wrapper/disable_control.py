@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING
 
 from cashews.commands import Command
 from cashews.exceptions import NotConfiguredError
@@ -16,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover
 async def _is_disable_middleware(call: AsyncCallable_T, cmd: Command, backend: Backend, *args, **kwargs):
     if backend.is_disable(cmd):
         if cmd in (Command.GET, Command.GET_MANY):
-            return kwargs.get("default", None)
+            return kwargs.get("default")
         return None
     return await call(*args, **kwargs)
 
