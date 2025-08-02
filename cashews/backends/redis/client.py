@@ -5,6 +5,7 @@ from typing import Any
 
 from redis.asyncio import Redis as _Redis
 from redis.asyncio.client import Pipeline
+from redis.exceptions import NoScriptError
 from redis.exceptions import RedisError as RedisConnectionError
 
 from cashews.exceptions import CacheBackendInteractionError
@@ -16,6 +17,10 @@ class Redis(_Redis):
     async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
+        except NoScriptError:
+            # used by register_script functionality
+            # if we do not reraise it, than a Script wrapper will not work as expect
+            raise
         except (
             RedisConnectionError,
             socket.gaierror,
