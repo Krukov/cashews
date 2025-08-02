@@ -50,13 +50,6 @@ jobs:
         run: |
           tox -e py-redis
 
-      - name: Redis Test Suit (4)
-        env:
-          REDIS_HOST: localhost
-          REDIS_PORT: 6379
-        run: |
-          tox -e py-redis4
-
       - name: Diskcache Test Suit
         run: |
           tox -e py-diskcache

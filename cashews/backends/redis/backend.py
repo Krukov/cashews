@@ -152,8 +152,8 @@ class _Redis(Backend):
 
     async def unlock(self, key: Key, value: Value) -> bool:
         if self._sha.get("UNLOCK") is None:
-            self._sha["UNLOCK"] = await self._client.script_load(_UNLOCK.replace("\n", " "))
-        return await self._client.evalsha(self._sha["UNLOCK"], 1, key, value)
+            self._sha["UNLOCK"] = self._client.register_script(_UNLOCK.replace("\n", " "))
+        return await self._sha["UNLOCK"](keys=(key,), args=(value,))
 
     async def delete(self, key: Key) -> bool:
         try:
@@ -238,10 +238,10 @@ class _Redis(Backend):
         if not expire:
             return await self._client.incr(key, amount=value)
         if self._sha.get("INCR_EXPIRE") is None:
-            self._sha["INCR_EXPIRE"] = await self._client.script_load(_INCR_EXPIRE.replace("\n", " "))
+            self._sha["INCR_EXPIRE"] = self._client.register_script(_INCR_EXPIRE.replace("\n", " "))
         expire = expire or 0
         expire = int(expire * 1000)
-        return await self._client.evalsha(self._sha["INCR_EXPIRE"], 1, key, value, expire)
+        return await self._sha["INCR_EXPIRE"](keys=(key,), args=(value, expire))
 
     async def get_bits(self, key: Key, *indexes: int, size: int = 1) -> tuple[int, ...]:
         """
@@ -283,8 +283,8 @@ class _Redis(Backend):
         expire = expire or 0
         expire = int(expire * 1000)
         if self._sha.get("INCR_SLICE") is None:
-            self._sha["INCR_SLICE"] = await self._client.script_load(_INCR_SLICE.replace("\n", " "))
-        return await self._client.evalsha(self._sha["INCR_SLICE"], 1, key, start, end, maxvalue, expire)
+            self._sha["INCR_SLICE"] = self._client.register_script(_INCR_SLICE.replace("\n", " "))
+        return await self._sha["INCR_SLICE"](keys=(key,), args=(start, end, maxvalue, expire))
 
     async def set_add(self, key: Key, *values: str, expire: float | None = None):
         if expire is None:
