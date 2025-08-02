@@ -31,8 +31,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator, Mapping
 from contextlib import suppress as error_suppress
-from typing import Any, AsyncIterator, Mapping
+from typing import Any
 
 from redis.exceptions import ConnectionError as RedisConnectionError
 
@@ -208,7 +209,7 @@ class BcastClientSide(Redis):
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         missed_keys = {self._add_prefix(key) for key in keys}
-        values = {key: default for key in keys}
+        values = dict.fromkeys(keys, default)
         if self._listen_started.is_set():
             for i, value in enumerate(await self._local_cache.get_many(*keys, default=_empty)):
                 key = keys[i]

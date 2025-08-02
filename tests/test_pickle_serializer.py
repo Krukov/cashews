@@ -112,7 +112,7 @@ async def test_serialize_dates_value(value, cache):
 async def test_serialize_array_value(value, cache):
     await cache.set("key", value)
     assert list(await cache.get("key")) == list(value)
-    assert type(await cache.get("key")) == type(value)
+    assert type(await cache.get("key")) is type(value)
 
 
 @pytest.mark.parametrize(
@@ -128,7 +128,7 @@ async def test_serialize_array_value(value, cache):
 async def test_serialize_array_diff_value(value, cache):
     await cache.set("key", value)
     assert list(await cache.get("key")) == list(value)
-    assert type(await cache.get("key")) == type(value)
+    assert type(await cache.get("key")) is type(value)
 
 
 @pytest.mark.parametrize(

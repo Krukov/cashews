@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import AsyncIterator, Iterable, Mapping
 from functools import partial
-from typing import TYPE_CHECKING, AsyncIterator, Iterable, Mapping, overload
+from typing import TYPE_CHECKING, overload
 
 from cashews.backends.interface import Backend
 from cashews.commands import Command

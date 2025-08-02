@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, AsyncIterator, Iterable, Mapping
+from collections.abc import AsyncIterator, Iterable, Mapping
+from typing import Any
 
 from redis.asyncio import BlockingConnectionPool
 from redis.asyncio.client import Pipeline

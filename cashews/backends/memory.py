@@ -4,9 +4,10 @@ import asyncio
 import re
 import time
 from collections import OrderedDict
+from collections.abc import AsyncIterator, Iterable, Mapping
 from contextlib import suppress
 from copy import copy
-from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Mapping, overload
+from typing import TYPE_CHECKING, Any, overload
 
 from cashews.utils import Bitarray, get_obj_size
 

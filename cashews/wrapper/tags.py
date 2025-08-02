@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from functools import lru_cache
-from typing import Iterable, Match, Pattern
+from re import Match, Pattern
 
 from cashews._typing import TTL, Key, KeyOrTemplate, OnRemoveCallback, Tag, Tags, Value
 from cashews.backends.interface import Backend

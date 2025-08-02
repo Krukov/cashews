@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import zlib
-from typing import MutableSequence
+from collections.abc import MutableSequence
 
 algorithms: MutableSequence = [
     zlib.crc32,

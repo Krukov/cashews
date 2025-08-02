@@ -1,6 +1,7 @@
 [tool.ruff]
 exclude = ["venv/*","tox/*","specs/*",".venv/*"]
 line-length = 119
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "SIM", "UP", "C4"]

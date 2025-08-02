@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any, AsyncIterator, Iterable, Mapping
+from collections.abc import AsyncIterator, Iterable, Mapping
+from typing import Any
 from uuid import uuid4
 
 from cashews import LockedError
@@ -32,9 +33,7 @@ class TransactionBackend(Backend):
         self._id = backend._id
 
     def _key_is_delete(self, key: Key) -> bool:
-        if key in self._to_delete:
-            return True
-        return False
+        return key in self._to_delete
 
     async def commit(self):
         if self._to_delete:
@@ -121,7 +120,7 @@ class TransactionBackend(Backend):
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         missed_keys = set(keys)
-        values = {key: default for key in keys}
+        values = dict.fromkeys(keys, default)
 
         _keys = list(missed_keys)
         for i, value in enumerate(await self._local_cache.get_many(*_keys, default=_empty)):

@@ -9,11 +9,11 @@ def ttl_to_seconds(ttl: TTL, *args, with_callable: bool = False, result=None, **
     if ttl is None:
         return None
     _type = type(ttl)  # isinstance is slow
-    if _type == str:
+    if _type is str:
         return _ttl_from_str(ttl)  # type: ignore[arg-type]
-    if _type == int:
+    if _type is int:
         return ttl  # type: ignore[return-value]
-    if _type == timedelta:
+    if _type is timedelta:
         return ttl.total_seconds()  # type: ignore[union-attr]
 
     if callable(ttl) and with_callable:

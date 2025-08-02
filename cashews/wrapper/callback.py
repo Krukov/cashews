@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import contextlib
 import uuid
-from typing import TYPE_CHECKING, Any, Iterator
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
 
 from cashews.commands import PATTERN_CMDS, Command
 
