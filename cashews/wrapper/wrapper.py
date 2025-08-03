@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from cashews import validation
 from cashews.backends.interface import Backend
 from cashews.commands import Command
+from cashews.compresors import CompressType
 from cashews.exceptions import NotConfiguredError
 from cashews.picklers import PicklerType
 from cashews.serialize import get_serializer
@@ -71,6 +72,7 @@ class Wrapper:
             digestmod=params.pop("digestmod", b"md5"),
             check_repr=params.pop("check_repr", True),
             pickle_type=PicklerType(params.pop("pickle_type", pickle_type)),
+            compress_type=CompressType(params.pop("compress_type", CompressType.NULL)),
         )
         backend = backend_class(**params, serializer=serializer)
         if disable:

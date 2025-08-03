@@ -236,6 +236,10 @@ class Backend(ControlMixin, _BackendInterface, metaclass=ABCMeta):
         self._serializer = serializer
         self._on_remove_callbacks: list[OnRemoveCallback] = []
 
+    @property
+    def serializer(self) -> Serializer | None:
+        return self._serializer
+
     def on_remove_callback(self, callback: OnRemoveCallback) -> None:
         self._on_remove_callbacks.append(callback)
 
