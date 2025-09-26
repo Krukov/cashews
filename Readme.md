@@ -33,6 +33,7 @@ scalable and reliable applications. This library intends to make it easy to impl
 - Bloom filters
 - Different cache invalidation techniques (time-based or tags)
 - Cache any objects securely with pickle (use [secret](#redis))
+- Save memory size with compression
 - 2x faster than `aiocache` (with client side caching)
 
 ## Usage Example

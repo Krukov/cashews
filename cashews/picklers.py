@@ -94,7 +94,7 @@ _picklers = {
 }
 
 
-def get_pickler(pickler_type: PicklerType):
+def get_pickler(pickler_type: PicklerType) -> type[Pickler]:
     if pickler_type not in _picklers:
         raise UnsupportedPicklerError()
 
