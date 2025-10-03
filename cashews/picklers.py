@@ -22,7 +22,7 @@ except ImportError:
 
 class Pickler:
     PickleError = pickle.PickleError
-    UnpicklingError = (pickle.UnpicklingError, TypeError)
+    UnpicklingError = (pickle.UnpicklingError, TypeError, ModuleNotFoundError, ImportError)
 
     @staticmethod
     def loads(value: bytes) -> Value:
