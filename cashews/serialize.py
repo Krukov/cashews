@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
-from .exceptions import SignIsMissingError, UnSecureDataError
+from .compresors import Compressor, CompressType, get_compressor
+from .exceptions import DecompressionError, SignIsMissingError, UnSecureDataError
 from .picklers import Pickler, PicklerType, get_pickler
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -30,7 +32,15 @@ def _to_bytes(value: str | bytes) -> bytes:
     return value
 
 
-class HashSigner:
+class Signer:
+    def sign(self, key: Key, value: bytes) -> bytes:
+        return value
+
+    def check_sign(self, key: Key, value: bytes) -> bytes:
+        return value
+
+
+class HashSigner(Signer):
     _digestmods = {
         b"sha1": _seal(hashlib.sha1),
         b"md5": _seal(hashlib.md5),
@@ -71,14 +81,7 @@ class HashSigner:
         return sign, digestmod
 
 
-class NullSigner:
-    @staticmethod
-    def sign(key: Key, value: bytes) -> bytes:
-        return value
-
-    @staticmethod
-    def check_sign(key: Key, value: bytes) -> bytes:
-        return value
+NullSigner = Signer
 
 
 class Serializer:
@@ -88,12 +91,16 @@ class Serializer:
         self._check_repr = check_repr
         self._pickler = get_pickler(PicklerType.NULL)
         self._signer = NullSigner()
+        self._compressor = get_compressor(CompressType.NULL)()
 
-    def set_signer(self, signer):
+    def set_signer(self, signer: Signer) -> None:
         self._signer = signer
 
-    def set_pickler(self, pickler):
+    def set_pickler(self, pickler: Pickler) -> None:
         self._pickler = pickler
+
+    def set_compression(self, compressor: Compressor) -> None:
+        self._compressor = compressor
 
     @classmethod
     def register_type(cls, klass: type, encoder, decoder):
@@ -102,10 +109,14 @@ class Serializer:
     async def encode(self, backend: Backend, key: Key, value: Value, expire: float | None) -> bytes:  # on SET
         if isinstance(value, int) and not isinstance(value, bool):
             return value  # type: ignore[return-value]
+
+        value = await self._encode(backend, key, value, expire)
+        value = self._compressor.compress(value)
+        return self._signer.sign(key, value)
+
+    async def _encode(self, backend: Backend, key: Key, value: Value, expire: float | None) -> bytes:
         _value = await self._custom_encode(backend, key, value, expire)
-        if _value is not None:
-            return self._signer.sign(key, _value)
-        return self._signer.sign(key, self._pickler.dumps(value))
+        return _value or self._pickler.dumps(value)
 
     async def _custom_encode(self, backend, key: Key, value: Value, expire: float | None) -> bytes | None:
         value_type = bytes(type(value).__name__, "utf8")
@@ -126,6 +137,11 @@ class Serializer:
             value = self._signer.check_sign(key, value)
         except SignIsMissingError:
             return default
+
+        # for backword compatibility we ignore decompression error because
+        # it is dynamic setting that can be changed by settings
+        with suppress(DecompressionError):
+            value = self._compressor.decompress(value)
 
         try:
             value = self._decode(value)
@@ -180,18 +196,22 @@ def get_serializer(
     digestmod: str | bytes = b"md5",
     check_repr: bool = True,
     pickle_type: PicklerType | None = None,
+    compress_type: CompressType | str | None = None,
 ) -> Serializer:
     _serializer = Serializer(check_repr=check_repr)
     if secret:
         _serializer.set_signer(HashSigner(secret, digestmod))
     _serializer.set_pickler(_get_pickler(pickle_type or PicklerType.NULL, bool(secret)))
+    if isinstance(compress_type, str):
+        compress_type = CompressType(compress_type)
+    _serializer.set_compression(get_compressor(compress_type)())
     return _serializer
 
 
 def _get_pickler(pickle_type: PicklerType, hash_key: bool) -> Pickler:
     if pickle_type is PicklerType.NULL and hash_key:
         pickle_type = PicklerType.DEFAULT
-    return get_pickler(pickle_type)
+    return get_pickler(pickle_type)()
 
 
 DEFAULT_SERIALIZER = get_serializer(pickle_type=PicklerType.DEFAULT)
