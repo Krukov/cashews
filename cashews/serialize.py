@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from .compresors import Compressor, CompressType, get_compressor
@@ -137,10 +138,10 @@ class Serializer:
         except SignIsMissingError:
             return default
 
-        try:
+        # for backword compatibility we ignore decompression error because
+        # it is dynamic setting that can be changed by settings
+        with suppress(DecompressionError):
             value = self._compressor.decompress(value)
-        except DecompressionError:
-            return default
 
         try:
             value = self._decode(value)
@@ -195,12 +196,14 @@ def get_serializer(
     digestmod: str | bytes = b"md5",
     check_repr: bool = True,
     pickle_type: PicklerType | None = None,
-    compress_type: CompressType | None = None,
+    compress_type: CompressType | str | None = None,
 ) -> Serializer:
     _serializer = Serializer(check_repr=check_repr)
     if secret:
         _serializer.set_signer(HashSigner(secret, digestmod))
     _serializer.set_pickler(_get_pickler(pickle_type or PicklerType.NULL, bool(secret)))
+    if isinstance(compress_type, str):
+        compress_type = CompressType(compress_type)
     _serializer.set_compression(get_compressor(compress_type)())
     return _serializer
 
