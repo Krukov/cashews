@@ -24,27 +24,32 @@ NT = namedtuple("NT", ("test", "name"), defaults=[False, "test"])
 @pytest.fixture(
     name="cache",
     params=[
-        "default_md5",
-        "default_sum",
-        "default_sha256",
-        pytest.param("redis_md5", marks=pytest.mark.redis),
-        pytest.param("redis_sum", marks=pytest.mark.redis),
-        pytest.param("dill_sum", marks=pytest.mark.integration),
-        pytest.param("sqlalchemy_sha1", marks=pytest.mark.integration),
+        "default_md5_null",
+        "default_sum_zlib",
+        "default_sha256_null",
+        pytest.param("redis_md5_null", marks=pytest.mark.redis),
+        pytest.param("redis_md5_gzip", marks=pytest.mark.redis),
+        pytest.param("redis_sum_zlib", marks=pytest.mark.redis),
+        pytest.param("dill_sum_null", marks=pytest.mark.integration),
+        pytest.param("sqlalchemy_sha1_null", marks=pytest.mark.integration),
     ],
 )
 async def _cache(request, redis_dsn):
-    pickle_type, digestmod = request.param.split("_")
+    pickle_type, digestmod, compress_type = request.param.split("_")
     if pickle_type == "redis":
         from cashews.backends.redis import Redis
 
-        redis = Redis(redis_dsn, suppress=False, serializer=get_serializer(secret=b"test", digestmod=digestmod))
+        redis = Redis(
+            redis_dsn,
+            suppress=False,
+            serializer=get_serializer(secret=b"test", digestmod=digestmod, compress_type=compress_type),
+        )
         await redis.init()
         await redis.clear()
         yield redis
         await redis.close()
     else:
-        yield Memory(serializer=get_serializer(secret=b"test", digestmod=digestmod))
+        yield Memory(serializer=get_serializer(secret=b"test", digestmod=digestmod, compress_type=compress_type))
 
 
 @pytest.mark.parametrize(
