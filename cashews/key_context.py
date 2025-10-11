@@ -7,8 +7,8 @@ from contextvars import ContextVar
 from typing import Any
 
 _REWRITE = "__rewrite"
-_template_context: ContextVar[dict[str, Any]] = ContextVar("template_context")
-_template_context.set({_REWRITE: False})
+TContext = dict[str, Any]
+_template_context: ContextVar[TContext | None] = ContextVar("template_context", default=None)
 _empty = object()
 
 
@@ -22,8 +22,7 @@ def context(rewrite=_empty, **values) -> Iterator[None]:
         )
     else:
         rewrite = False
-    new_context = {**_template_context.get(), **values}
-    new_context[_REWRITE] = rewrite
+    new_context = {**_get_raw(), **values, _REWRITE: rewrite}
     token = _template_context.set(new_context)
     try:
         yield
@@ -31,9 +30,13 @@ def context(rewrite=_empty, **values) -> Iterator[None]:
         _template_context.reset(token)
 
 
-def get() -> tuple[dict[str, Any], bool]:
-    _context = {**_template_context.get()}
+def get() -> tuple[TContext, bool]:
+    _context = {**_get_raw()}  # a copy
     return _context, _context.pop(_REWRITE)
+
+
+def _get_raw() -> TContext:
+    return _template_context.get() or {_REWRITE: False}
 
 
 def register(*names: str) -> None:
@@ -43,4 +46,4 @@ def register(*names: str) -> None:
         stacklevel=2,
     )
     new_names = dict.fromkeys(names, "")
-    _template_context.set({**new_names, **_template_context.get()})
+    _template_context.set({**new_names, **_get_raw()})
