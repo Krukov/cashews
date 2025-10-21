@@ -124,6 +124,7 @@ class BcastClientSide(Redis):
                 await self._listen_invalidate()
             except (RedisConnectionError, ConnectionRefusedError):
                 logger.error("broken connection with redis. Clearing client side storage")
+                self._sha = {}
                 self._listen_started.clear()
                 await self._local_cache.clear()
                 await asyncio.sleep(_RECONNECT_WAIT)
