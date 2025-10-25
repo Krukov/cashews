@@ -34,6 +34,10 @@ class SafeRedis(_Redis):
     async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
+        except NoScriptError:
+            # used by register_script functionality
+            # if we do not reraise it, than a Script wrapper will not work as expect
+            raise
         except (
             RedisConnectionError,
             socket.gaierror,
