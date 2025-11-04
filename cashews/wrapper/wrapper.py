@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable
 
 from cashews import validation
 from cashews.backends.interface import Backend
@@ -41,12 +41,14 @@ class Wrapper:
         self._check_setup()
         raise NotConfiguredError("Backend for given key not configured")
 
-    def _with_middlewares(self, cmd: Command, key: Key):
+    def _with_middlewares(self, cmd: Command, key: Key) -> Callable[..., Any]:
         backend = self._get_backend(key)
         middlewares = [*self._default_middlewares, *self._middlewares[backend._id]]
         return self._with_middlewares_for_backend(cmd, backend, middlewares)
 
-    def _with_middlewares_for_backend(self, cmd: Command, backend, middlewares):
+    def _with_middlewares_for_backend(
+        self, cmd: Command, backend: Backend, middlewares: list[Middleware]
+    ) -> Callable[..., Any]:
         call = getattr(backend, cmd.value)
         for middleware in middlewares:
             call = partial(middleware, call, cmd, backend)
@@ -55,9 +57,9 @@ class Wrapper:
     def setup(
         self,
         settings_url: str,
-        middlewares: tuple = (),
+        middlewares: tuple[Middleware, ...] = (),
         prefix: str = default_prefix,
-        **kwargs,
+        **kwargs: Any,
     ) -> Backend:
         backend_class, params, pickle_type = settings_url_parse(settings_url)
         params.update(kwargs)
@@ -83,12 +85,14 @@ class Wrapper:
         if not self._backends:
             raise NotConfiguredError("run `cache.setup(...)` before using cache")
 
-    def _add_backend(self, backend: Backend, middlewares=(), prefix: str = default_prefix) -> None:
+    def _add_backend(
+        self, backend: Backend, middlewares: tuple[Middleware, ...] = (), prefix: str = default_prefix
+    ) -> None:
         self._backends[prefix] = backend
         self._middlewares[backend._id] = middlewares
         self._sorted_prefixes = tuple(sorted(self._backends.keys(), reverse=True))
 
-    async def init(self, *args, **kwargs) -> None:
+    async def init(self, *args: Any, **kwargs: Any) -> None:
         if args or kwargs:
             self.setup(*args, **kwargs)
         for backend in self._backends.values():

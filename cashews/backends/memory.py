@@ -36,16 +36,16 @@ class Memory(Backend):
         "__remove_expired_task",
     ]
 
-    def __init__(self, size: int = 1000, check_interval: float = 1, **kwargs):
-        self.store: OrderedDict = OrderedDict()
+    def __init__(self, size: int = 1000, check_interval: float = 1, **kwargs: Any) -> None:
+        self.store: OrderedDict[Key, tuple[float | None, Value]] = OrderedDict()
         self._check_interval = check_interval
         self.size = size
         self.__is_init = False
-        self.__remove_expired_stop = asyncio.Event()
-        self.__remove_expired_task = None
+        self.__remove_expired_stop: asyncio.Event = asyncio.Event()
+        self.__remove_expired_task: asyncio.Task[None] | None = None
         super().__init__(**kwargs)
 
-    async def init(self):
+    async def init(self) -> None:
         self.__is_init = True
         if self._check_interval:
             self.__remove_expired_stop = asyncio.Event()
@@ -55,14 +55,14 @@ class Memory(Backend):
     def is_init(self) -> bool:
         return self.__is_init
 
-    async def _remove_expired(self):
+    async def _remove_expired(self) -> None:
         while not self.__remove_expired_stop.is_set():
             for key in dict(self.store):
                 await self.get(key)
             with suppress(asyncio.TimeoutError, TimeoutError):
                 await asyncio.wait_for(self.__remove_expired_stop.wait(), self._check_interval)
 
-    async def clear(self):
+    async def clear(self) -> None:
         self.store = OrderedDict()
 
     async def set(
@@ -85,7 +85,7 @@ class Memory(Backend):
     async def get(self, key: Key, default: Value | None = None) -> Value:
         return await self._get(key, default=default)
 
-    async def get_raw(self, key: Key) -> Value:
+    async def get_raw(self, key: Key) -> Value | None:
         val = self.store.get(key)
         if val:
             return val[1]
@@ -100,7 +100,7 @@ class Memory(Backend):
             values.append(val)
         return tuple(values)
 
-    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
+    async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None) -> None:
         for key, value in pairs.items():
             if self._serializer:
                 value = await self._serializer.encode(self, key=key, value=value, expire=expire)
@@ -122,7 +122,7 @@ class Memory(Backend):
     async def exists(self, key: Key) -> bool:
         return await self._key_exist(key)
 
-    async def delete(self, key: Key):
+    async def delete(self, key: Key) -> bool:
         return await self._delete(key)
 
     async def _delete(self, key: Key) -> bool:
@@ -132,11 +132,11 @@ class Memory(Backend):
             return True
         return False
 
-    async def delete_many(self, *keys: Key):
+    async def delete_many(self, *keys: Key) -> None:
         for key in keys:
             await self._delete(key)
 
-    async def delete_match(self, pattern: Key):
+    async def delete_match(self, pattern: Key) -> None:
         async for key in self.scan(pattern):
             await self._delete(key)
 
@@ -150,7 +150,7 @@ class Memory(Backend):
             if not isinstance(value, Bitarray):
                 yield key, value
 
-    async def expire(self, key: Key, timeout: float):
+    async def expire(self, key: Key, timeout: float) -> None:
         if not await self._key_exist(key):
             return
         value = await self._get(key, default=_missed)
@@ -184,11 +184,11 @@ class Memory(Backend):
         self._set(key, array)
         return tuple(result)
 
-    def _set(self, key: Key, value: Value, expire: float | None = None):
-        expire = time.time() + expire if expire else None
-        if expire is None and key in self.store:
-            expire, _ = self.store[key]
-        self.store[key] = (expire, copy(value))
+    def _set(self, key: Key, value: Value, expire: float | None = None) -> None:
+        expire_time: float | None = time.time() + expire if expire else None
+        if expire_time is None and key in self.store:
+            expire_time, _ = self.store[key]
+        self.store[key] = (expire_time, copy(value))
         self.store.move_to_end(key)
         if len(self.store) > self.size:
             self.store.popitem(last=False)
@@ -254,19 +254,19 @@ class Memory(Backend):
         self._set(key, new_val, expire=expire)
         return count
 
-    async def set_add(self, key: Key, *values: str, expire: float | None = None):
-        val: set = await self._get(key, default=set())
+    async def set_add(self, key: Key, *values: str, expire: float | None = None) -> None:
+        val: set[str] = await self._get(key, default=set())
         val.update(values)
         self._set(key, val, expire=expire)
 
-    async def set_remove(self, key: Key, *values: str):
-        val: set = await self._get(key, default=set())
+    async def set_remove(self, key: Key, *values: str) -> None:
+        val: set[str] = await self._get(key, default=set())
         val.difference_update(values)
         self._set(key, val)
 
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
-        values: set = await self._get(key, default=set())
-        _values = []
+        values: set[str] = await self._get(key, default=set())
+        _values: list[str] = []
         for _ in range(count):
             if not values:
                 break
@@ -278,7 +278,7 @@ class Memory(Backend):
     async def get_keys_count(self) -> int:
         return len(self.store)
 
-    async def close(self):
+    async def close(self) -> None:
         if self.__remove_expired_task:
             self.__remove_expired_stop.set()
             await self.__remove_expired_task
@@ -286,5 +286,5 @@ class Memory(Backend):
             self.__remove_expired_task = None
         if self.__remove_expired_stop:
             del self.__remove_expired_stop
-            self.__remove_expired_stop = None
+            self.__remove_expired_stop = None  # type: ignore[assignment]
         self.__is_init = False
