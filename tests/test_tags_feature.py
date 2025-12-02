@@ -257,3 +257,167 @@ async def test_template_tag_function(cache: Cache):
 
     await func(User("test"))
     await cache.delete_tags("tag:test")
+
+
+async def test_tag_with_multiple_nested_attributes(cache: Cache):
+    """
+    Test that tags work with multiple nested attributes from same object.
+    This is the core bug fix test - should not raise regex compilation error.
+    Regression test for: re.error: redefinition of group name 'data'
+    """
+
+    class Data:
+        def __init__(self, first, second):
+            self.first = first
+            self.second = second
+
+    # This should NOT raise re.error during decoration
+    @cache(ttl="5m", key="f:{data.first}:s:{data.second}", tags=["computed"])
+    async def mult(data: Data):
+        return data.first * data.second
+
+    result1 = await mult(Data(3, 5))
+    assert result1 == 15
+
+    # Should use cached value
+    result2 = await mult(Data(3, 5))
+    assert result2 == 15
+
+    # Different parameters should compute new result
+    result3 = await mult(Data(4, 6))
+    assert result3 == 24
+
+    # Delete and verify cache is cleared
+    await cache.delete_tags("computed")
+
+
+async def test_tag_with_dynamic_template_nested_attributes(cache: Cache):
+    """
+    Test that dynamic tag templates work with nested attributes.
+    The tag template uses {data.first} and should be formatted with captured value.
+    """
+
+    class Data:
+        def __init__(self, first, second):
+            self.first = first
+            self.second = second
+
+    call_count = {"count": 0}
+
+    @cache(ttl="5m", key="compute:{data.first}:{data.second}", tags=["result:{data.first}"])
+    async def process(data: Data):
+        call_count["count"] += 1
+        return data.first + data.second
+
+    result1 = await process(Data(10, 20))
+    assert result1 == 30
+    assert call_count["count"] == 1
+
+    result2 = await process(Data(15, 25))
+    assert result2 == 40
+    assert call_count["count"] == 2
+
+    # Both should be cached
+    await process(Data(10, 20))
+    await process(Data(15, 25))
+    assert call_count["count"] == 2  # No new calls
+
+    # Delete only results for data.first=10
+    await cache.delete_tags("result:10")
+
+    # First should be recomputed, second should still be cached
+    await process(Data(10, 20))
+    assert call_count["count"] == 3  # Recomputed
+
+    await process(Data(15, 25))
+    assert call_count["count"] == 3  # Still cached
+
+
+async def test_tag_backward_compatibility_simple_names(cache: Cache):
+    """
+    Ensure fix doesn't break existing code with simple (non-nested) field names.
+    """
+
+    @cache(ttl="5m", key="item:{item_id}:{user_id}", tags=["items", "user:{user_id}"])
+    async def get_item(item_id: int, user_id: int):
+        return f"item-{item_id}-user-{user_id}"
+
+    result1 = await get_item(1, 100)
+    assert result1 == "item-1-user-100"
+
+    result2 = await get_item(2, 100)
+    assert result2 == "item-2-user-100"
+
+    # Delete by user tag
+    await cache.delete_tags("user:100")
+
+    # Should have cleared both items
+    result3 = await get_item(1, 100)
+    assert result3 == "item-1-user-100"
+
+
+async def test_tag_deeply_nested_attributes(cache: Cache):
+    """
+    Test with deeply nested attributes (e.g., user.profile.settings.value).
+    """
+
+    class Settings:
+        def __init__(self, theme):
+            self.theme = theme
+
+    class Profile:
+        def __init__(self, name, settings):
+            self.name = name
+            self.settings = settings
+
+    class User:
+        def __init__(self, profile):
+            self.profile = profile
+
+    @cache(ttl="5m", key="user:{user.profile.name}:{user.profile.settings.theme}", tags=["user_data"])
+    async def get_user_data(user: User):
+        return f"Data for {user.profile.name} with {user.profile.settings.theme} theme"
+
+    user = User(Profile("Alice", Settings("dark")))
+    result = await get_user_data(user)
+    assert result == "Data for Alice with dark theme"
+
+    # Should use cache
+    result2 = await get_user_data(user)
+    assert result2 == result
+
+    await cache.delete_tags("user_data")
+
+
+async def test_tag_mixed_nested_and_simple_attributes(cache: Cache):
+    """
+    Test mixing nested attributes and simple parameters in same key template.
+    """
+
+    class Context:
+        def __init__(self, tenant_id):
+            self.tenant_id = tenant_id
+
+    @cache(
+        ttl="5m",
+        key="{ctx.tenant_id}:resource:{resource_id}",
+        tags=["tenant:{ctx.tenant_id}", "all_resources"],
+    )
+    async def get_resource(ctx: Context, resource_id: int):
+        return f"Resource {resource_id} for tenant {ctx.tenant_id}"
+
+    result1 = await get_resource(Context("tenant1"), 42)
+    assert result1 == "Resource 42 for tenant tenant1"
+
+    result2 = await get_resource(Context("tenant1"), 99)
+    assert result2 == "Resource 99 for tenant tenant1"
+
+    result3 = await get_resource(Context("tenant2"), 42)
+    assert result3 == "Resource 42 for tenant tenant2"
+
+    # Delete by tenant tag - should clear both resources for tenant1
+    await cache.delete_tags("tenant:tenant1")
+
+    # Should be cleared
+    result4 = await get_resource(Context("tenant1"), 42)
+    assert result4 == "Resource 42 for tenant tenant1"
