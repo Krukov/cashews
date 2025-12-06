@@ -1,5 +1,10 @@
+from __future__ import annotations
+
+from contextlib import AbstractContextManager
+from typing import ClassVar
+
 from cashews.backends.interface import _BackendInterface
-from cashews.decorators import context_cache_detect
+from cashews.decorators import CacheDetect, context_cache_detect
 
 from .backend_settings import register_backend  # noqa
 from .callback import CallbackWrapper
@@ -23,4 +28,4 @@ class Cache(
     DecoratorsWrapper,
     _BackendInterface,
 ):
-    detect = context_cache_detect
+    detect: ClassVar[AbstractContextManager[CacheDetect]] = context_cache_detect
