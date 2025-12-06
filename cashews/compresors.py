@@ -26,7 +26,7 @@ class Compressor:
 class GzipCompressor(Compressor):
     @staticmethod
     def compress(value: bytes) -> bytes:
-        return gzip.compress(value, compresslevel=9)
+        return gzip.compress(value)
 
     @staticmethod
     def decompress(value: bytes) -> bytes:
