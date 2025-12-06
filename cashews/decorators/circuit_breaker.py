@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Callable
 from datetime import datetime, timezone
 from functools import wraps
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from cashews.backends.interface import _BackendInterface
 from cashews.exceptions import CircuitBreakerOpen

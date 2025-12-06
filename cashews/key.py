@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Container, Iterable
+from collections.abc import Callable, Container, Iterable
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from .exceptions import WrongKeyError
 from .formatter import default_format, default_formatter

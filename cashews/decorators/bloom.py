@@ -3,9 +3,9 @@ from __future__ import annotations
 import asyncio
 import math
 from collections import namedtuple
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from cashews.backends.interface import Backend
 from cashews.key import get_cache_key, get_cache_key_template

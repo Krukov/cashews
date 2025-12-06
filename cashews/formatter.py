@@ -3,12 +3,12 @@ from __future__ import annotations
 import base64
 import json
 import re
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from hashlib import md5, sha1, sha256
 from re import Pattern
 from string import Formatter
-from typing import Any, Callable
+from typing import Any
 
 from . import key_context
 from ._typing import KeyOrTemplate, KeyTemplate
