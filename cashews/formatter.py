@@ -91,9 +91,9 @@ class _ReplaceFormatter(Formatter):
             return super().get_field(field_name, args, kwargs)
         except (KeyError, AttributeError):
             # Fallback: try underscore version for nested attributes
-            # Handles case where regex captured 'data_first' but tag uses '{data.first}'
+            # Handles case where regex captured 'data__first' but tag uses '{data.first}'
             if "." in field_name:
-                underscore_name = field_name.replace(".", "_")
+                underscore_name = field_name.replace(".", "__")
                 if underscore_name in kwargs:
                     return kwargs[underscore_name], None
             return self.__default(field_name), None
@@ -208,7 +208,7 @@ def default_format(template: KeyTemplate, **values) -> KeyOrTemplate:
 
 
 def _re_default(field_name):
-    field_name = field_name.replace(".", "_")
+    field_name = field_name.replace(".", "__")
     return f"(?P<{field_name}>.+)?"
 
 
