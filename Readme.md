@@ -136,31 +136,29 @@ _Requires [redis](https://github.com/redis/redis-py) package._\
 This will use Redis as a storage.
 
 This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module to serialize
-values, but the cashes can store values with sha1-keyed hash.
+values, but the cashes can store values with md5-keyed hash.
 
 Use `secret` and `digestmod` parameters to protect your application from security vulnerabilities.
-
 The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`
-
 The `secret` is a salt for a hash.
 
 Pickle can't serialize any type of object. In case you need to store more complex types
+you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`. Dill is great, but less performance.
 
-you can use [dill](https://github.com/uqfoundation/dill) - set `pickle_type="dill"`.
-Dill is great, but less performance.
 If you need complex serializer for [sqlalchemy](https://docs.sqlalchemy.org/en/14/core/serializer.html) objects you can set `pickle_type="sqlalchemy"`
 Use `json` also an option to serialize/deserialize an object, but it very limited (`pickle_type="json"`)
 
 Any connection errors are suppressed, to disable it use `suppress=False` - a `CacheBackendInteractionError` will be raised
 
-If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`
+For some data, it may be useful to use compression. Gzip and zlib compression are available;
+you can use the `compress_type` parameter to configure it.
 
-Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
+If you would like to use [client-side cache](https://redis.io/topics/client-side-caching) set `client_side=True`. Client side cache will add `cashews:` prefix for each key, to customize it use `client_side_prefix` option.
 
 ```python
 cache.setup("redis://0.0.0.0/?db=1&minsize=10&suppress=false&secret=my_secret", prefix="func")
 cache.setup("redis://0.0.0.0/2", password="my_pass", socket_connect_timeout=0.1, retry_on_timeout=True, secret="my_secret")
-cache.setup("redis://0.0.0.0", client_side=True, client_side_prefix="my_prefix:", pickle_type="dill")
+cache.setup("redis://0.0.0.0", client_side=True, client_side_prefix="my_prefix:", pickle_type="dill", compress_type="gzip")
 ```
 
 For using secure connections to redis (over ssl) uri should have `rediss` as schema
@@ -178,9 +176,11 @@ This will use local sqlite databases (with shards) as storage.
 It is a good choice if you don't want to use redis, but you need a shared storage, or your cache takes a lot of local memory.
 Also, it is a good choice for client side local storage.
 
-You can setup disk cache with [FanoutCache parameters](http://www.grantjenks.com/docs/diskcache/api.html#fanoutcache)
+You can setup disk cache with [Cache parameters](https://grantjenks.com/docs/diskcache/api.html#diskcache.diskcache.DEFAULT_SETTINGS)
 
 ** Warning ** `cache.scan` and `cache.get_match` does not work with this storage (works only if shards are disabled)
+
+** Warning ** Be careful with the [default settings](https://grantjenks.com/docs/diskcache/api.html#diskcache.diskcache.DEFAULT_SETTINGS) as they contain parameters such as `size_limit`
 
 ```python
 cache.setup("disk://")
