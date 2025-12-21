@@ -6,8 +6,16 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from .compresors import Compressor, CompressType, get_compressor
-from .exceptions import DecompressionError, SignIsMissingError, UnSecureDataError
+from .exceptions import DecompressionError, SignIsMissingError, UnSecureDataError, UnsupportedDigestmod
 from .picklers import Pickler, PicklerType, get_pickler
+
+try:
+    import xxhash
+except ImportError:
+    _XXHASH = False
+else:
+    _XXHASH = True
+
 
 if TYPE_CHECKING:  # pragma: no cover
     from ._typing import ICustomDecoder, ICustomEncoder, Key, Value
@@ -15,15 +23,39 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 def _seal(digestmod):
-    def sign(key: bytes, value: bytes) -> bytes:
-        return hmac.new(key, value, digestmod).hexdigest().encode()
+    def sign(secret: bytes, value: bytes) -> bytes:
+        return hmac.new(secret, value, digestmod).hexdigest().encode()
 
     return sign
 
 
-def simple_sign(key: bytes, value: bytes) -> bytes:
-    s = sum(key) + sum(value)
+def simple_sign(secret: bytes, value: bytes) -> bytes:
+    s = sum(secret) + sum(value)
     return f"{s:x}".encode()
+
+
+def _xxhash_xxh32_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh32_hexdigest(secret + value).encode()
+
+
+def _xxhash_xxh64_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh64_hexdigest(secret + value).encode()
+
+
+def _xxhash_xxh3_64_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh3_64_hexdigest(secret + value).encode()
+
+
+def _xxhash_xxh3_128_sign(secret: bytes, value: bytes) -> bytes:
+    if not _XXHASH:
+        raise UnsupportedDigestmod("xxhash is not installed")
+    return xxhash.xxh3_128_hexdigest(secret + value).encode()
 
 
 def _to_bytes(value: str | bytes) -> bytes:
@@ -46,11 +78,17 @@ class HashSigner(Signer):
         b"md5": _seal(hashlib.md5),
         b"sha256": _seal(hashlib.sha256),
         b"sum": simple_sign,
+        b"xxh32": _xxhash_xxh32_sign,
+        b"xxh64": _xxhash_xxh64_sign,
+        b"xxh3_64": _xxhash_xxh3_64_sign,
+        b"xxh3_128": _xxhash_xxh3_128_sign,
     }
 
     def __init__(self, secret: str | bytes, digestmod: str | bytes = b"md5"):
         self._secret = _to_bytes(secret)
         self._digestmod = _to_bytes(digestmod)
+        if self._digestmod in (b"xxh32", b"xxh64") and not _XXHASH:
+            raise UnsupportedDigestmod()
 
     def sign(self, key: Key, value: bytes) -> bytes:
         sign = self._gen_sign(key, value, self._digestmod)

@@ -139,7 +139,8 @@ This backend uses [pickle](https://docs.python.org/3/library/pickle.html) module
 values, but the cashes can store values with md5-keyed hash.
 
 Use `secret` and `digestmod` parameters to protect your application from security vulnerabilities.
-The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`
+The `digestmod` is a hashing algorithm that can be used: `sum`, `md5` (default), `sha1` and `sha256`.
+To use [xxhash](https://pypi.org/project/xxhash/) algorithms (digestmods: `xxh3_64`, `xxh3_128`, `xxh32` and `xxh64`) install `xxhash` package or setup cashews with speedup requirements (`pip install cashews[speedup]`))
 The `secret` is a salt for a hash.
 
 Pickle can't serialize any type of object. In case you need to store more complex types
