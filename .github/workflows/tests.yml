@@ -19,7 +19,25 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 6379:6379
+          - 6379:
+
+      redis-cluster:
+        image: bitnami/redis-cluster:latest
+        env:
+          ALLOW_EMPTY_PASSWORD: "yes"
+          REDIS_CLUSTER_REPLICAS: "0"
+        options: >-
+          --health-cmd "redis-cli -c ping"
+          --health-interval 15s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5379:5379
+          - 5380:5380
+          - 5381:5381
+          - 5382:5382
+          - 5383:5383
+          - 5384:5384
 
     strategy:
       max-parallel: 5
@@ -49,6 +67,13 @@ jobs:
           REDIS_PORT: 6379
         run: |
           tox -e py-redis
+
+      - name: Redis Cluster Test Suit
+        env:
+          REDIS_CLUSTER_HOST: localhost
+          REDIS_CLUSTER_PORT: 5379
+        run: |
+          tox -e py-redis-cluster
 
       - name: Diskcache Test Suit
         run: |

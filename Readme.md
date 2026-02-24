@@ -1145,6 +1145,7 @@ pip install tox
 tox -e py  // tests for inmemory backend
 tox -e py-diskcache  // tests for diskcache backend
 tox -e py-redis  // tests for redis backend  - you need to run redis
+tox -e py-redis_cluster  // tests for redis cluster backend  - you need to run redis cluster
 tox -e py-integration  // tests for integrations with aiohttp and fastapi
 
 tox // to run all tests for all python that is installed on your machine
