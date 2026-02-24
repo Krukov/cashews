@@ -73,7 +73,7 @@ jobs:
           REDIS_CLUSTER_HOST: localhost
           REDIS_CLUSTER_PORT: 5379
         run: |
-          tox -e py-redis-cluster
+          tox -e py-redis_cluster
 
       - name: Diskcache Test Suit
         run: |
