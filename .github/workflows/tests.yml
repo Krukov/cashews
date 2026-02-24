@@ -22,22 +22,21 @@ jobs:
           - 6379:6379
 
       redis-cluster:
-        image: bitnami/redis-cluster:latest
+        image: grokzen/redis-cluster:7.0.7
         env:
-          ALLOW_EMPTY_PASSWORD: "yes"
-          REDIS_CLUSTER_REPLICAS: "0"
+          IP: "0.0.0.0"
         options: >-
-          --health-cmd "redis-cli -c ping"
-          --health-interval 15s
+          --health-cmd "redis-cli -c -p 7000 ping"
+          --health-interval 10s
           --health-timeout 5s
-          --health-retries 10
+          --health-retries 30
         ports:
-          - 5379:5379
-          - 5380:5380
-          - 5381:5381
-          - 5382:5382
-          - 5383:5383
-          - 5384:5384
+          - 7000:7000
+          - 7001:7001
+          - 7002:7002
+          - 7003:7003
+          - 7004:7004
+          - 7005:7005
 
     strategy:
       max-parallel: 5
@@ -71,7 +70,7 @@ jobs:
       - name: Redis Cluster Test Suit
         env:
           REDIS_CLUSTER_HOST: localhost
-          REDIS_CLUSTER_PORT: 5379
+          REDIS_CLUSTER_PORT: 7000
         run: |
           tox -e py-redis_cluster
 
