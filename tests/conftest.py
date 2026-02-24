@@ -38,7 +38,7 @@ def redis_dsn():
 @pytest.fixture(scope="session")
 def redis_cluster_dsn():
     host = os.getenv("REDIS_CLUSTER_HOST", "0.0.0.0")
-    port = os.getenv("REDIS_CLUSTER_PORT", "5379")
+    port = os.getenv("REDIS_CLUSTER_PORT", "7000")
     return f"redis://{host}:{port}"
 
 
