@@ -86,6 +86,8 @@ class BcastClientSide(Redis):
         self.__listen_stop = asyncio.Event()
         kwargs["suppress"] = suppress
         super().__init__(*args, **kwargs)
+        if self.is_cluster:
+            raise ValueError("Client Side Cache is not supported for RedisCluster")
 
     async def init(self):
         self._listen_started.clear()

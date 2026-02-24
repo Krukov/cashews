@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
 from collections.abc import AsyncIterator, Iterable, Mapping
 from typing import Any
 
@@ -11,7 +12,7 @@ from cashews._typing import Key, Value
 from cashews.backends.interface import Backend
 from cashews.serialize import DEFAULT_SERIALIZER, Serializer
 
-from .client import Redis, SafePipeline, SafeRedis
+from .client import Redis, RedisCluster, SafePipeline, SafeRedis, SafeRedisCluster
 
 _UNLOCK = """
 if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -45,13 +46,15 @@ _empty = object()
 
 
 class _Redis(Backend):
-    _client: Redis | SafeRedis
-    _client_class: type[Redis] | type[SafeRedis]
+    _client: Redis | SafeRedis | RedisCluster | SafeRedisCluster
+    _client_class: type[Redis] | type[SafeRedis] | type[RedisCluster] | type[SafeRedisCluster]
+    _is_cluster: bool
 
     def __init__(
         self,
         address: str,
         suppress: bool = True,
+        cluster: bool = False,
         **kwargs: Any,
     ) -> None:
         kwargs.pop("local_cache", None)
@@ -59,22 +62,28 @@ class _Redis(Backend):
         kwargs.setdefault("client_name", "cashews")
         kwargs.setdefault("health_check_interval", 10)
         kwargs.setdefault("max_connections", 10)
-        kwargs.setdefault("retry_on_timeout", False)
+
+        self._is_cluster = cluster
+
+        if not cluster:
+            kwargs.setdefault("retry_on_timeout", False)
         kwargs.setdefault("socket_timeout", 1)
         if not address.startswith("unix"):
             kwargs.setdefault("socket_keepalive", True)
         kwargs["decode_responses"] = False
 
-        self._pool_class = kwargs.pop("connection_pool_class", BlockingConnectionPool)
-        if self._pool_class == BlockingConnectionPool:
-            kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 10)
+        if not cluster:
+            self._pool_class = kwargs.pop("connection_pool_class", BlockingConnectionPool)
+            if self._pool_class == BlockingConnectionPool:
+                kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 10)
+
         self._sha: dict[str, Any] = {}
         if not suppress:
-            self._client_class = Redis
+            self._client_class = RedisCluster if cluster else Redis
             self._pipeline_class = Pipeline
         else:
             self._pipeline_class = SafePipeline
-            self._client_class = SafeRedis
+            self._client_class = SafeRedisCluster if cluster else SafeRedis
         self._kwargs = kwargs
         self._address = address
         self.__is_init = False
@@ -82,20 +91,29 @@ class _Redis(Backend):
         self._serializer: Serializer = self._serializer or DEFAULT_SERIALIZER
 
     @property
+    def is_cluster(self) -> bool:
+        return self._is_cluster
+
+    @property
     def is_init(self) -> bool:
         return self.__is_init
 
     async def init(self):
-        pool = self._pool_class.from_url(self._address, **self._kwargs)
-        if hasattr(self._client_class, "from_pool"):
-            self._client = self._client_class.from_pool(pool)
+        if self._is_cluster:
+            self._client = self._client_class.from_url(self._address, **self._kwargs)
         else:
-            self._client = self._client_class(connection_pool=pool)
+            pool = self._pool_class.from_url(self._address, **self._kwargs)
+            if hasattr(self._client_class, "from_pool"):
+                self._client = self._client_class.from_pool(pool)
+            else:
+                self._client = self._client_class(connection_pool=pool)
         await self._client.initialize()
         self.__is_init = True
 
     @property
     def _pipeline(self):
+        if self._is_cluster:
+            return self._client.pipeline()
         return self._pipeline_class(self._client.connection_pool, self._client.response_callbacks, True, None)
 
     async def clear(self):
@@ -153,7 +171,7 @@ class _Redis(Backend):
 
     async def unlock(self, key: Key, value: Value) -> bool:
         if self._sha.get("UNLOCK") is None:
-            self._sha["UNLOCK"] = self._client.register_script(_UNLOCK.replace("\n", " "))
+            self._sha["UNLOCK"] = self._client.register_script(_UNLOCK.replace("\n", " "))  # type: ignore
         return await self._sha["UNLOCK"](keys=(key,), args=(value,))
 
     async def delete(self, key: Key) -> bool:
@@ -166,6 +184,11 @@ class _Redis(Backend):
         return bool(await self._client.exists(key))
 
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
+        if self._is_cluster:
+            async for key in self._client.scan_iter(match=pattern, count=batch_size):
+                yield key.decode()
+            return
+
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -184,6 +207,20 @@ class _Redis(Backend):
         if "*" not in pattern:
             await self._client.unlink(pattern)
             return
+
+        if self._is_cluster:
+            batch = []
+            async for key in self._client.scan_iter(match=pattern, count=100):
+                batch.append(key)
+                if len(batch) >= 1000:
+                    await self._client.unlink(*batch)
+                    await self._call_on_remove_callbacks(*[k.decode() for k in batch])
+                    batch = []
+            if batch:
+                await self._client.unlink(*batch)
+                await self._call_on_remove_callbacks(*[k.decode() for k in batch])
+            return
+
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
@@ -195,6 +232,23 @@ class _Redis(Backend):
             await self._call_on_remove_callbacks(*[key.decode() for key in keys])
 
     async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
+        if self._is_cluster:
+            keys_buf: list[str] = []
+            async for bkey in self._client.scan_iter(match=pattern, count=batch_size):
+                keys_buf.append(bkey.decode())
+                if len(keys_buf) >= batch_size:
+                    values = await self.get_many(*keys_buf, default=_empty)
+                    for k, v in zip(keys_buf, values):
+                        if v is not _empty:
+                            yield k, v
+                    keys_buf = []
+            if keys_buf:
+                values = await self.get_many(*keys_buf, default=_empty)
+                for k, v in zip(keys_buf, values):
+                    if v is not _empty:
+                        yield k, v
+            return
+
         cursor = 0
         while True:
             cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
@@ -221,6 +275,19 @@ class _Redis(Backend):
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
         if not keys:
             return ()
+
+        if self._is_cluster:
+            slot_map: defaultdict[int, list[Key]] = defaultdict(list[Key])
+            for key in keys:
+                slot_map[self._client.keyslot(key)].append(key)  # type: ignore
+
+            results = {}
+            for _, subkeys in slot_map.items():
+                values = await self._client.mget(*subkeys)
+                results.update(dict(zip(subkeys, values)))
+
+            return tuple(await asyncio.gather(*[self._transform_value(key, results[key], default) for key in keys]))
+
         values = await self._client.mget(*keys)
         if values is None:
             return tuple([default] * len(keys))
@@ -239,7 +306,7 @@ class _Redis(Backend):
         if not expire:
             return await self._client.incr(key, amount=value)
         if self._sha.get("INCR_EXPIRE") is None:
-            self._sha["INCR_EXPIRE"] = self._client.register_script(_INCR_EXPIRE.replace("\n", " "))
+            self._sha["INCR_EXPIRE"] = self._client.register_script(_INCR_EXPIRE.replace("\n", " "))  # type: ignore
         expire = expire or 0
         expire = int(expire * 1000)
         return await self._sha["INCR_EXPIRE"](keys=(key,), args=(value, expire))
@@ -248,21 +315,19 @@ class _Redis(Backend):
         """
         https://redis.io/commands/bitfield
         """
-        bitops = self._client.bitfield(key)
+        bitops = self._client.bitfield(key)  # type: ignore
         for index in indexes:
-            bitops.get(fmt=f"u{size}", offset=f"#{index}")  # type: ignore[attr-defined]
-        return tuple(await bitops.execute() or [])  # type: ignore[attr-defined]
+            bitops.get(fmt=f"u{size}", offset=f"#{index}")
+        return tuple(await bitops.execute() or [])
 
     async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
-        bitops = self._client.bitfield(key)
+        bitops = self._client.bitfield(key)  # type: ignore
         for index in indexes:
-            bitops.incrby(  # type: ignore[attr-defined]
-                fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT"
-            )
-        return tuple(await bitops.execute())  # type: ignore[attr-defined]
+            bitops.incrby(fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT")
+        return tuple(await bitops.execute())
 
     async def ping(self, message: bytes | None = None) -> bytes:
-        await self._client.ping()
+        await self._client.ping()  # type: ignore
         if message is None or message == b"PING":
             return b"PONG"
         return message
@@ -284,12 +349,12 @@ class _Redis(Backend):
         expire = expire or 0
         expire = int(expire * 1000)
         if self._sha.get("INCR_SLICE") is None:
-            self._sha["INCR_SLICE"] = self._client.register_script(_INCR_SLICE.replace("\n", " "))
+            self._sha["INCR_SLICE"] = self._client.register_script(_INCR_SLICE.replace("\n", " "))  # type: ignore
         return await self._sha["INCR_SLICE"](keys=(key,), args=(start, end, maxvalue, expire))
 
     async def set_add(self, key: Key, *values: str, expire: float | None = None):
         if expire is None:
-            return await self._client.sadd(key, *values)
+            return await self._client.sadd(key, *values)  # type: ignore
         expire = int(expire * 1000)
         async with self._pipeline as pipe:
             await pipe.sadd(key, *values)
@@ -297,17 +362,17 @@ class _Redis(Backend):
             await pipe.execute()
 
     async def set_remove(self, key: Key, *values: str):
-        await self._client.srem(key, *values)
+        await self._client.srem(key, *values)  # type: ignore
 
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
-        values = await self._client.spop(key, count)
+        values = await self._client.spop(key, count)  # type: ignore
         if values is None:
             return []
 
         if isinstance(values, bytes):
             values = [values]
 
-        return [value.decode() for value in values]  # type: ignore[union-attr]
+        return [value.decode() for value in values]
 
     async def get_keys_count(self) -> int:
         return await self._client.dbsize()
@@ -315,5 +380,6 @@ class _Redis(Backend):
     async def close(self):
         if self.__is_init and self._client:
             await self._client.close()
-            await self._client.connection_pool.disconnect()
+            if not self._is_cluster:
+                await self._client.connection_pool.disconnect()
         self.__is_init = False

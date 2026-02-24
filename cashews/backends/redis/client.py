@@ -4,6 +4,7 @@ import socket
 from typing import Any
 
 from redis.asyncio import Redis as _Redis
+from redis.asyncio import RedisCluster as _RedisCluster
 from redis.asyncio.client import Pipeline
 from redis.exceptions import NoScriptError
 from redis.exceptions import RedisError as RedisConnectionError
@@ -17,6 +18,23 @@ class Redis(_Redis):
     async def execute_command(self, command, *args: Any, **kwargs: Any):
         try:
             return await super().execute_command(command, *args, **kwargs)
+        except NoScriptError:
+            # used by register_script functionality
+            # if we do not reraise it, than a Script wrapper will not work as expect
+            raise
+        except (
+            RedisConnectionError,
+            socket.gaierror,
+            OSError,
+            asyncio.TimeoutError,
+        ) as exp:
+            raise CacheBackendInteractionError() from exp
+
+
+class RedisCluster(_RedisCluster):
+    async def execute_command(self, *args: Any, **kwargs: Any):
+        try:
+            return await super().execute_command(*args, **kwargs)
         except NoScriptError:
             # used by register_script functionality
             # if we do not reraise it, than a Script wrapper will not work as expect
@@ -44,6 +62,40 @@ class SafeRedis(_Redis):
             OSError,
             asyncio.TimeoutError,
         ) as exp:
+            if command.lower() == "ping":
+                raise CacheBackendInteractionError() from exp
+            logger.error("redis: can not execute command: %s", command, exc_info=True)
+            if command.lower() in ["unlink", "del", "memory", "ttl"]:
+                return 0
+            if command.lower() == "scan":
+                return [0, []]
+            return None
+
+    async def initialize(self):
+        try:
+            return await super().initialize()
+        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError):
+            logger.error("redis: can not initialize cache", exc_info=True)
+            return self
+
+    __aenter__ = initialize
+
+
+class SafeRedisCluster(_RedisCluster):
+    async def execute_command(self, *args: Any, **kwargs: Any):
+        try:
+            return await super().execute_command(*args, **kwargs)
+        except NoScriptError:
+            # used by register_script functionality
+            # if we do not reraise it, than a Script wrapper will not work as expect
+            raise
+        except (
+            RedisConnectionError,
+            socket.gaierror,
+            OSError,
+            asyncio.TimeoutError,
+        ) as exp:
+            command = args[0] if args else ""
             if command.lower() == "ping":
                 raise CacheBackendInteractionError() from exp
             logger.error("redis: can not execute command: %s", command, exc_info=True)
