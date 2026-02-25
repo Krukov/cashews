@@ -404,7 +404,13 @@ class _Redis(Backend):
         return [value.decode() for value in values]
 
     async def get_keys_count(self) -> int:
-        return await self._client.dbsize()
+        if not self._is_cluster:
+            return await self._client.dbsize()
+        primary_nodes = self._client.get_primaries()  # type: ignore
+        sizes = await asyncio.gather(
+            *(self._client.execute_command("DBSIZE", target_nodes=node) for node in primary_nodes)
+        )
+        return sum(sizes)
 
     async def close(self):
         if self.__is_init and self._client:
