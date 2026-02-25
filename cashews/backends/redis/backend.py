@@ -133,7 +133,7 @@ class _Redis(Backend):
         elif exist is False:
             nx = True
         px = int(expire * 1000) if expire else None
-        _set = bool(await self._client.set(key, value, px=px, nx=nx, xx=xx))
+        _set = bool(await self._client.set(key, value, px=px, nx=nx, xx=xx))  # type: ignore[union-attr]
         return _set
 
     async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
@@ -144,7 +144,7 @@ class _Redis(Backend):
                 encoded = {}
                 for key, value in subpairs.items():
                     encoded[key] = await self._serializer.encode(self, key=key, value=value, expire=expire)
-                await asyncio.gather(*(self._client.set(k, v, px=px) for k, v in encoded.items()))
+                await asyncio.gather(*(self._client.set(k, v, px=px) for k, v in encoded.items()))  # type: ignore[union-attr]
             return
         async with self._pipeline as pipe:
             for key, value in pairs.items():
@@ -153,14 +153,14 @@ class _Redis(Backend):
             await pipe.execute()
 
     async def get_expire(self, key: Key) -> int:
-        return await self._client.ttl(key)
+        return await self._client.ttl(key)  # type: ignore[union-attr]
 
     async def expire(self, key: Key, timeout: float):
-        return await self._client.pexpire(key, int(timeout * 1000))
+        return await self._client.pexpire(key, int(timeout * 1000))  # type: ignore[union-attr]
 
     async def set_lock(self, key: Key, value: Value, expire: float) -> bool:
         pexpire = int(expire * 1000)
-        return bool(await self._client.set(key, value, px=pexpire, nx=True))
+        return bool(await self._client.set(key, value, px=pexpire, nx=True))  # type: ignore[union-attr]
 
     async def is_locked(
         self,
@@ -179,27 +179,27 @@ class _Redis(Backend):
 
     async def unlock(self, key: Key, value: Value) -> bool:
         if self._sha.get("UNLOCK") is None:
-            self._sha["UNLOCK"] = self._client.register_script(_UNLOCK.replace("\n", " "))  # type: ignore
+            self._sha["UNLOCK"] = self._client.register_script(_UNLOCK.replace("\n", " "))  # type: ignore[union-attr]
         return await self._sha["UNLOCK"](keys=(key,), args=(value,))
 
     async def delete(self, key: Key) -> bool:
         try:
-            return bool(await self._client.unlink(key))
+            return bool(await self._client.unlink(key))  # type: ignore[union-attr]
         finally:
             await self._call_on_remove_callbacks(key)
 
     async def exists(self, key: Key) -> bool:
-        return bool(await self._client.exists(key))
+        return bool(await self._client.exists(key))  # type: ignore[union-attr]
 
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         if self._is_cluster:
-            async for key in self._client.scan_iter(match=pattern, count=batch_size):
+            async for key in self._client.scan_iter(match=pattern, count=batch_size):  # type: ignore[union-attr]
                 yield key.decode()
             return
 
         cursor = 0
         while True:
-            cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
+            cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)  # type: ignore[union-attr]
             for key in keys:
                 yield key.decode()
             if not cursor:
@@ -211,44 +211,44 @@ class _Redis(Backend):
                 slots_map = self._group_keys_by_slot(keys)
                 for subkeys in slots_map.values():
                     if subkeys:
-                        await self._client.unlink(*subkeys)
+                        await self._client.unlink(*subkeys)  # type: ignore[union-attr]
             else:
-                await self._client.unlink(*keys)
+                await self._client.unlink(*keys)  # type: ignore[union-attr]
         finally:
             await self._call_on_remove_callbacks(*keys)
 
     async def delete_match(self, pattern: str):
         if "*" not in pattern:
-            await self._client.unlink(pattern)
+            await self._client.unlink(pattern)  # type: ignore[union-attr]
             return
 
         if self._is_cluster:
             batch = []
-            async for key in self._client.scan_iter(match=pattern, count=100):
+            async for key in self._client.scan_iter(match=pattern, count=100):  # type: ignore[union-attr]
                 batch.append(key)
                 if len(batch) >= 1000:
-                    await self._client.unlink(*batch)
+                    await self._client.unlink(*batch)  # type: ignore[union-attr]
                     await self._call_on_remove_callbacks(*[k.decode() for k in batch])
                     batch = []
             if batch:
-                await self._client.unlink(*batch)
+                await self._client.unlink(*batch)  # type: ignore[union-attr]
                 await self._call_on_remove_callbacks(*[k.decode() for k in batch])
             return
 
         cursor = 0
         while True:
-            cursor, keys = await self._client.scan(cursor, match=pattern, count=100)
+            cursor, keys = await self._client.scan(cursor, match=pattern, count=100)  # type: ignore[union-attr]
             if not keys:
                 if not cursor:
                     return
                 continue
-            await self._client.unlink(*keys)
+            await self._client.unlink(*keys)  # type: ignore[union-attr]
             await self._call_on_remove_callbacks(*[key.decode() for key in keys])
 
     async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         if self._is_cluster:
             keys_buf: list[str] = []
-            async for bkey in self._client.scan_iter(match=pattern, count=batch_size):
+            async for bkey in self._client.scan_iter(match=pattern, count=batch_size):  # type: ignore[union-attr]
                 keys_buf.append(bkey.decode())
                 if len(keys_buf) >= batch_size:
                     values = await self.get_many(*keys_buf, default=_empty)
@@ -265,7 +265,7 @@ class _Redis(Backend):
 
         cursor = 0
         while True:
-            cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)
+            cursor, keys = await self._client.scan(cursor, match=pattern, count=batch_size)  # type: ignore[union-attr]
             if not keys:
                 if not cursor:
                     return
@@ -279,11 +279,11 @@ class _Redis(Backend):
                 return
 
     async def get_size(self, key: Key) -> int:
-        size = await self._client.memory_usage(key) or 0
+        size = await self._client.memory_usage(key) or 0  # type: ignore[union-attr]
         return int(size)
 
     async def get(self, key: Key, default: Value | None = None) -> Value:
-        value = await self._client.get(key)
+        value = await self._client.get(key)  # type: ignore[union-attr]
         return await self._transform_value(key, value, default)
 
     async def get_many(self, *keys: Key, default: Value | None = None) -> tuple[Value | None, ...]:
@@ -294,12 +294,12 @@ class _Redis(Backend):
             slot_map = self._group_keys_by_slot(keys)
             results = {}
             for _, subkeys in slot_map.items():
-                values = await self._client.mget(*subkeys)
+                values = await self._client.mget(*subkeys)  # type: ignore[union-attr]
                 results.update(dict(zip(subkeys, values)))
 
             return tuple(await asyncio.gather(*[self._transform_value(key, results[key], default) for key in keys]))
 
-        values = await self._client.mget(*keys)
+        values = await self._client.mget(*keys)  # type: ignore[union-attr]
         if values is None:
             return tuple([default] * len(keys))
         return tuple(
@@ -309,13 +309,13 @@ class _Redis(Backend):
     def _group_keys_by_slot(self, keys: Iterable[Key]) -> dict[int, list[Key]]:
         groups: dict[int, list[Key]] = defaultdict(list)
         for k in keys:
-            groups[self._client.keyslot(k)].append(k)  # type: ignore
+            groups[self._client.keyslot(k)].append(k)  # type: ignore[union-attr]
         return groups
 
     def _group_pairs_by_slot(self, pairs: Mapping[Key, Value]) -> dict[int, dict[Key, Value]]:
         groups: dict[int, dict[Key, Value]] = defaultdict(dict)
         for k, v in pairs.items():
-            groups[self._client.keyslot(k)][k] = v  # type: ignore
+            groups[self._client.keyslot(k)][k] = v  # type: ignore[union-attr]
         return groups
 
     async def _transform_value(self, key: Key, value: bytes | None, default: Value | None):
@@ -327,9 +327,9 @@ class _Redis(Backend):
 
     async def incr(self, key: Key, value: int = 1, expire: float | None = None) -> int:
         if not expire:
-            return await self._client.incr(key, amount=value)
+            return await self._client.incr(key, amount=value)  # type: ignore[union-attr]
         if self._sha.get("INCR_EXPIRE") is None:
-            self._sha["INCR_EXPIRE"] = self._client.register_script(_INCR_EXPIRE.replace("\n", " "))  # type: ignore
+            self._sha["INCR_EXPIRE"] = self._client.register_script(_INCR_EXPIRE.replace("\n", " "))  # type: ignore[union-attr]
         expire = expire or 0
         expire = int(expire * 1000)
         return await self._sha["INCR_EXPIRE"](keys=(key,), args=(value, expire))
@@ -338,16 +338,16 @@ class _Redis(Backend):
         """
         https://redis.io/commands/bitfield
         """
-        bitops = self._client.bitfield(key)  # type: ignore
+        bitops = self._client.bitfield(key)  # type: ignore[union-attr]
         for index in indexes:
-            bitops.get(fmt=f"u{size}", offset=f"#{index}")
-        return tuple(await bitops.execute() or [])
+            bitops.get(fmt=f"u{size}", offset=f"#{index}")  # type: ignore[union-attr]
+        return tuple(await bitops.execute() or [])  # type: ignore[union-attr]
 
     async def incr_bits(self, key: Key, *indexes: int, size: int = 1, by: int = 1) -> tuple[int, ...]:
-        bitops = self._client.bitfield(key)  # type: ignore
+        bitops = self._client.bitfield(key)  # type: ignore[union-attr]
         for index in indexes:
-            bitops.incrby(fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT")
-        return tuple(await bitops.execute())
+            bitops.incrby(fmt=f"u{size}", offset=f"#{index}", increment=by, overflow="SAT")  # type: ignore[union-attr]
+        return tuple(await bitops.execute())  # type: ignore[union-attr]
 
     async def ping(self, message: bytes | None = None) -> bytes:
         await self._client.ping()  # type: ignore
@@ -356,10 +356,10 @@ class _Redis(Backend):
         return message
 
     async def set_raw(self, key: Key, value: Value, **kwargs: Any):
-        return await self._client.set(key, value, **kwargs)
+        return await self._client.set(key, value, **kwargs)  # type: ignore[union-attr]
 
     async def get_raw(self, key: Key) -> Value:
-        return await self._client.get(key)
+        return await self._client.get(key)  # type: ignore[union-attr]
 
     async def slice_incr(
         self,
@@ -372,17 +372,17 @@ class _Redis(Backend):
         expire = expire or 0
         expire = int(expire * 1000)
         if self._sha.get("INCR_SLICE") is None:
-            self._sha["INCR_SLICE"] = self._client.register_script(_INCR_SLICE.replace("\n", " "))  # type: ignore
+            self._sha["INCR_SLICE"] = self._client.register_script(_INCR_SLICE.replace("\n", " "))  # type: ignore[union-attr]
         return await self._sha["INCR_SLICE"](keys=(key,), args=(start, end, maxvalue, expire))
 
     async def set_add(self, key: Key, *values: str, expire: float | None = None):
         if expire is None:
-            return await self._client.sadd(key, *values)  # type: ignore
+            return await self._client.sadd(key, *values)  # type: ignore[union-attr]
         expire = int(expire * 1000)
 
         if self._is_cluster:
-            res = await self._client.sadd(key, *values)  # type: ignore
-            await self._client.pexpire(key, expire)
+            res = await self._client.sadd(key, *values)  # type: ignore[union-attr]
+            await self._client.pexpire(key, expire)  # type: ignore[union-attr]
             return res
 
         async with self._pipeline as pipe:
@@ -391,22 +391,22 @@ class _Redis(Backend):
             await pipe.execute()
 
     async def set_remove(self, key: Key, *values: str):
-        await self._client.srem(key, *values)  # type: ignore
+        await self._client.srem(key, *values)  # type: ignore[union-attr]
 
     async def set_pop(self, key: Key, count: int = 100) -> Iterable[str]:
-        values = await self._client.spop(key, count)  # type: ignore
+        values = await self._client.spop(key, count)  # type: ignore[union-attr]
         if values is None:
             return []
 
         if isinstance(values, bytes):
             values = [values]
 
-        return [value.decode() for value in values]
+        return [value.decode() for value in values]  # type: ignore[union-attr]
 
     async def get_keys_count(self) -> int:
         if not self._is_cluster:
-            return await self._client.dbsize()
-        primary_nodes = self._client.get_primaries()  # type: ignore
+            return await self._client.dbsize()  # type: ignore[union-attr]
+        primary_nodes = self._client.get_primaries()  # type: ignore[union-attr]
         sizes = await asyncio.gather(
             *(self._client.execute_command("DBSIZE", target_nodes=node) for node in primary_nodes)
         )
