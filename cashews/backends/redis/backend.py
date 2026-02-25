@@ -138,6 +138,14 @@ class _Redis(Backend):
 
     async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None):
         px = int(expire * 1000) if expire else None
+        if self._is_cluster:
+            slots_map = self._group_pairs_by_slot(pairs)
+            for subpairs in slots_map.values():
+                encoded = {}
+                for key, value in subpairs.items():
+                    encoded[key] = await self._serializer.encode(self, key=key, value=value, expire=expire)
+                await asyncio.gather(*(self._client.set(k, v, px=px) for k, v in encoded.items()))
+            return
         async with self._pipeline as pipe:
             for key, value in pairs.items():
                 value = await self._serializer.encode(self, key=key, value=value, expire=expire)
@@ -199,7 +207,13 @@ class _Redis(Backend):
 
     async def delete_many(self, *keys: Key):
         try:
-            await self._client.unlink(*keys)
+            if self._is_cluster:
+                slots_map = self._group_keys_by_slot(keys)
+                for subkeys in slots_map.values():
+                    if subkeys:
+                        await self._client.unlink(*subkeys)
+            else:
+                await self._client.unlink(*keys)
         finally:
             await self._call_on_remove_callbacks(*keys)
 
@@ -277,10 +291,7 @@ class _Redis(Backend):
             return ()
 
         if self._is_cluster:
-            slot_map: defaultdict[int, list[Key]] = defaultdict(list[Key])
-            for key in keys:
-                slot_map[self._client.keyslot(key)].append(key)  # type: ignore
-
+            slot_map = self._group_keys_by_slot(keys)
             results = {}
             for _, subkeys in slot_map.items():
                 values = await self._client.mget(*subkeys)
@@ -294,6 +305,18 @@ class _Redis(Backend):
         return tuple(
             await asyncio.gather(*[self._transform_value(key, value, default) for key, value in zip(keys, values)])
         )
+
+    def _group_keys_by_slot(self, keys: Iterable[Key]) -> dict[int, list[Key]]:
+        groups: dict[int, list[Key]] = defaultdict(list)
+        for k in keys:
+            groups[self._client.keyslot(k)].append(k)  # type: ignore
+        return groups
+
+    def _group_pairs_by_slot(self, pairs: Mapping[Key, Value]) -> dict[int, dict[Key, Value]]:
+        groups: dict[int, dict[Key, Value]] = defaultdict(dict)
+        for k, v in pairs.items():
+            groups[self._client.keyslot(k)][k] = v  # type: ignore
+        return groups
 
     async def _transform_value(self, key: Key, value: bytes | None, default: Value | None):
         if value is None:
@@ -356,6 +379,12 @@ class _Redis(Backend):
         if expire is None:
             return await self._client.sadd(key, *values)  # type: ignore
         expire = int(expire * 1000)
+
+        if self._is_cluster:
+            res = await self._client.sadd(key, *values)  # type: ignore
+            await self._client.pexpire(key, expire)
+            return res
+
         async with self._pipeline as pipe:
             await pipe.sadd(key, *values)
             await pipe.pexpire(key, expire)
