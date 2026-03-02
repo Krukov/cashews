@@ -86,6 +86,8 @@ class BcastClientSide(Redis):
         self.__listen_stop = asyncio.Event()
         kwargs["suppress"] = suppress
         super().__init__(*args, **kwargs)
+        if self.is_cluster:
+            raise ValueError("Client Side Cache is not supported for RedisCluster")
 
     async def init(self):
         self._listen_started.clear()
@@ -231,7 +233,7 @@ class BcastClientSide(Redis):
     async def get_match(self, pattern: str, batch_size: int = 100) -> AsyncIterator[tuple[Key, Value]]:
         cursor = 0
         while True:
-            cursor, keys = await self._client.scan(cursor, match=self._add_prefix(pattern), count=batch_size)
+            cursor, keys = await self._client.scan(cursor, match=self._add_prefix(pattern), count=batch_size)  # type: ignore[union-attr]
             if not keys:
                 if not cursor:
                     return

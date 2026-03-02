@@ -80,6 +80,13 @@ def test_url_but_backend_dependency_is_not_installed(url, error):
                 "client_side_listen_timeout": 0.1,
             },
         ),
+        (
+            "redis://0.0.0.0:9000?cluster=true",
+            {
+                "address": "redis://0.0.0.0:9000",
+                "cluster": True,
+            },
+        ),
     ),
 )
 def test_url_with_redis_as_backend(url, params):

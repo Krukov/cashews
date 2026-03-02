@@ -36,6 +36,13 @@ def redis_dsn():
 
 
 @pytest.fixture(scope="session")
+def redis_cluster_dsn():
+    host = os.getenv("REDIS_CLUSTER_HOST", "0.0.0.0")
+    port = os.getenv("REDIS_CLUSTER_PORT", "7000")
+    return f"redis://{host}:{port}"
+
+
+@pytest.fixture(scope="session")
 def backend_factory():
     def factory(backend_cls: type[Backend], *args, **kwargs):
         backend = backend_cls(*args, **kwargs)
@@ -52,10 +59,11 @@ def backend_factory():
         "transactional",
         pytest.param("redis", marks=pytest.mark.redis),
         pytest.param("redis_cs", marks=pytest.mark.redis),
+        pytest.param("redis_cluster", marks=pytest.mark.redis_cluster),
         pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
 )
-async def _backend(request, redis_dsn, backend_factory):
+async def _backend(request, redis_dsn, redis_cluster_dsn, backend_factory):
     if request.param == "diskcache":
         from cashews.backends.diskcache import DiskCache
 
@@ -82,6 +90,17 @@ async def _backend(request, redis_dsn, backend_factory):
             socket_timeout=0.1,
         )
         backend._expire_for_recently_update = 0.1
+    elif request.param == "redis_cluster":
+        from cashews.backends.redis import Redis
+
+        backend = backend_factory(
+            Redis,
+            redis_cluster_dsn,
+            max_connections=20,
+            suppress=False,
+            socket_timeout=1,
+            cluster=True,
+        )
     elif request.param == "transactional":
         backend = TransactionBackend(backend_factory(Memory))
     else:

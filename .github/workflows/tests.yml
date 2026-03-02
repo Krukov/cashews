@@ -21,6 +21,23 @@ jobs:
         ports:
           - 6379:6379
 
+      redis-cluster:
+        image: grokzen/redis-cluster:7.0.7
+        env:
+          IP: "0.0.0.0"
+        options: >-
+          --health-cmd "redis-cli -c -p 7000 ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+        ports:
+          - 7000:7000
+          - 7001:7001
+          - 7002:7002
+          - 7003:7003
+          - 7004:7004
+          - 7005:7005
+
     strategy:
       max-parallel: 5
       matrix:
@@ -49,6 +66,13 @@ jobs:
           REDIS_PORT: 6379
         run: |
           tox -e py-redis
+
+      - name: Redis Cluster Test Suit
+        env:
+          REDIS_CLUSTER_HOST: localhost
+          REDIS_CLUSTER_PORT: 7000
+        run: |
+          tox -e py-redis_cluster
 
       - name: Diskcache Test Suit
         run: |
