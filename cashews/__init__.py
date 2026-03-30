@@ -1,3 +1,4 @@
+from ._typing import TTL
 from .cache_condition import NOT_NONE, only_exceptions, with_exceptions
 from .commands import Command
 from .contrib import *  # noqa
@@ -76,4 +77,5 @@ __all__ = [
     "register_backend",
     "key_context",
     "register_key_context",
+    "TTL",
 ]
