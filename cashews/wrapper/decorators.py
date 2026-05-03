@@ -29,6 +29,13 @@ def _skip_thunder_protection(func: DecoratedFunc) -> DecoratedFunc:
     return func
 
 
+def _prefix_key_builder(prefix: str, key_builder):
+    def _wrapper(func, args, kwargs):
+        return prefix + key_builder(func, args, kwargs)
+
+    return _wrapper
+
+
 class DecoratorsWrapper(Wrapper):
     _default_fail_exceptions: tuple[type[Exception], ...] = (Exception,)
 
@@ -68,11 +75,15 @@ class DecoratorsWrapper(Wrapper):
                 if self.is_full_disable:
                     return await func(*args, **kwargs)
                 if lock:
+                    _lock_kb = decor_kwargs.get("key_builder")
+                    if _lock_kb is not None:
+                        _lock_kb = _prefix_key_builder("lock:", _lock_kb)
                     _locked = decorators.locked(
                         backend=self,
                         key=decor_kwargs.get("key"),
                         ttl=decor_kwargs["ttl"],
                         wait=True,
+                        key_builder=_lock_kb,
                     )
                     return await thunder_protection(_locked(decorator))(*args, **kwargs)
                 else:
@@ -111,11 +122,15 @@ class DecoratorsWrapper(Wrapper):
 
                     decorator = decorator_fabric(self, **decor_kwargs, condition=new_condition)
                     if lock:
+                        _lock_kb = decor_kwargs.get("key_builder")
+                        if _lock_kb is not None:
+                            _lock_kb = _prefix_key_builder("lock:", _lock_kb)
                         _locked = decorators.locked(
                             backend=self,
                             key=decor_kwargs.get("key"),
                             ttl=decor_kwargs["ttl"],
                             wait=True,
+                            key_builder=_lock_kb,
                         )
                         _result = await _locked(decorator(func))(*args, **kwargs)
                     else:

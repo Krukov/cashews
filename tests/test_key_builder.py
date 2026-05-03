@@ -244,3 +244,63 @@ async def test_cache_key_builder_with_condition(cache: Cache):
 
     assert await func("cache_me") == "cache_me"
     assert mock.call_count == 3
+
+
+async def test_cache_key_builder_with_lock(cache: Cache):
+    order = []
+
+    @cache(ttl=EXPIRE, lock=True, key_builder=args_key_builder)
+    async def func(x):
+        order.append(f"start-{x}")
+        await asyncio.sleep(0.01)
+        order.append(f"end-{x}")
+        return x
+
+    results = await asyncio.gather(func(1), func(1))
+    assert results == [1, 1]
+    assert order.index("start-1") < order.index("end-1")
+
+
+async def test_dynamic_key_builder(cache: Cache):
+    mock = Mock()
+
+    @cache.dynamic(ttl=1000, key_builder=args_key_builder)
+    async def func(x):
+        mock(x)
+        return x
+
+    assert await func(1) == 1
+    assert mock.call_count == 1
+
+    assert await func(1) == 1
+    assert mock.call_count == 1
+
+
+async def test_circuit_breaker_key_builder(cache: Cache):
+    class CustomError(Exception):
+        pass
+
+    @cache.circuit_breaker(errors_rate=90, period=EXPIRE, ttl=EXPIRE, exceptions=CustomError, key_builder=args_key_builder)
+    async def func(x, fail=False):
+        if fail:
+            raise CustomError()
+        return x
+
+    assert await func(1) == 1
+
+    with pytest.raises(CustomError):
+        await func(1, fail=True)
+
+
+async def test_slice_rate_limit_key_builder(cache: Cache):
+    @cache.slice_rate_limit(limit=2, period=EXPIRE, key_builder=args_key_builder)
+    async def func(x):
+        return x
+
+    assert await func(1) == 1
+    assert await func(1) == 1
+
+    with pytest.raises(RateLimitError):
+        await func(1)
+
+    assert await func(2) == 2
