@@ -280,7 +280,9 @@ async def test_circuit_breaker_key_builder(cache: Cache):
     class CustomError(Exception):
         pass
 
-    @cache.circuit_breaker(errors_rate=90, period=EXPIRE, ttl=EXPIRE, exceptions=CustomError, key_builder=args_key_builder)
+    @cache.circuit_breaker(
+        errors_rate=90, period=EXPIRE, ttl=EXPIRE, exceptions=CustomError, key_builder=args_key_builder
+    )
     async def func(x, fail=False):
         if fail:
             raise CustomError()
