@@ -12,7 +12,16 @@ from .time_condition import create_time_condition
 from .wrapper import Wrapper
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import TTL, AsyncCallable_T, CacheCondition, DecoratedFunc, Exceptions, KeyOrTemplate, Tags
+    from cashews._typing import (
+        TTL,
+        AsyncCallable_T,
+        CacheCondition,
+        DecoratedFunc,
+        Exceptions,
+        KeyBuilder,
+        KeyOrTemplate,
+        Tags,
+    )
     from cashews.decorators.bloom import IntOrPair
 
 
@@ -50,7 +59,7 @@ class DecoratorsWrapper(Wrapper):
 
             decorator = decorator_fabric(self, **decor_kwargs)(func)
             thunder_protection: Callable[[DecoratedFunc], DecoratedFunc] = _skip_thunder_protection
-            if protected:
+            if protected and decor_kwargs.get("key_builder") is None:
                 thunder_protection = decorators.thunder_protection(key=decor_kwargs.get("key"))
 
             @wraps(func)
@@ -129,6 +138,7 @@ class DecoratorsWrapper(Wrapper):
         lock: bool = False,
         tags: Tags = (),
         protected: bool = True,
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.cache,
@@ -141,6 +151,7 @@ class DecoratorsWrapper(Wrapper):
             prefix=prefix,
             tags=tags,
             protected=protected,
+            key_builder=key_builder,
         )
 
     cache = __call__
@@ -153,6 +164,7 @@ class DecoratorsWrapper(Wrapper):
         condition: CacheCondition = None,
         time_condition: TTL | None = None,
         prefix: str = "fail",
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         exceptions = exceptions or self._default_fail_exceptions
         return self._wrap_with_condition(
@@ -163,6 +175,7 @@ class DecoratorsWrapper(Wrapper):
             condition=get_cache_condition(condition),
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
+            key_builder=key_builder,
         )
 
     def early(
@@ -177,6 +190,7 @@ class DecoratorsWrapper(Wrapper):
         tags: Tags = (),
         background: bool = True,
         protected: bool = True,
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.early,
@@ -190,6 +204,7 @@ class DecoratorsWrapper(Wrapper):
             tags=tags,
             background=background,
             protected=protected,
+            key_builder=key_builder,
         )
 
     def soft(
@@ -204,6 +219,7 @@ class DecoratorsWrapper(Wrapper):
         upper: bool = False,
         tags: Tags = (),
         protected: bool = True,
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.soft,
@@ -217,6 +233,7 @@ class DecoratorsWrapper(Wrapper):
             prefix=prefix,
             tags=tags,
             protected=protected,
+            key_builder=key_builder,
         )
 
     def hit(
@@ -231,6 +248,7 @@ class DecoratorsWrapper(Wrapper):
         upper: bool = False,
         tags: Tags = (),
         background: bool = True,
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.hit,
@@ -244,6 +262,7 @@ class DecoratorsWrapper(Wrapper):
             prefix=prefix,
             tags=tags,
             background=background,
+            key_builder=key_builder,
         )
 
     def dynamic(
@@ -255,6 +274,7 @@ class DecoratorsWrapper(Wrapper):
         prefix: str = "dynamic",
         upper: bool = False,
         tags: Tags = (),
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.hit,
@@ -267,6 +287,7 @@ class DecoratorsWrapper(Wrapper):
             time_condition=ttl_to_seconds(time_condition),
             prefix=prefix,
             tags=tags,
+            key_builder=key_builder,
         )
 
     def iterator(
@@ -274,12 +295,14 @@ class DecoratorsWrapper(Wrapper):
         ttl: TTL,
         key: KeyOrTemplate | None = None,
         condition: CacheCondition = None,
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.iterator(
             self,  # type: ignore[arg-type]
             ttl=ttl,
             key=key,
             condition=get_cache_condition(condition),
+            key_builder=key_builder,
         )
 
     def invalidate(
@@ -305,6 +328,7 @@ class DecoratorsWrapper(Wrapper):
         key: KeyOrTemplate | None = None,
         min_calls: int = 1,
         prefix: str = "circuit_breaker",
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         _exceptions = exceptions or self._default_fail_exceptions
         return decorators.circuit_breaker(
@@ -317,6 +341,7 @@ class DecoratorsWrapper(Wrapper):
             min_calls=min_calls,
             key=key,
             prefix=prefix,
+            key_builder=key_builder,
         )
 
     def rate_limit(
@@ -327,6 +352,7 @@ class DecoratorsWrapper(Wrapper):
         action: Callable | None = None,
         prefix="rate_limit",
         key: KeyOrTemplate | None = None,
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:  # pylint: disable=too-many-arguments
         return decorators.rate_limit(
             backend=self,  # type: ignore[arg-type]
@@ -336,6 +362,7 @@ class DecoratorsWrapper(Wrapper):
             action=action,
             key=key,
             prefix=prefix,
+            key_builder=key_builder,
         )
 
     def slice_rate_limit(
@@ -345,6 +372,7 @@ class DecoratorsWrapper(Wrapper):
         key: KeyOrTemplate | None = None,
         action: Callable | None = None,
         prefix="srl",
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.slice_rate_limit(
             backend=self,  # type: ignore[arg-type]
@@ -353,6 +381,7 @@ class DecoratorsWrapper(Wrapper):
             key=key,
             action=action,
             prefix=prefix,
+            key_builder=key_builder,
         )
 
     def locked(
@@ -362,6 +391,7 @@ class DecoratorsWrapper(Wrapper):
         wait: bool = True,
         prefix: str = "locked",
         check_interval: float = 0,
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.locked(
             backend=self,  # type: ignore[arg-type]
@@ -370,6 +400,7 @@ class DecoratorsWrapper(Wrapper):
             wait=wait,
             prefix=prefix,
             check_interval=check_interval,
+            key_builder=key_builder,
         )
 
     def bloom(
@@ -380,6 +411,7 @@ class DecoratorsWrapper(Wrapper):
         false_positives: float | int = 1,
         check_false_positive: bool = True,
         prefix: str = "bloom",
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.bloom(
             backend=self,  # type: ignore[arg-type]
@@ -388,6 +420,7 @@ class DecoratorsWrapper(Wrapper):
             capacity=capacity,
             check_false_positive=check_false_positive,
             prefix=prefix,
+            key_builder=key_builder,
         )
 
     def dual_bloom(
@@ -398,6 +431,7 @@ class DecoratorsWrapper(Wrapper):
         false: IntOrPair = 1,
         no_collisions: bool = False,
         prefix: str = "dual_bloom",
+        key_builder: KeyBuilder | None = None,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return decorators.dual_bloom(
             backend=self,  # type: ignore[arg-type]
@@ -406,4 +440,5 @@ class DecoratorsWrapper(Wrapper):
             no_collisions=no_collisions,
             capacity=capacity,
             prefix=prefix,
+            key_builder=key_builder,
         )

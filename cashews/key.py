@@ -9,7 +9,7 @@ from .exceptions import WrongKeyError
 from .formatter import default_format, default_formatter
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ._typing import Key, KeyOrTemplate, KeyTemplate
+    from ._typing import Key, KeyBuilder, KeyOrTemplate, KeyTemplate
 
 _KWARGS = "__kwargs__"
 _ARGS = "__args__"
@@ -23,6 +23,7 @@ def get_cache_key(
     template: KeyTemplate | None = None,
     args: Args = (),
     kwargs: Kwargs | None = None,
+    key_builder: KeyBuilder | None = None,
 ) -> Key:
     """
     Get cache key name for function (:param func) called with args and kwargs
@@ -32,8 +33,11 @@ def get_cache_key(
     :param template: precompile template
     :param args: call positional arguments
     :param kwargs: call keyword arguments
+    :param key_builder: custom function to build cache key dynamically
     :return: cache key for call
     """
+    if key_builder is not None:
+        return key_builder(func, args, kwargs or {})
     kwargs = kwargs or {}
     if not args and template and _KWARGS not in template and _ARGS not in template:
         key_values = kwargs

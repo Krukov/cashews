@@ -11,7 +11,7 @@ from cashews.ttl import ttl_to_seconds
 from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyOrTemplate
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyBuilder, KeyOrTemplate
 
 __all__ = ("failover", "fast_condition")
 
@@ -34,6 +34,7 @@ def failover(
     key: KeyOrTemplate | None = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "fail",
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Return cache result (at list 1 call of function call should be succeed) if call raised one of given exception,
@@ -43,7 +44,10 @@ def failover(
     :param exceptions: exceptions at which returned cache result
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param prefix: custom prefix for key, default "fail"
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if key is not None and key_builder is not None:
+        raise ValueError("'key' and 'key_builder' cannot be used together")
 
     ttl = ttl_to_seconds(ttl)
 
@@ -52,7 +56,7 @@ def failover(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, _key_template, args, kwargs)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, key_builder=key_builder)
             try:
                 result = await func(*args, **kwargs)
             except exceptions as exc:
