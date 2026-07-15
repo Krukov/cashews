@@ -160,8 +160,14 @@ class BcastClientSide(Redis):
                 key = self._remove_prefix(original_key)
                 if not await self._recently_update.get(key):
                     logger.debug("invalidate the key %s", key)
-                    if await self._local_cache.delete(key):
-                        await self._call_on_remove_callbacks(original_key)
+                    # Only drop the local replica. An invalidation message means another
+                    # client changed the key (SET, delete or expiry) - not that the key
+                    # was removed, so on-remove callbacks must not fire here. When they
+                    # did, the tags wrapper on every peer raced an SREM against the
+                    # writer's SADD on ordinary SETs, orphaning live keys from their
+                    # tag sets and silently breaking delete_tags. Real deletes still
+                    # notify callbacks on the client performing the delete.
+                    await self._local_cache.delete(key)
                 else:
                     logger.debug("the key `%s`: recently update", key)
                     await self._recently_update.delete(key)
