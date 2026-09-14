@@ -63,6 +63,12 @@ async def test_unsafe_redis_down(redis_backend):
         await redis.set("key", "value")
 
 
+async def test_safe_redis_cluster_down(redis_backend):
+    redis = redis_backend(suppress=True, cluster=True, address="redis://localhost:9223")
+    await redis.init()
+    assert redis.is_init
+
+
 async def test_cache_decorators_on_redis_down(redis_backend):
     mock = Mock(return_value="val")
     cache = Cache()
