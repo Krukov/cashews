@@ -6,12 +6,20 @@ from typing import Any
 from redis.asyncio import Redis as _Redis
 from redis.asyncio import RedisCluster as _RedisCluster
 from redis.asyncio.client import Pipeline
-from redis.exceptions import NoScriptError
+from redis.exceptions import NoScriptError, RedisClusterException
 from redis.exceptions import RedisError as RedisConnectionError
 
 from cashews.exceptions import CacheBackendInteractionError
 
 logger = logging.getLogger(__name__)
+
+_redis_connection_errors = (
+    RedisConnectionError,
+    RedisClusterException,
+    socket.gaierror,
+    OSError,
+    asyncio.TimeoutError,
+)
 
 
 class Redis(_Redis):
@@ -22,12 +30,7 @@ class Redis(_Redis):
             # used by register_script functionality
             # if we do not reraise it, than a Script wrapper will not work as expect
             raise
-        except (
-            RedisConnectionError,
-            socket.gaierror,
-            OSError,
-            asyncio.TimeoutError,
-        ) as exp:
+        except _redis_connection_errors as exp:
             raise CacheBackendInteractionError() from exp
 
 
@@ -39,12 +42,7 @@ class RedisCluster(_RedisCluster):
             # used by register_script functionality
             # if we do not reraise it, than a Script wrapper will not work as expect
             raise
-        except (
-            RedisConnectionError,
-            socket.gaierror,
-            OSError,
-            asyncio.TimeoutError,
-        ) as exp:
+        except _redis_connection_errors as exp:
             raise CacheBackendInteractionError() from exp
 
 
@@ -56,12 +54,7 @@ class SafeRedis(_Redis):
             # used by register_script functionality
             # if we do not reraise it, than a Script wrapper will not work as expect
             raise
-        except (
-            RedisConnectionError,
-            socket.gaierror,
-            OSError,
-            asyncio.TimeoutError,
-        ) as exp:
+        except _redis_connection_errors as exp:
             if command.lower() == "ping":
                 raise CacheBackendInteractionError() from exp
             logger.error("redis: can not execute command: %s", command, exc_info=True)
@@ -74,7 +67,7 @@ class SafeRedis(_Redis):
     async def initialize(self):
         try:
             return await super().initialize()
-        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError):
+        except _redis_connection_errors:
             logger.error("redis: can not initialize cache", exc_info=True)
             return self
 
@@ -89,12 +82,7 @@ class SafeRedisCluster(_RedisCluster):
             # used by register_script functionality
             # if we do not reraise it, than a Script wrapper will not work as expect
             raise
-        except (
-            RedisConnectionError,
-            socket.gaierror,
-            OSError,
-            asyncio.TimeoutError,
-        ) as exp:
+        except _redis_connection_errors as exp:
             command = args[0] if args else ""
             if command.lower() == "ping":
                 raise CacheBackendInteractionError() from exp
@@ -108,7 +96,7 @@ class SafeRedisCluster(_RedisCluster):
     async def initialize(self):
         try:
             return await super().initialize()
-        except (RedisConnectionError, socket.gaierror, OSError, asyncio.TimeoutError):
+        except _redis_connection_errors:
             logger.error("redis: can not initialize cache", exc_info=True)
             return self
 
