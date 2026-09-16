@@ -66,7 +66,7 @@ def test_cache_func_key_dict():
             ("A1", "a2", "a3"),
             {"kwarg1": "k1", "kwarg0": True},
             None,
-            "tests.test_key:func:arg1:A1:arg2:a2:a3:kwarg1:k1:kwarg2:true:kwarg0:true",
+            "tests.test_key:test_cache_key_args_kwargs.<locals>.func:arg1:A1:arg2:a2:a3:kwarg1:k1:kwarg2:true:kwarg0:true",
         ),
         (
             ("A1", "a2", "b", True, 1, 1.2, ("a", 1, 1.2)),

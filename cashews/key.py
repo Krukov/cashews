@@ -92,7 +92,7 @@ def generate_key_template(func: Callable, exclude_parameters: Container = ()) ->
     :return: cache key template
     """
     func_params = tuple(get_func_params(func))
-    key_template = f"{func.__module__}:{func.__name__}"
+    key_template = f"{func.__module__}:{func.__qualname__}"
     if func_params and func_params[0] == "self":
         key_template = f"{func.__module__}:{func.__qualname__}"
     for param_name in func_params:
@@ -108,6 +108,9 @@ def generate_key_template(func: Callable, exclude_parameters: Container = ()) ->
 class _Star:
     def __getattr__(self, item):
         return self
+
+    def __iter__(self):
+        return iter([self])
 
     def __getitem__(self, item):
         return self

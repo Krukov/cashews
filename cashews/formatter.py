@@ -150,12 +150,6 @@ class _FuncFormatter(_ReplaceFormatter):
         format_spec, args = format_spec.split("(", maxsplit=1)
         return format_spec, args.replace(")", "").split(",")
 
-    def vformat(self, format_string, args, kwargs):
-        try:
-            return format_string.format(**{key: self._type_format(val) for key, val in kwargs.items()})
-        except (ValueError, TypeError, KeyError, AttributeError):
-            return super().vformat(format_string, args, kwargs)
-
 
 default_formatter = _FuncFormatter(lambda name: "")
 
