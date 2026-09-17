@@ -1,6 +1,6 @@
 import asyncio
 
-from cashews import Cache
+from cashews import Cache, default_formatter
 from cashews.commands import Command
 
 
@@ -85,3 +85,37 @@ async def test_issue_397_tags_with_nested_attributes():
 
     # Verify tag deletion works
     await cache.delete_tags("computed")
+
+
+async def test_issue_429():
+    cache = Cache()
+    cache.setup("mem://")
+
+    @default_formatter.register("sorted_elements_hang", preformat=False)
+    def sorted_elements_hang(value):  # noqa: ANN001
+        return str(sorted(set(value)))
+
+    @cache(ttl="1h", key="hang:{ids:sorted_elements_hang}", tags=["demo_table"])
+    async def load_hang(ids: list[int]) -> dict[int, str]:
+        return {i: f"v{i}" for i in ids}
+
+    await load_hang([1, 2, 3])
+
+
+async def test_issue_422():
+    cache = Cache()
+    cache.setup("mem://")
+
+    class A:
+        @staticmethod
+        @cache(ttl="15d")
+        async def test(a):
+            return "A"
+
+    class B:
+        @staticmethod
+        @cache(ttl="15d")
+        async def test(a):
+            return "B"
+
+    assert await A.test(0) != await B.test(0)

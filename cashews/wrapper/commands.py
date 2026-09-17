@@ -68,14 +68,14 @@ class CommandWrapper(Wrapper):
     async def scan(self, pattern: str, batch_size: int = 100) -> AsyncIterator[Key]:
         backend = self._get_backend(pattern)
 
-        async def call(pattern, batch_size):
+        async def call(pattern: str, batch_size: int) -> AsyncIterator[Key]:
             return backend.scan(pattern=pattern, batch_size=batch_size)
 
         for middleware in reversed(self._default_middlewares):
-            call = partial(middleware, call, Command.SCAN, backend)
+            call = partial(middleware, call, Command.SCAN, backend)  # type: ignore[assignment]
 
         for middleware in self._middlewares[backend._id]:
-            call = partial(middleware, call, Command.SCAN, backend)
+            call = partial(middleware, call, Command.SCAN, backend)  # type: ignore[assignment]
 
         async for key in await call(pattern=pattern, batch_size=batch_size):
             yield key
@@ -92,10 +92,10 @@ class CommandWrapper(Wrapper):
             return backend.get_match(pattern=pattern, batch_size=batch_size)
 
         for middleware in reversed(self._default_middlewares):
-            call = partial(middleware, call, Command.GET_MATCH, backend)
+            call = partial(middleware, call, Command.GET_MATCH, backend)  # type: ignore[assignment]
 
         for middleware in middlewares:
-            call = partial(middleware, call, Command.GET_MATCH, backend)
+            call = partial(middleware, call, Command.GET_MATCH, backend)  # type: ignore[assignment]
         async for key, value in await call(pattern=pattern, batch_size=batch_size):
             yield key, value
 

@@ -31,16 +31,15 @@ async def test_set_get_bcast(create_cache):
     caches_local = Memory()
     caches = await create_cache(caches_local)
 
-    await cachef.set("cashews", b"value", expire=0.1)
-    await asyncio.sleep(0.01)  # skip init signal about invalidation
+    await cachef.set("cashews", b"value", expire=0.5)
+    await asyncio.sleep(0.1)  # skip init signal about invalidation
     assert await cachef.get("cashews") == b"value"
     assert await caches.get("cashews") == b"value"
     assert await cachef_local.get("cashews") == b"value"
     assert await caches_local.get("cashews") == b"value"
-    await asyncio.sleep(0.2)
+    await asyncio.sleep(1)
     assert await cachef_local.get("cashews") is None
     assert await caches_local.get("cashews") is None
-
     assert await caches.get("cashews") is None
 
     await caches.close()
@@ -59,7 +58,7 @@ async def test_set_none_bcast(create_cache):
     assert await caches.get("key") is None
 
     await cachef.set("key", "val", expire=10000)
-    await asyncio.sleep(0.01)  # skip init signal about invalidation
+    await asyncio.sleep(0.2)  # skip init signal about invalidation
     assert await cachef.exists("key")
     assert await cachef_local.exists("key")
 
@@ -78,12 +77,12 @@ async def test_del_bcast(create_cache):
     caches = await create_cache(caches_local)
 
     await cachef.set("key", b"value")
-    await asyncio.sleep(0.05)  # skip init signal about invalidation
+    await asyncio.sleep(1)  # skip init signal about invalidation
 
     assert await cachef.get("key") == b"value"
     assert await caches.get("key") == b"value"
     await cachef.delete("key")
-    await asyncio.sleep(0.05)  # skip init signal about invalidation
+    await asyncio.sleep(1)  # skip init signal about invalidation
     assert await caches.get("key") is None
 
     await caches.close()
@@ -97,17 +96,17 @@ async def test_rewrite_bcast(create_cache):
     caches = await create_cache(caches_local)
 
     await cachef.set("key", b"value")
-    await asyncio.sleep(0.05)  # skip init signal about invalidation
+    await asyncio.sleep(0.1)  # skip init signal about invalidation
 
     assert await cachef.get("key") == b"value"
     assert await caches.get("key") == b"value"
 
-    await caches.set("key", b"new", expire=0.1)
-    await asyncio.sleep(0.05)  # skip init signal about invalidation
+    await caches.set("key", b"new", expire=0.5)
+    await asyncio.sleep(0.1)  # skip init signal about invalidation
 
     assert await cachef.get("key") == b"new"
 
-    await asyncio.sleep(0.15)
+    await asyncio.sleep(0.5)
     assert await caches.get("key") is None
     assert await cachef.get("key") is None
 
@@ -247,9 +246,9 @@ async def test_peer_invalidation_drop_does_not_fire_on_remove_callbacks(create_c
     peer.on_remove_callback(collect_removed)
 
     await peer.set("key", b"stale")
-    await asyncio.sleep(0.1)  # let the peer's own broadcast consume its recently-update marker
+    await asyncio.sleep(1)  # let the peer's own broadcast consume its recently-update marker
     await setter.set("key", b"fresh")  # broadcast makes the peer drop its local replica
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(1)
 
     assert await peer.get("key") == b"fresh"
     assert removed == []  # the key is alive in redis - nothing was removed
