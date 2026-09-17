@@ -234,3 +234,28 @@ async def test_set_tag_get(create_cache):
     assert not await cache.set_pop("_tag:tag", count=1)
 
     await cache.close()
+
+
+async def test_peer_invalidation_drop_does_not_fire_on_remove_callbacks(create_cache):
+    setter = await create_cache(Memory())
+    peer = await create_cache(Memory())
+    removed = []
+
+    async def collect_removed(keys, backend):
+        removed.extend(keys)
+
+    peer.on_remove_callback(collect_removed)
+
+    await peer.set("key", b"stale")
+    await asyncio.sleep(0.1)  # let the peer's own broadcast consume its recently-update marker
+    await setter.set("key", b"fresh")  # broadcast makes the peer drop its local replica
+    await asyncio.sleep(0.1)
+
+    assert await peer.get("key") == b"fresh"
+    assert removed == []  # the key is alive in redis - nothing was removed
+
+    await peer.delete("key")
+    assert removed == ["key"]  # real deletes still notify the deleting client
+
+    await peer.close()
+    await setter.close()
