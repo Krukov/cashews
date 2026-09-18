@@ -13,7 +13,7 @@ from ._exception import RaiseException, return_or_raise
 from .defaults import context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyBuilder
 
 __all__ = ("iterator",)
 
@@ -29,6 +29,7 @@ def iterator(
     ttl: TTL,
     key: str | None = None,
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache decorator for iterators
@@ -37,7 +38,10 @@ def iterator(
     :param ttl: duration in seconds to store a result or a callable
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param condition: callable object that determines whether the result will be saved or not
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if key is not None and key_builder is not None:
+        raise ValueError("'key' and 'key_builder' cannot be used together")
 
     ttl = ttl_to_seconds(ttl)
 
@@ -47,7 +51,7 @@ def iterator(
         @wraps(async_iterator)
         async def _wrap(*args, **kwargs):
             _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
-            _cache_key = get_cache_key(async_iterator, _key_template, args, kwargs)
+            _cache_key = get_cache_key(async_iterator, _key_template, args, kwargs, key_builder=key_builder)
 
             cached = await backend.get(_cache_key)
             chunk_number = 0

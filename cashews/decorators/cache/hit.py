@@ -13,7 +13,7 @@ from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
-    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, Key, KeyOrTemplate, Tags
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, Key, KeyBuilder, KeyOrTemplate, Tags
 
 __all__ = ("hit",)
 
@@ -28,6 +28,7 @@ def hit(
     prefix: str = "hit",
     tags: Tags = (),
     background: bool = True,
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache call results and drop cache after given numbers of call 'cache_hits'
@@ -40,19 +41,24 @@ def hit(
     :param prefix: custom prefix for key, default 'hit'
     :param tags: aliases for keys that used for cache (used for invalidation)
     :param background: if true will run recalculation in background
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if key is not None and key_builder is not None:
+        raise ValueError("'key' and 'key_builder' cannot be used together")
+
     ttl = ttl_to_seconds(ttl)
     background_tasks = set()
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
-        for tag in tags:
-            backend.register_tag(tag, _key_template + ":counter")
-            backend.register_tag(tag, _key_template)
+        if key_builder is None:
+            for tag in tags:
+                backend.register_tag(tag, _key_template + ":counter")
+                backend.register_tag(tag, _key_template)
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, _key_template, args, kwargs)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, key_builder=key_builder)
             _tags = [get_cache_key(func, tag, args, kwargs) for tag in tags]
 
             call_args = (func, args, kwargs, backend, _cache_key, ttl, condition, _tags)

@@ -23,6 +23,15 @@ class CallableCacheCondition(Protocol):
 Key = str
 KeyTemplate = str
 KeyOrTemplate = Union[KeyTemplate, Key]
+
+
+class KeyBuilder(Protocol):
+    def __call__(
+        self, func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> str:  # pragma: no cover
+        ...
+
+
 Value = Any
 Default = TypeVar("Default")
 Tag = str

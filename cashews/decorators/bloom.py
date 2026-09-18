@@ -12,7 +12,7 @@ from cashews.key import get_cache_key, get_cache_key_template
 from cashews.utils import get_indexes
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import DecoratedFunc, KeyOrTemplate
+    from cashews._typing import DecoratedFunc, KeyBuilder, KeyOrTemplate
 
 
 __all__ = ("bloom",)
@@ -40,6 +40,7 @@ def bloom(
     false_positives: float | int = 1,
     check_false_positive: bool = True,
     prefix: str = "bloom",
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Decorator that can help you to use bloom filter algorithm
@@ -54,7 +55,11 @@ def bloom(
     :param false_positives: Percents of false positive results
     :param check_false_positive: do we need to check if we have positive result
     :param prefix: custom prefix for key, default 'bloom'
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if name is not None and key_builder is not None:
+        raise ValueError("'name' and 'key_builder' cannot be used together")
+
     assert false_positives and capacity
     assert 0 < false_positives < 100
     index_size, number_of_buckets = params_for(capacity, false_positives / 100)
@@ -74,7 +79,7 @@ def bloom(
                 result = await _set(*args, **kwargs)
             if not result:
                 return result
-            _bloom_key = get_cache_key(func, _name, args, kwargs)
+            _bloom_key = get_cache_key(func, _name, args, kwargs, key_builder=key_builder)
             indexes = get_indexes(_bloom_key, number_of_buckets, index_size)
             await backend.incr_bits(_cache_key, *indexes)
             return result
@@ -83,7 +88,7 @@ def bloom(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _bloom_key = get_cache_key(func, _name, args, kwargs)
+            _bloom_key = get_cache_key(func, _name, args, kwargs, key_builder=key_builder)
             hashes = get_indexes(_bloom_key, number_of_buckets, index_size)
             values = await backend.get_bits(_cache_key, *hashes)
             if values is None:
@@ -108,6 +113,7 @@ def dual_bloom(
     false: IntOrPair = 1,
     no_collisions: bool = False,
     prefix: str = "dual_bloom",
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Decorator that can help you to use bloom filter algorithm
@@ -125,7 +131,11 @@ def dual_bloom(
     :param no_collisions: add value only no collisions
     :param false: Percents of false results
     :param prefix: custom prefix for key, default 'dual_bloom'
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if name is not None and key_builder is not None:
+        raise ValueError("'name' and 'key_builder' cannot be used together")
+
     filters_params = _get_params_for_filters(false, capacity)
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
@@ -137,7 +147,7 @@ def dual_bloom(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _bloom_key = get_cache_key(func, _cache_key, args, kwargs)
+            _bloom_key = get_cache_key(func, _cache_key, args, kwargs, key_builder=key_builder)
             indexes_true, indexes_false = _get_indexes(_bloom_key, *filters_params)
 
             true_values, false_values = await asyncio.gather(
