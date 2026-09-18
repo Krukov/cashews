@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING
@@ -14,6 +15,9 @@ if TYPE_CHECKING:  # pragma: no cover
     from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyOrTemplate
 
 __all__ = ("failover", "fast_condition")
+
+
+logger = logging.getLogger(__name__)
 
 
 def fast_condition(getter, setter=None):
@@ -67,6 +71,7 @@ def failover(
                         template=_key_template,
                         value=cached,
                     )
+                    logger.warning("Error while execution function. Returning cached result", exc_info=True)
                     return cached
                 raise exc
             else:

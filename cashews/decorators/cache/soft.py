@@ -83,6 +83,7 @@ def soft(
                         value=result,
                         soft_expire_at=soft_expire_at,
                     )
+                    logger.warning("Error while execution function. Returning cached result", exc_info=True)
                     return result
                 raise
             else:
