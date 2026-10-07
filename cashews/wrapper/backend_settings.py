@@ -16,6 +16,8 @@ _NO_REDIS_ERROR = "Redis backend requires `redis` to be installed."
 _CUSTOM_ERRORS = {
     "redis": _NO_REDIS_ERROR,
     "rediss": _NO_REDIS_ERROR,
+    "redis+sentinel": _NO_REDIS_ERROR,
+    "rediss+sentinel": _NO_REDIS_ERROR,
     "disk": "Disk backend requires `diskcache` to be installed.",
 }
 _BACKENDS: dict[str, tuple[BackendOrFabric, bool, PicklerType]] = {}
@@ -46,8 +48,31 @@ else:
             return BcastClientSide(**params)
         return Redis(**params)
 
+    def _sentinel_fabric(**params) -> Redis:
+        address = params.pop("address")
+        parsed = urlparse(address)
+        # Parse comma-separated sentinel hosts from netloc
+        sentinels: list[tuple[str, int]] = []
+        for node in parsed.netloc.split(","):
+            h, _, p = node.partition(":")
+            sentinels.append((h or "localhost", int(p) if p else 26379))
+
+        path_parts = [p for p in parsed.path.split("/") if p]
+        service_name = path_parts[0] if path_parts else "mymaster"
+        db = int(path_parts[1]) if len(path_parts) > 1 else 0
+
+        params["sentinel"] = True
+        params["sentinels"] = sentinels
+        params["sentinel_service"] = service_name
+        params["sentinel_db"] = db
+        # address is not used for sentinel connections, but backend expects it
+        params["address"] = ""
+        return Redis(**params)
+
     register_backend("redis", _redis_fabric, pass_uri=True, pickler=PicklerType.DEFAULT)
     register_backend("rediss", _redis_fabric, pass_uri=True, pickler=PicklerType.DEFAULT)
+    register_backend("redis+sentinel", _sentinel_fabric, pass_uri=True, pickler=PicklerType.DEFAULT)
+    register_backend("rediss+sentinel", _sentinel_fabric, pass_uri=True, pickler=PicklerType.DEFAULT)
 
 
 try:
@@ -80,7 +105,7 @@ def settings_url_parse(url: str) -> tuple[BackendOrFabric, dict[str, Any], Pickl
 
 def _serialize_params(params: dict[str, str]) -> dict[str, str | int | bool | float]:
     new_params = {}
-    bool_keys = ("safe", "suppress", "enable", "disable", "client_side", "cluster")
+    bool_keys = ("safe", "suppress", "enable", "disable", "client_side", "cluster", "sentinel")
     true_values = (
         "1",
         "true",

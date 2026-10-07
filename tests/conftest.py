@@ -43,6 +43,14 @@ def redis_cluster_dsn():
 
 
 @pytest.fixture(scope="session")
+def redis_sentinel_dsn():
+    host = os.getenv("REDIS_SENTINEL_HOST", "localhost")
+    port = os.getenv("REDIS_SENTINEL_PORT", "26379")
+    service = os.getenv("REDIS_SENTINEL_SERVICE", "mymaster")
+    return f"redis+sentinel://{host}:{port}/{service}/0"
+
+
+@pytest.fixture(scope="session")
 def backend_factory():
     def factory(backend_cls: type[Backend], *args, **kwargs):
         backend = backend_cls(*args, **kwargs)
@@ -60,10 +68,11 @@ def backend_factory():
         pytest.param("redis", marks=pytest.mark.redis),
         pytest.param("redis_cs", marks=pytest.mark.redis),
         pytest.param("redis_cluster", marks=pytest.mark.redis_cluster),
+        pytest.param("redis_sentinel", marks=pytest.mark.redis_sentinel),
         pytest.param("diskcache", marks=pytest.mark.diskcache),
     ],
 )
-async def _backend(request, redis_dsn, redis_cluster_dsn, backend_factory):
+async def _backend(request, redis_dsn, redis_cluster_dsn, redis_sentinel_dsn, backend_factory):
     if request.param == "diskcache":
         from cashews.backends.diskcache import DiskCache
 
@@ -90,6 +99,30 @@ async def _backend(request, redis_dsn, redis_cluster_dsn, backend_factory):
             socket_timeout=0.1,
         )
         backend._expire_for_recently_update = 0.1
+    elif request.param == "redis_sentinel":
+        from cashews.backends.redis import Redis
+        from urllib.parse import urlparse
+
+        parsed = urlparse(redis_sentinel_dsn)
+        sentinels = []
+        for node in parsed.netloc.split(","):
+            h, _, p = node.partition(":")
+            sentinels.append((h or "localhost", int(p) if p else 26379))
+        path_parts = [p for p in parsed.path.split("/") if p]
+        service_name = path_parts[0] if path_parts else "mymaster"
+        db = int(path_parts[1]) if len(path_parts) > 1 else 0
+
+        backend = backend_factory(
+            Redis,
+            "",
+            max_connections=20,
+            suppress=False,
+            socket_timeout=1,
+            sentinel=True,
+            sentinels=sentinels,
+            sentinel_service=service_name,
+            sentinel_db=db,
+        )
     elif request.param == "redis_cluster":
         from cashews.backends.redis import Redis
 
