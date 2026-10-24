@@ -93,9 +93,9 @@ class SafeRedisCluster(_RedisCluster):
                 return [0, []]
             return None
 
-    async def initialize(self):
+    async def initialize(self, *args: Any, **kwargs: Any):
         try:
-            return await super().initialize()
+            return await super().initialize(*args, **kwargs)
         except _redis_connection_errors:
             logger.error("redis: can not initialize cache", exc_info=True)
             return self
