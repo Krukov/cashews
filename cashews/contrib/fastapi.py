@@ -10,7 +10,7 @@ from typing import Any
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 from starlette.types import ASGIApp
 
 from cashews import Cache, Command, cache, invalidate_further
@@ -34,6 +34,7 @@ _PRIVATE = "private"
 _PUBLIC = "public"
 
 _CLEAR_CACHE_HEADER_VALUE = "cache"
+_MISSING = object()
 __all__ = [
     "cache_control_ttl",
     "CacheRequestControlMiddleware",
@@ -171,13 +172,16 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         return response
 
     async def _set_etag(self, key: str, data: Any = None) -> str | None:
-        _data = data or await self._cache.get(key)
+        _data = data or await self._cache.get(key, default=_MISSING)
+        if _data is _MISSING:
+            return None
         if _is_early_cache(_data):
             expire = (_data[0] - datetime.now(timezone.utc)).total_seconds()  # type: ignore[index]
             _data = _data[1]  # type: ignore[index]
         else:
             expire = await self._cache.get_expire(key)
-        if expire < 0:
+        if expire < 0 or isinstance(_data, StreamingResponse):
+            # the body of a streaming response is not available without consuming its iterator
             return None
         etag = _get_etag(_data)
         await self._cache.set(self._get_etag_key(etag), True, expire=expire)
