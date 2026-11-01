@@ -205,6 +205,38 @@ def test_cache_etag_early(client_with_middleware, app, cache):
         assert bool(re.search(r'^"[a-f0-9]+"$', etag))
 
 
+def test_cache_etag_streaming_response(client_with_middleware, app, cache):
+    from starlette.responses import StreamingResponse
+
+    from cashews.contrib.fastapi import CacheEtagMiddleware
+
+    def _streaming_endpoint(path: str, body: bytes):
+        @app.get(path)
+        @cache(ttl="10s", key=path)
+        async def stream():
+            async def content():
+                yield body[:1]
+                yield body[1:]
+
+            return StreamingResponse(content())
+
+    _streaming_endpoint("/stream", b"abc")
+    _streaming_endpoint("/other_stream", b"xyz")
+
+    with client_with_middleware(CacheEtagMiddleware, cache_instance=cache) as client:
+        response = client.get("/stream")
+        assert response.status_code == 200
+        assert response.content == b"abc"
+
+        other = client.get("/other_stream")
+        assert other.content == b"xyz"
+        assert "ETag" not in other.headers or other.headers["ETag"] != response.headers.get("ETag")
+
+        cached = client.get("/stream")
+        assert cached.status_code == 200
+        assert cached.content == b"abc"
+
+
 @pytest.fixture(name="app_with_cache_control")
 def _app_with_cache_control(cache, app):
     from cashews.contrib.fastapi import CacheRequestControlMiddleware, cache_control_ttl
