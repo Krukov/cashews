@@ -332,3 +332,25 @@ async def test_lru2(backend_factory):
         assert await cache.get(f"key:{i}") == i
 
     await cache.close()
+
+
+async def test_set_after_expire_before_cleanup(backend_factory):
+    cache = backend_factory(Memory)  # not initialized: no background cleanup of expired keys
+    await cache.set_many({"key": "value", "nx": "value", "xx": "value", "many": "value"}, expire=0.01)
+    await asyncio.sleep(0.02)
+
+    assert await cache.set("key", "new")
+    assert await cache.get("key") == "new"
+
+    assert await cache.set("nx", "new", exist=False)
+    assert await cache.get("nx") == "new"
+
+    assert not await cache.set("xx", "new", exist=True)
+    assert await cache.get("xx") is None
+
+    await cache.set_many({"many": "new"})
+    assert await cache.get("many") == "new"
+
+    await cache.set("live", "value", expire=10)
+    assert not await cache.set("live", "new", exist=False)
+    assert await cache.get("live") == "value"
