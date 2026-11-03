@@ -309,3 +309,40 @@ async def test_json_serialize(value):
     cache = Memory(serializer=get_serializer(secret=b"test", pickle_type=PicklerType.JSON))
     await cache.set("key", value)
     assert await cache.get("key") == value
+
+
+def _create_file(path):
+    open(path, "w").close()
+    return b"planted"
+
+
+class PickledCall:
+    def __init__(self, path):
+        self.path = path
+
+    def __reduce__(self):
+        return _create_file, (self.path,)
+
+
+@pytest.mark.diskcache
+@pytest.mark.parametrize("shards", (0, 8))
+async def test_disk_value_pickled_by_diskcache(shards, tmp_path):
+    from diskcache_community import Cache, Disk, FanoutCache
+
+    from cashews.backends.diskcache import DiskCache
+
+    directory = str(tmp_path / "cache")
+    marker = tmp_path / "marker"
+    cache = DiskCache(directory=directory, shards=shards, serializer=get_serializer(secret=b"test"))
+    await cache.set("key", "value")
+    assert await cache.get("key") == "value"
+
+    # diskcache's own Disk stores this value as a pickle; reading it back must
+    # not run it, even though the signature is only checked afterwards
+    other_writer = FanoutCache(directory, shards=shards, disk=Disk) if shards else Cache(directory, disk=Disk)
+    with other_writer:
+        other_writer.set("key", PickledCall(str(marker)))
+
+    assert await cache.get("key", default="default") == "default"
+    assert not marker.exists()
+    await cache.close()
