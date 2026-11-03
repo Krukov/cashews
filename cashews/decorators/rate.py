@@ -11,7 +11,7 @@ from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import TTL, DecoratedFunc, KeyOrTemplate
+    from cashews._typing import TTL, DecoratedFunc, KeyBuilder, KeyOrTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ def rate_limit(
     key: KeyOrTemplate | None = None,
     action: Callable | None = _default_action,
     prefix: str = "rate_limit",
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:  # pylint: disable=too-many-arguments
     """
     Rate limit for function call. Do not call function if rate limit is reached, and call given action
@@ -39,7 +40,11 @@ def rate_limit(
     :param key: a rate-limit key template
     :param action: call when rate limit reached, default raise RateLimitError
     :param prefix: custom prefix for key, default 'rate_limit'
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if key is not None and key_builder is not None:
+        raise ValueError("'key' and 'key_builder' cannot be used together")
+
     period = ttl_to_seconds(period)
     ttl = ttl_to_seconds(ttl) or period
     action = action or _default_action
@@ -51,7 +56,7 @@ def rate_limit(
         async def wrapped_func(*args, **kwargs):
             _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
             _period = ttl_to_seconds(period, *args, **kwargs, with_callable=True)
-            _cache_key = get_cache_key(func, _key_template, args, kwargs)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, key_builder=key_builder)
 
             requests_count = await backend.incr(key=_cache_key, expire=_period)
             if requests_count and requests_count > limit:

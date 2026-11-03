@@ -11,7 +11,7 @@ from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import TTL, DecoratedFunc, Key, KeyOrTemplate
+    from cashews._typing import TTL, DecoratedFunc, Key, KeyBuilder, KeyOrTemplate
 
 __all__ = ("locked",)
 
@@ -23,6 +23,7 @@ def locked(
     wait: bool = True,
     prefix: str = "lock",
     check_interval: float = 0,
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Decorator that can help you to solve Cache stampede problem (https://en.wikipedia.org/wiki/Cache_stampede),
@@ -35,14 +36,18 @@ def locked(
     :param wait: if true - wait till lock is released
     :param prefix: custom prefix for key, default 'lock'
     :param check_interval: interval in seconds between lock checks while it is waiting for the lock to be released
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if key is not None and key_builder is not None:
+        raise ValueError("'key' and 'key_builder' cannot be used together")
+
     ttl = ttl_to_seconds(ttl)
 
     def _decor(func):
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
         if inspect.isasyncgenfunction(func):
-            return _asyncgen_lock(func, backend, ttl, _key_template, wait, check_interval)
-        return _coroutine_lock(func, backend, ttl, _key_template, wait, check_interval)
+            return _asyncgen_lock(func, backend, ttl, _key_template, wait, check_interval, key_builder)
+        return _coroutine_lock(func, backend, ttl, _key_template, wait, check_interval, key_builder)
 
     return _decor
 
@@ -54,11 +59,12 @@ def _coroutine_lock(
     key_template: KeyOrTemplate,
     wait: bool,
     check_interval: float,
+    key_builder: KeyBuilder | None = None,
 ) -> DecoratedFunc:
     @wraps(func)
     async def _wrap(*args, **kwargs):
         _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
-        _cache_key = get_cache_key(func, key_template, args, kwargs)
+        _cache_key = get_cache_key(func, key_template, args, kwargs, key_builder=key_builder)
         async with backend.lock(_cache_key, _ttl, wait=wait, check_interval=check_interval):
             return await func(*args, **kwargs)
 
@@ -72,11 +78,12 @@ def _asyncgen_lock(
     key_template: KeyOrTemplate,
     wait: bool,
     check_interval: float,
+    key_builder: KeyBuilder | None = None,
 ):
     @wraps(func)
     async def _wrap(*args, **kwargs):
         _ttl = ttl_to_seconds(ttl, *args, **kwargs, with_callable=True)
-        _cache_key = get_cache_key(func, key_template, args, kwargs)
+        _cache_key = get_cache_key(func, key_template, args, kwargs, key_builder=key_builder)
         async with backend.lock(_cache_key, _ttl, wait=wait, check_interval=check_interval):
             async for chunk in func(*args, **kwargs):
                 yield chunk

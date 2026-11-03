@@ -12,7 +12,7 @@ from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
 if TYPE_CHECKING:  # pragma: no cover
-    from cashews._typing import TTL, DecoratedFunc, Exceptions, Key, KeyOrTemplate
+    from cashews._typing import TTL, DecoratedFunc, Exceptions, Key, KeyBuilder, KeyOrTemplate
 
 
 def circuit_breaker(
@@ -25,6 +25,7 @@ def circuit_breaker(
     exceptions: Exceptions = Exception,
     key: KeyOrTemplate | None = None,
     prefix: str = "circuit_breaker",
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Circuit breaker
@@ -36,7 +37,11 @@ def circuit_breaker(
     :param exceptions: exceptions at which returned cache result
     :param key: custom cache key, may contain alias to args or kwargs passed to a call
     :param prefix: custom prefix for key, default "circuit_breaker"
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if key is not None and key_builder is not None:
+        raise ValueError("'key' and 'key_builder' cannot be used together")
+
     ttl = ttl_to_seconds(ttl)
     period = ttl_to_seconds(period)
     half_open_ttl = ttl_to_seconds(half_open_ttl)
@@ -48,7 +53,7 @@ def circuit_breaker(
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
-            _cache_key = get_cache_key(func, _key_template, args, kwargs)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, key_builder=key_builder)
             if await backend.is_locked(_cache_key + ":open"):
                 if half_open_ttl:
                     await backend.set(

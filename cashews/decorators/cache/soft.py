@@ -13,7 +13,7 @@ from .defaults import _empty, context_cache_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
-    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyOrTemplate, Tags
+    from cashews._typing import TTL, CallableCacheCondition, DecoratedFunc, KeyBuilder, KeyOrTemplate, Tags
 
 __all__ = ("soft",)
 
@@ -30,6 +30,7 @@ def soft(
     condition: CallableCacheCondition = lambda *args, **kwargs: True,
     prefix: str = "soft",
     tags: Tags = (),
+    key_builder: KeyBuilder | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     """
     Cache strategy that allow to use pre-expiration
@@ -42,18 +43,23 @@ def soft(
     :param condition: callable object that determines whether the result will be saved or not
     :param prefix: custom prefix for key, default 'soft'
     :param tags: aliases for keys that used for cache (used for invalidation)
+    :param key_builder: custom function to build cache key dynamically (func, args, kwargs) -> str
     """
+    if key is not None and key_builder is not None:
+        raise ValueError("'key' and 'key_builder' cannot be used together")
+
     ttl = ttl_to_seconds(ttl)
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key, prefix=prefix)
-        for tag in tags:
-            backend.register_tag(tag, _key_template)
+        if key_builder is None:
+            for tag in tags:
+                backend.register_tag(tag, _key_template)
 
         @wraps(func)
         async def _wrap(*args, **kwargs):
             _tags = [get_cache_key(func, tag, args, kwargs) for tag in tags]
-            _cache_key = get_cache_key(func, _key_template, args, kwargs)
+            _cache_key = get_cache_key(func, _key_template, args, kwargs, key_builder=key_builder)
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
                 soft_expire_at, result = cached
