@@ -1,4 +1,5 @@
 import asyncio
+from contextvars import Context
 from random import random
 from unittest.mock import Mock
 
@@ -83,6 +84,25 @@ async def test_disable_context_manage_decor(cache):
 async def test_init_disable(cache):
     cache.setup("mem://localhost?disable=1")
     assert cache.is_disable()
+
+
+def test_init_disable_in_a_new_context():
+    cache = Cache()
+    cache.setup("mem://", disable=True)
+
+    assert Context().run(cache.is_disable)
+    assert Context().run(cache.is_disable, Command.GET)
+    assert Context().run(lambda: cache.is_full_disable)
+
+
+def test_enable_in_a_new_context_keeps_init_disable_elsewhere():
+    cache = Cache()
+    cache.setup("mem://", disable=True)
+
+    Context().run(cache.enable)
+
+    assert cache.is_disable()
+    assert Context().run(cache.is_disable)
 
 
 async def test_init_enable(cache):
