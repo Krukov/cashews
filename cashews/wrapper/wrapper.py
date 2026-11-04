@@ -77,7 +77,7 @@ class Wrapper:
         )
         backend = backend_class(**params, serializer=serializer)
         if disable:
-            backend.disable()
+            backend.disable_by_default()
         self._add_backend(backend, middlewares, prefix)
         return backend
 
