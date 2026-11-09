@@ -28,7 +28,7 @@ def test_url(url, params):
             "redis://localhost:9000/0",
             "Redis backend requires `redis` to be installed.",
         ),
-        ("disk://", "Disk backend requires `diskcache` to be installed."),
+        ("disk://", "Disk backend requires `diskcache-community` to be installed."),
     ),
 )
 def test_url_but_backend_dependency_is_not_installed(url, error):
