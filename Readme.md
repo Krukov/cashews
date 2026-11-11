@@ -284,6 +284,9 @@ async def long_running_function(request):
     ...
 ```
 
+With `lock=True` only one call executes the function on a cache miss, the others wait for it.
+Use `lock_check_interval` to set a pause in seconds between attempts to take the lock (default `0`).
+
 #### Fail cache (Failover cache)
 
 Return cache result, if one of the given exceptions is raised (at least one function
