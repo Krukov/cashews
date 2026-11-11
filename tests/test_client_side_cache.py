@@ -5,6 +5,7 @@ import contextlib
 import time
 
 import pytest
+import redis
 
 from cashews import Cache
 from cashews.backends.memory import Memory
@@ -12,12 +13,19 @@ from cashews.backends.memory import Memory
 pytestmark = [pytest.mark.asyncio, pytest.mark.redis]
 
 
-@pytest.fixture(name="create_cache")
-def _create_cache(redis_dsn, backend_factory):
+@pytest.fixture(name="create_cache", params=[2, 3], ids=["resp2", "resp3"])
+def _create_cache(request, redis_dsn, backend_factory):
     from cashews.backends.redis.client_side import BcastClientSide
 
+    if int(redis.__version__.split(".")[0]) < 5:
+        if request.param == 3:
+            pytest.skip("redis-py < 5 has no RESP3 support")
+        kwargs = {}
+    else:
+        kwargs = {"protocol": request.param}
+
     async def call(local_cache=None):
-        backend = backend_factory(BcastClientSide, redis_dsn, local_cache=local_cache)
+        backend = backend_factory(BcastClientSide, redis_dsn, local_cache=local_cache, **kwargs)
         await backend.init()
         await backend.clear()
         return backend
@@ -258,3 +266,16 @@ async def test_peer_invalidation_drop_does_not_fire_on_remove_callbacks(create_c
 
     await peer.close()
     await setter.close()
+
+
+@pytest.mark.skipif(int(redis.__version__.split(".")[0]) < 5, reason="redis-py < 5 has no protocol option")
+async def test_listener_uses_resp2_main_client_keeps_protocol(redis_dsn, backend_factory):
+    from cashews.backends.redis.client_side import BcastClientSide
+
+    backend = backend_factory(BcastClientSide, redis_dsn, protocol=3)
+    await backend.init()
+
+    assert backend._client.connection_pool.connection_kwargs["protocol"] == 3
+    assert backend._listen_client.connection_pool.connection_kwargs["protocol"] == 2
+
+    await backend.close()

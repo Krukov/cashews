@@ -35,6 +35,7 @@ from collections.abc import AsyncIterator, Mapping
 from contextlib import suppress as error_suppress
 from typing import Any
 
+from redis import __version__ as _redis_py_version
 from redis.exceptions import ConnectionError as RedisConnectionError
 
 from cashews._typing import Key, Value
@@ -54,6 +55,8 @@ _empty_in_redis = _EmptyCopy()  # set when we know that key not in redis
 _RECONNECT_WAIT = 10
 _DEFAULT_PREFIX = "cashews:"
 BCAST_ON = "CLIENT TRACKING on REDIRECT {client_id} BCAST PREFIX {prefix}"
+# redis-py < 5 only speaks RESP2 and has no `protocol` option
+_SUPPORTS_PROTOCOL_OPTION = int(_redis_py_version.split(".")[0]) >= 5
 logger = logging.getLogger(__name__)
 
 
@@ -81,6 +84,7 @@ class BcastClientSide(Redis):
         self._suppress = suppress
         self._recently_update = Memory(size=500, check_interval=60)
         self._listen_task = None
+        self._listen_client = None
         self._expire_for_recently_update = 5
         self._listen_started = asyncio.Event()
         self.__listen_stop = asyncio.Event()
@@ -96,6 +100,14 @@ class BcastClientSide(Redis):
         await self._recently_update.init()
         await super().init()
         self.__is_init = False
+        # Invalidations arrive on __redis__:invalidate only for a RESP2 connection; under RESP3
+        # (the default since redis-py 8.0) Redis sends them as push messages instead. Only the
+        # listener needs tracking in BCAST mode, so it gets its own RESP2 client and the main
+        # client keeps whichever protocol was configured.
+        listen_kwargs = dict(self._kwargs)
+        if _SUPPORTS_PROTOCOL_OPTION:
+            listen_kwargs["protocol"] = 2
+        self._listen_client = self._create_client(**listen_kwargs)
         self._listen_task = asyncio.create_task(self._listen_invalidate_forever())
         listen_timeout = self._kwargs["socket_timeout"] if self._listen_timeout is None else self._listen_timeout
         try:
@@ -135,9 +147,12 @@ class BcastClientSide(Redis):
                 raise
 
     async def _get_channel(self):
-        pubsub = self._client.pubsub()
+        pubsub = self._listen_client.pubsub()
         await pubsub.execute_command(b"CLIENT", b"ID")
         client_id = await pubsub.parse_response()
+        if str(getattr(pubsub.connection, "protocol", 2)) != "2":
+            # a protocol set in the url query takes precedence over the protocol argument
+            raise RuntimeError("redis client side: the invalidation listener needs protocol=2")
         await pubsub.execute_command(*BCAST_ON.format(client_id=client_id, prefix=self._prefix).encode().split())
         await pubsub.parse_response()
         await pubsub.subscribe(_REDIS_INVALIDATE_CHAN)
@@ -321,6 +336,10 @@ class BcastClientSide(Redis):
                 await self._listen_task
             del self._listen_task
             self._listen_task = None
+        if self._listen_client is not None:
+            await self._listen_client.close()
+            await self._listen_client.connection_pool.disconnect()
+            self._listen_client = None
         await super().close()
 
     async def _call_on_remove_callbacks(self, *keys: Key):
