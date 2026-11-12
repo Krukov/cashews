@@ -7,6 +7,7 @@ import pytest
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
+from cashews import Cache
 from cashews.backends.memory import Memory
 from cashews.picklers import PicklerType
 from cashews.serialize import UnSecureDataError, get_serializer
@@ -309,3 +310,19 @@ async def test_json_serialize(value):
     cache = Memory(serializer=get_serializer(secret=b"test", pickle_type=PicklerType.JSON))
     await cache.set("key", value)
     assert await cache.get("key") == value
+
+
+@pytest.mark.parametrize("decorator", ("early", "soft"))
+async def test_json_serialize_expire_envelope(decorator):
+    cache = Cache()
+    cache._add_backend(Memory(serializer=get_serializer(pickle_type=PicklerType.JSON)))
+    calls = []
+
+    @getattr(cache, decorator)(ttl="1m")
+    async def func():
+        calls.append(1)
+        return {"any": None}
+
+    assert await func() == {"any": None}
+    assert await func() == {"any": None}
+    assert len(calls) == 1
