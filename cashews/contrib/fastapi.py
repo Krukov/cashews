@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import contextlib
+import time
 from collections.abc import Sequence
 from contextlib import AbstractContextManager, nullcontext
 from contextvars import ContextVar
-from datetime import datetime, timezone
 from hashlib import blake2s
 from typing import Any
 
@@ -176,7 +176,7 @@ class CacheEtagMiddleware(BaseHTTPMiddleware):
         if _data is _MISSING:
             return None
         if _is_early_cache(_data):
-            expire = (_data[0] - datetime.now(timezone.utc)).total_seconds()  # type: ignore[index]
+            expire = _data[0] - time.time()  # type: ignore[index]
             _data = _data[1]  # type: ignore[index]
         else:
             expire = await self._cache.get_expire(key)
@@ -198,7 +198,7 @@ def _get_etag(cached_data: Any) -> str:
 
 
 def _is_early_cache(data: Any) -> bool:
-    return bool(isinstance(data, list) and data and isinstance(data[0], datetime))
+    return bool(isinstance(data, list) and data and isinstance(data[0], float))
 
 
 class CacheDeleteMiddleware(BaseHTTPMiddleware):

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from functools import wraps
 from typing import TYPE_CHECKING
 
@@ -46,7 +47,7 @@ def soft(
     ttl = ttl_to_seconds(ttl)
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
-        _key_template = get_cache_key_template(func, key=key, prefix=prefix)
+        _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
         for tag in tags:
             backend.register_tag(tag, _key_template)
 
@@ -57,7 +58,7 @@ def soft(
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
                 soft_expire_at, result = cached
-                if soft_expire_at > datetime.now(timezone.utc):
+                if soft_expire_at > time.time():
                     context_cache_detect._set(
                         _cache_key,
                         ttl=ttl,
@@ -65,7 +66,7 @@ def soft(
                         name="soft",
                         template=_key_template,
                         value=result,
-                        soft_expire_at=soft_expire_at,
+                        soft_expire_at=datetime.fromtimestamp(soft_expire_at, timezone.utc),
                     )
                     return result
 
@@ -81,7 +82,7 @@ def soft(
                         name="soft",
                         template=_key_template,
                         value=result,
-                        soft_expire_at=soft_expire_at,
+                        soft_expire_at=datetime.fromtimestamp(soft_expire_at, timezone.utc),
                     )
                     logger.warning("Error while execution function. Returning cached result", exc_info=True)
                     return result
@@ -90,7 +91,7 @@ def soft(
                 if condition(result, args, kwargs, _cache_key):
                     _ttl = ttl_to_seconds(ttl, *args, result=result, **kwargs, with_callable=True)
                     _soft_ttl = ttl_to_seconds(soft_ttl, *args, result=result, **kwargs) or _ttl * 0.33
-                    soft_expire_at = datetime.now(timezone.utc) + timedelta(seconds=_soft_ttl)
+                    soft_expire_at = time.time() + _soft_ttl
                     await backend.set(_cache_key, [soft_expire_at, result], expire=_ttl, tags=_tags)
                 return result
 

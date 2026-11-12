@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from functools import wraps
 from typing import TYPE_CHECKING
 
@@ -53,7 +54,7 @@ def early(
     early_ttl = ttl_to_seconds(early_ttl)
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
-        _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v2")
+        _key_template = get_cache_key_template(func, key=key, prefix=prefix + ":v3")
         for tag in tags:
             backend.register_tag(tag, _key_template)
 
@@ -90,9 +91,9 @@ def early(
                 name="early",
                 template=_key_template,
                 value=result,
-                early_expire_at=early_expire_at,
+                early_expire_at=datetime.fromtimestamp(early_expire_at, timezone.utc),
             )
-            if early_expire_at >= datetime.now(timezone.utc):
+            if early_expire_at >= time.time():
                 return return_or_raise(result)
             lock_key = _cache_key + _LOCK_SUFFIX
             if not await backend.set(lock_key, "1", expire=_early_ttl, exist=False):
@@ -134,7 +135,7 @@ async def _get_result_for_early(
             _exc = exc
             result = exc
         cond_result = condition(result, args, kwargs, key=key)
-        early_expire_at = datetime.now(timezone.utc) + timedelta(seconds=early_ttl)
+        early_expire_at = time.time() + early_ttl
         if isinstance(cond_result, bool) and cond_result and not isinstance(result, Exception):
             await backend.set(key, [early_expire_at, result], expire=ttl, tags=tags)
         elif isinstance(cond_result, Exception):
