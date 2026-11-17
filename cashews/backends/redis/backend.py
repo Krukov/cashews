@@ -55,6 +55,7 @@ class _Redis(Backend):
         address: str,
         suppress: bool = True,
         cluster: bool = False,
+        sentinel: bool = False,
         **kwargs: Any,
     ) -> None:
         kwargs.pop("local_cache", None)
@@ -64,6 +65,13 @@ class _Redis(Backend):
         kwargs.setdefault("max_connections", 10)
 
         self._is_cluster = cluster
+        self._is_sentinel = sentinel
+
+        if sentinel:
+            self._sentinels: list[tuple[str, int]] = kwargs.pop("sentinels", [("localhost", 26379)])
+            self._sentinel_service: str = kwargs.pop("sentinel_service", "mymaster")
+            self._sentinel_db: int = kwargs.pop("sentinel_db", 0)
+            self._sentinel_kwargs: dict[str, Any] = kwargs.pop("sentinel_kwargs", {})
 
         if not cluster:
             kwargs.setdefault("retry_on_timeout", False)
@@ -72,7 +80,7 @@ class _Redis(Backend):
             kwargs.setdefault("socket_keepalive", True)
         kwargs["decode_responses"] = False
 
-        if not cluster:
+        if not cluster and not sentinel:
             self._pool_class = kwargs.pop("connection_pool_class", BlockingConnectionPool)
             if self._pool_class == BlockingConnectionPool:
                 kwargs["timeout"] = kwargs.pop("wait_for_connection_timeout", 10)
@@ -99,7 +107,20 @@ class _Redis(Backend):
         return self.__is_init
 
     async def init(self):
-        if self._is_cluster:
+        if self._is_sentinel:
+            from redis.asyncio.sentinel import Sentinel
+
+            _sentinel = Sentinel(
+                self._sentinels,
+                sentinel_kwargs=self._sentinel_kwargs,
+            )
+            self._client = _sentinel.master_for(
+                self._sentinel_service,
+                redis_class=self._client_class,
+                db=self._sentinel_db,
+                **self._kwargs,
+            )
+        elif self._is_cluster:
             self._client = self._client_class.from_url(self._address, **self._kwargs)
         else:
             pool = self._pool_class.from_url(self._address, **self._kwargs)

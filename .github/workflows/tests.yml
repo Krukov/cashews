@@ -74,6 +74,25 @@ jobs:
         run: |
           tox -e py-redis_cluster
 
+      - name: Start Redis Sentinel
+        run: |
+          printf "port 26379\nsentinel monitor mymaster 127.0.0.1 6379 1\nsentinel down-after-milliseconds mymaster 5000\nsentinel failover-timeout mymaster 10000\nsentinel parallel-syncs mymaster 1\n" > /tmp/sentinel.conf
+          docker run -d --name redis-sentinel --network host \
+            -v /tmp/sentinel.conf:/etc/sentinel.conf \
+            redis:6-alpine redis-sentinel /etc/sentinel.conf
+          for i in $(seq 1 10); do
+            docker exec redis-sentinel redis-cli -p 26379 ping && break || sleep 1
+          done
+          docker exec redis-sentinel redis-cli -p 26379 sentinel master mymaster
+
+      - name: Redis Sentinel Test Suit
+        env:
+          REDIS_SENTINEL_HOST: localhost
+          REDIS_SENTINEL_PORT: 26379
+          REDIS_SENTINEL_SERVICE: mymaster
+        run: |
+          tox -e py-redis_sentinel
+
       - name: Diskcache Test Suit
         run: |
           tox -e py-diskcache

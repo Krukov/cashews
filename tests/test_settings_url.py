@@ -97,6 +97,42 @@ def test_url_with_redis_as_backend(url, params):
     assert params == _params
 
 
+@pytest.mark.redis
+@pytest.mark.parametrize(
+    ("url", "expected_sentinels", "expected_service", "expected_db"),
+    (
+        (
+            "redis+sentinel://localhost:26379/mymaster/0",
+            [("localhost", 26379)],
+            "mymaster",
+            0,
+        ),
+        (
+            "redis+sentinel://host1:26379,host2:26379,host3:26379/mymaster/2",
+            [("host1", 26379), ("host2", 26379), ("host3", 26379)],
+            "mymaster",
+            2,
+        ),
+        (
+            "redis+sentinel://localhost:26379",
+            [("localhost", 26379)],
+            "mymaster",
+            0,
+        ),
+    ),
+)
+def test_url_with_sentinel_as_backend(url, expected_sentinels, expected_service, expected_db):
+    from cashews.backends.redis import Redis
+
+    backend_class, params, _ = settings_url_parse(url)
+    backend = backend_class(**params)
+    assert isinstance(backend, Redis)
+    assert backend._is_sentinel is True
+    assert backend._sentinels == expected_sentinels
+    assert backend._sentinel_service == expected_service
+    assert backend._sentinel_db == expected_db
+
+
 @pytest.mark.diskcache
 @pytest.mark.parametrize(
     ("url", "params"),

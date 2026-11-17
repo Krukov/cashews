@@ -15,6 +15,44 @@ def redis_backend():
     return Redis
 
 
+@pytest.fixture
+def sentinel_backend():
+    from cashews.backends.redis import Redis
+
+    def factory(suppress):
+        return Redis(
+            address="",
+            suppress=suppress,
+            sentinel=True,
+            sentinels=[("localhost", 19223)],
+            sentinel_service="mymaster",
+            sentinel_db=0,
+        )
+
+    return factory
+
+
+async def test_safe_sentinel(sentinel_backend):
+    redis = sentinel_backend(suppress=True)
+    await redis.init()
+
+    assert await redis.set("test", "test") is False
+    assert await redis.get("test", default="no") == "no"
+    assert await redis.get("test") is None
+
+    with pytest.raises(CacheBackendInteractionError):
+        await redis.ping()
+
+
+async def test_unsafe_sentinel_down(sentinel_backend):
+    redis = sentinel_backend(suppress=False)
+    await redis.init()
+    with pytest.raises(CacheBackendInteractionError):
+        await redis.ping()
+    with pytest.raises(CacheBackendInteractionError):
+        await redis.set("key", "value")
+
+
 async def test_safe_redis(redis_backend):
     redis = redis_backend(suppress=True, address="redis://localhost:9223")
     await redis.init()
