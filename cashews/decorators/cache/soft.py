@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
-from .defaults import _empty, context_cache_detect
+from .defaults import _empty, _set_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
@@ -58,7 +58,8 @@ def soft(
             if cached is not _empty:
                 soft_expire_at, result = cached
                 if soft_expire_at > datetime.now(timezone.utc):
-                    context_cache_detect._set(
+                    _set_detect(
+                        backend,
                         _cache_key,
                         ttl=ttl,
                         soft_ttl=soft_ttl,
@@ -74,7 +75,8 @@ def soft(
             except exceptions:
                 if cached is not _empty:
                     soft_expire_at, result = cached
-                    context_cache_detect._set(
+                    _set_detect(
+                        backend,
                         _cache_key,
                         ttl=ttl,
                         soft_ttl=soft_ttl,

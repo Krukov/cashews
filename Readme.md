@@ -926,6 +926,20 @@ print(calls)
 # >>> {"my:key": [{"ttl": 10, "name": "simple", "backend": "redis"}, ], "fail:key": [{"ttl": 10, "exc": RateLimit}, "name": "fail", "backend": "mem"],}
 ```
 
+`detect` of a cache instance reports only the calls that were served by this instance.
+To collect the calls of all cache instances use `context_cache_detect`:
+
+```python
+from cashews import Cache, context_cache_detect
+
+internal_cache = Cache()
+
+with internal_cache.detect as detector, context_cache_detect as all_detector:
+    response = await something_that_use_cache()
+    detector.calls  # served by `internal_cache`
+    all_detector.calls  # served by any cache
+```
+
 E.g. A simple middleware to use it in a web app:
 
 ```python

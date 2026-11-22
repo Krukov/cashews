@@ -323,6 +323,38 @@ async def test_context_cache_detect_simple(cache: Cache):
     assert decorators.context_cache_detect._levels == {}
 
 
+async def test_cache_detect_only_own_instance(cache: Cache):
+    other = Cache()
+    other.setup("mem://")
+
+    @cache(ttl=EXPIRE, key="key")
+    async def func():
+        return b"ok"
+
+    @other(ttl=EXPIRE, key="other")
+    async def other_func():
+        return b"ok"
+
+    await func()
+    await other_func()
+    await asyncio.sleep(0)
+
+    with other.detect as other_detector, cache.detect as detector, decorators.context_cache_detect as all_detector:
+        await other_func()
+        assert list(other_detector.calls) == ["other"]
+        assert detector.calls == {}
+
+        await func()
+        assert list(other_detector.calls) == ["other"]
+        assert list(detector.calls) == ["key"]
+
+        assert list(all_detector.calls) == ["other", "key"]
+
+    assert cache.detect._levels == {}
+    assert other.detect._levels == {}
+    await other.close()
+
+
 async def test_context_cache_detect_deep(cache: Cache):
     @cache(ttl=EXPIRE, key="key1")
     async def func1():

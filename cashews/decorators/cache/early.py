@@ -11,7 +11,7 @@ from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
 from ._exception import RaiseException, return_or_raise
-from .defaults import _empty, context_cache_detect
+from .defaults import _empty, _set_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
@@ -83,7 +83,8 @@ def early(
                 return await _get_result_for_early(*args_to_call)
 
             early_expire_at, result = cached
-            context_cache_detect._set(
+            _set_detect(
+                backend,
                 _cache_key,
                 ttl=_ttl,
                 early_ttl=_early_ttl,
