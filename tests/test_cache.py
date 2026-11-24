@@ -194,6 +194,23 @@ async def test_early_cache_no_background(cache: Cache):
     assert mock.call_count == 2
 
 
+async def test_early_cache_background_error_logged(cache: Cache, caplog):
+    @cache.early(ttl=10, early_ttl=0.01, key="key")
+    async def func(fail=False):
+        if fail:
+            raise CustomError()
+        return b"ok"
+
+    assert await func() == b"ok"
+
+    await asyncio.sleep(0.02)
+    assert await func(fail=True) == b"ok"
+
+    await asyncio.sleep(0.01)
+    logged = [(record.name, record.exc_info[0]) for record in caplog.records if record.exc_info]
+    assert logged == [("cashews.decorators.cache.early", CustomError)]
+
+
 async def test_soft_cache_simple(cache: Cache):
     mock = Mock()
 
