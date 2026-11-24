@@ -102,3 +102,67 @@ async def test_thunder_protection():
         await asyncio.gather(*[func() for _ in range(10)])
 
     assert mock.call_count == 2
+
+
+async def test_thunder_protection_cancel_one_caller():
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    @decorators.thunder_protection(key="key")
+    async def func():
+        started.set()
+        await release.wait()
+        return b"ok"
+
+    first = asyncio.create_task(func())
+    await started.wait()
+    second = asyncio.create_task(func())
+    await asyncio.sleep(0)
+
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    release.set()
+
+    assert await second == b"ok"
+
+
+async def test_thunder_protection_cancel_all_callers():
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    @decorators.thunder_protection(key="key")
+    async def func():
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    first = asyncio.create_task(func())
+    await started.wait()
+    second = asyncio.create_task(func())
+    await asyncio.sleep(0)
+
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    assert not cancelled.is_set()
+
+    second.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await second
+    await asyncio.wait_for(cancelled.wait(), timeout=1)
+
+
+async def test_thunder_protection_exception():
+    @decorators.thunder_protection(key="key")
+    async def func():
+        await asyncio.sleep(0)
+        raise ValueError("error")
+
+    results = await asyncio.gather(*[func() for _ in range(3)], return_exceptions=True)
+
+    assert len(results) == 3
+    assert all(isinstance(result, ValueError) for result in results)

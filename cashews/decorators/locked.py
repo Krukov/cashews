@@ -89,6 +89,7 @@ def thunder_protection(
     key: KeyOrTemplate | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
     tasks: dict[str, asyncio.Task] = {}
+    waiters: dict[asyncio.Task, int] = {}
 
     def _decor(func: DecoratedFunc) -> DecoratedFunc:
         _key_template = get_cache_key_template(func, key=key)
@@ -99,12 +100,20 @@ def thunder_protection(
         @wraps(func)
         async def _wrapper(*args, **kwargs):
             _key = get_cache_key(func, _key_template, args, kwargs)
-            if _key in tasks:
-                return await tasks[_key]
-            task = asyncio.create_task(func(*args, **kwargs))
-            tasks[_key] = task
-            task.add_done_callback(partial(done_callback, _key))
-            return await task
+            task = tasks.get(_key)
+            if task is None:
+                task = asyncio.create_task(func(*args, **kwargs))
+                tasks[_key] = task
+                task.add_done_callback(partial(done_callback, _key))
+            waiters[task] = waiters.get(task, 0) + 1
+            try:
+                await asyncio.wait((task,))  # cancelling this caller doesn't cancel the shared task
+            finally:
+                waiters[task] -= 1
+                if not waiters[task]:
+                    del waiters[task]
+                    task.cancel()  # last waiter gone
+            return task.result()
 
         return _wrapper  # type: ignore[return-value]
 
