@@ -102,3 +102,25 @@ async def test_thunder_protection():
         await asyncio.gather(*[func() for _ in range(10)])
 
     assert mock.call_count == 2
+
+
+async def test_thunder_protection_does_not_share_async_iterator():
+    mock = Mock()
+
+    @decorators.thunder_protection(key="key")
+    async def func():
+        await asyncio.sleep(0.01)
+        mock()
+
+        async def _iterator():
+            yield 1
+            yield 2
+
+        return _iterator()
+
+    results = await asyncio.gather(*[func() for _ in range(5)])
+
+    assert len({id(result) for result in results}) == 5
+    for result in results:
+        assert [chunk async for chunk in result] == [1, 2]
+    assert mock.call_count == 5

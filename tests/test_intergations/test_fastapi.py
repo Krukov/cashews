@@ -1,3 +1,4 @@
+import asyncio
 import re
 from contextlib import asynccontextmanager, contextmanager
 from random import random
@@ -140,6 +141,29 @@ def test_cache_stream_on_error(client, app, cache):
         client.get("/stream")
     with pytest.raises(Exception):
         client.get("/stream")
+
+
+async def test_cache_stream_concurrent_requests(app, cache):
+    from httpx import ASGITransport, AsyncClient
+    from starlette.responses import StreamingResponse
+
+    async def iterator():
+        for i in range(5):
+            yield f"{i}"
+            await asyncio.sleep(0.01)
+
+    @app.get("/stream")
+    @cache(ttl="10s", key="stream")
+    async def stream():
+        await asyncio.sleep(0.01)
+        return StreamingResponse(iterator())
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        responses = await asyncio.gather(*[client.get("/stream") for _ in range(5)])
+        assert [response.content for response in responses] == [b"01234"] * 5
+
+        response = await client.get("/stream")
+        assert response.content == b"01234"
 
 
 def test_cache_delete_middleware(client_with_middleware, app, cache):

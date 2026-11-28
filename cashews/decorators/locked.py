@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from functools import partial, wraps
 from typing import TYPE_CHECKING
 
@@ -85,6 +85,13 @@ def _asyncgen_lock(
     return _wrap
 
 
+def _is_single_use(value: object) -> bool:
+    if isinstance(value, AsyncIterator):
+        return True
+    # starlette StreamingResponse and other responses streaming their body from an iterator
+    return isinstance(getattr(value, "body_iterator", None), AsyncIterator)
+
+
 def thunder_protection(
     key: KeyOrTemplate | None = None,
 ) -> Callable[[DecoratedFunc], DecoratedFunc]:
@@ -100,7 +107,12 @@ def thunder_protection(
         async def _wrapper(*args, **kwargs):
             _key = get_cache_key(func, _key_template, args, kwargs)
             if _key in tasks:
-                return await tasks[_key]
+                result = await tasks[_key]
+                if _is_single_use(result):
+                    # the result can be consumed only once (e.g. a StreamingResponse),
+                    # so the caller that started the task keeps it and the others call the function themselves
+                    return await func(*args, **kwargs)
+                return result
             task = asyncio.create_task(func(*args, **kwargs))
             tasks[_key] = task
             task.add_done_callback(partial(done_callback, _key))
