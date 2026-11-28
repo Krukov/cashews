@@ -98,15 +98,16 @@ class _Redis(Backend):
     def is_init(self) -> bool:
         return self.__is_init
 
-    async def init(self):
+    def _create_client(self, **kwargs):
         if self._is_cluster:
-            self._client = self._client_class.from_url(self._address, **self._kwargs)
-        else:
-            pool = self._pool_class.from_url(self._address, **self._kwargs)
-            if hasattr(self._client_class, "from_pool"):
-                self._client = self._client_class.from_pool(pool)
-            else:
-                self._client = self._client_class(connection_pool=pool)
+            return self._client_class.from_url(self._address, **kwargs)
+        pool = self._pool_class.from_url(self._address, **kwargs)
+        if hasattr(self._client_class, "from_pool"):
+            return self._client_class.from_pool(pool)
+        return self._client_class(connection_pool=pool)
+
+    async def init(self):
+        self._client = self._create_client(**self._kwargs)
         await self._client.initialize()
         self.__is_init = True
 
