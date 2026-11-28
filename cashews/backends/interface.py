@@ -180,13 +180,14 @@ class ControlMixin:
     enable_by_default = True
 
     def __init__(self, *args, **kwargs) -> None:
-        self.__disable: ContextVar[set[Command]] = ContextVar(str(id(self)), default=set())
+        self.__disable: ContextVar[set[Command]] = ContextVar(str(id(self)))
+        self.__default_disable: set[Command] = set()
         self._control_set = False
         super().__init__(*args, **kwargs)
 
     @property
     def _disable(self) -> set[Command]:
-        return self.__disable.get()
+        return self.__disable.get(self.__default_disable)
 
     def _set_disable(self, value: set[Command]) -> None:
         self.__disable.set(value)
@@ -211,6 +212,11 @@ class ControlMixin:
         if not self._control_set:
             return not self.enable_by_default
         return self._disable == ALL
+
+    def disable_by_default(self) -> None:
+        """Disable in every context that has not set its own state, unlike `disable`."""
+        self.__default_disable = ALL.copy()
+        self._control_set = True
 
     def disable(self, *cmds: Command) -> None:
         if not cmds:
