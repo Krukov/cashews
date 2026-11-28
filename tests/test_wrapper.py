@@ -3,6 +3,7 @@ from unittest.mock import ANY, Mock, PropertyMock
 
 import pytest
 
+from cashews import Command
 from cashews.backends.memory import Memory
 from cashews.cache_condition import NOT_NONE
 from cashews.exceptions import NotConfiguredError
@@ -284,3 +285,24 @@ async def test_no_setup_decor():
 
     with pytest.raises(NotConfiguredError):
         await func()
+
+
+async def test_cache_lock_check_interval(cache: Cache):
+    set_lock_calls = Mock()
+
+    async def middleware(call, cmd, backend, *args, **kwargs):
+        if cmd == Command.SET_LOCK:
+            set_lock_calls()
+        return await call(*args, **kwargs)
+
+    cache.add_middleware(middleware)
+
+    @cache(ttl=3, lock=True, protected=False, lock_check_interval=0.1)
+    async def my_func():
+        await asyncio.sleep(0.25)
+        return 1
+
+    assert await asyncio.gather(my_func(), my_func()) == [1, 1]
+
+    # one call takes the lock at once, the other one retries every 0.1s while the first holds it for 0.25s
+    assert 2 <= set_lock_calls.call_count <= 6

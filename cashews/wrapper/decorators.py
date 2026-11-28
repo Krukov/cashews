@@ -38,6 +38,7 @@ class DecoratorsWrapper(Wrapper):
         self,
         decorator_fabric,
         lock=False,
+        lock_check_interval: float = 0,
         time_condition=None,
         protected=False,
         **decor_kwargs,
@@ -64,6 +65,7 @@ class DecoratorsWrapper(Wrapper):
                         key=decor_kwargs.get("key"),
                         ttl=decor_kwargs["ttl"],
                         wait=True,
+                        check_interval=lock_check_interval,
                     )
                     return await thunder_protection(_locked(decorator))(*args, **kwargs)
                 else:
@@ -78,6 +80,7 @@ class DecoratorsWrapper(Wrapper):
         decorator_fabric,
         condition,
         lock=False,
+        lock_check_interval: float = 0,
         time_condition=None,
         **decor_kwargs,
     ):
@@ -107,6 +110,7 @@ class DecoratorsWrapper(Wrapper):
                             key=decor_kwargs.get("key"),
                             ttl=decor_kwargs["ttl"],
                             wait=True,
+                            check_interval=lock_check_interval,
                         )
                         _result = await _locked(decorator(func))(*args, **kwargs)
                     else:
@@ -129,11 +133,13 @@ class DecoratorsWrapper(Wrapper):
         lock: bool = False,
         tags: Tags = (),
         protected: bool = True,
+        lock_check_interval: float = 0,
     ) -> Callable[[DecoratedFunc], DecoratedFunc]:
         return self._wrap_on(
             decorators.cache,
             upper,
             lock=lock,
+            lock_check_interval=lock_check_interval,
             ttl=ttl,
             key=key,
             condition=get_cache_condition(condition),
