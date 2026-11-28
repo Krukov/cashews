@@ -182,6 +182,31 @@ def test_cache_etag(client_with_middleware, app, cache):
         assert bool(re.search(r'^"[a-f0-9]+"$', etag))
 
 
+def test_cache_etag_other_cache_instance(client_with_middleware, app, cache):
+    from cashews.contrib.fastapi import CacheEtagMiddleware
+
+    # a second cache instance that keeps its data in the same storage
+    internal_cache = Cache()
+    internal_cache._add_backend(cache._get_backend(""))
+
+    @internal_cache(ttl="10s", key="internal")
+    async def get_internal():
+        return "internal"
+
+    @app.get("/internal")
+    async def internal():
+        return await get_internal()
+
+    with client_with_middleware(CacheEtagMiddleware, cache_instance=cache) as client:
+        response = client.get("/internal")
+        assert "ETag" not in response.headers
+
+        # a hit of the internal cache is not a reason for the middleware of another cache to set the ETag
+        response = client.get("/internal")
+        assert response.status_code == 200
+        assert "ETag" not in response.headers
+
+
 def test_cache_etag_early(client_with_middleware, app, cache):
     from cashews.contrib.fastapi import CacheEtagMiddleware
 

@@ -31,16 +31,15 @@ class CacheDetect:
         self._value = []
 
 
-_level = ContextVar("level", default=0)
-
-
 class _ContextCacheDetect:
     def __init__(self) -> None:
-        self._levels: dict[int, CacheDetect] = {}
+        self._levels: dict[float, CacheDetect] = {}
+        # every detector tracks its own nesting, so detectors of different caches can be nested in any order
+        self._level: ContextVar[float] = ContextVar("level", default=0)
 
     @property
     def level(self):
-        return _level.get()
+        return self._level.get()
 
     def _get_next_level(self):
         level = random.random()
@@ -51,7 +50,7 @@ class _ContextCacheDetect:
     def _start(self) -> CacheDetect:
         previous_level = self.level
         level = self._get_next_level()
-        token = _level.set(level)
+        token = self._level.set(level)
         self._levels[level] = CacheDetect(previous_level=previous_level, unset_token=token)
         return self._levels[level]
 
@@ -69,7 +68,7 @@ class _ContextCacheDetect:
             token = self._levels[self.level]._unset_token
             self._levels[self.level].clear()
             del self._levels[self.level]
-            _level.reset(token)
+            self._level.reset(token)
 
     def __enter__(self) -> CacheDetect:
         return self._start()
@@ -78,4 +77,15 @@ class _ContextCacheDetect:
         self._stop()
 
 
-context_cache_detect: AbstractContextManager[CacheDetect] = _ContextCacheDetect()
+_context_cache_detect = _ContextCacheDetect()
+context_cache_detect: AbstractContextManager[CacheDetect] = _context_cache_detect
+
+
+def _set_detect(backend: Any, key: Key, **kwargs: Any) -> None:
+    """
+    Report a cache hit to the global detector and to the detector of the cache that served it
+    """
+    _context_cache_detect._set(key, **kwargs)
+    detect = getattr(backend, "detect", None)
+    if detect is not None and detect is not _context_cache_detect:
+        detect._set(key, **kwargs)

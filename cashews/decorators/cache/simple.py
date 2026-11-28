@@ -8,7 +8,7 @@ from cashews.key import get_cache_key, get_cache_key_template
 from cashews.ttl import ttl_to_seconds
 
 from ._exception import RaiseException, return_or_raise
-from .defaults import _empty, context_cache_detect
+from .defaults import _empty, _set_detect
 
 if TYPE_CHECKING:  # pragma: no cover
     from cashews import Cache
@@ -51,7 +51,8 @@ def cache(
             cached = await backend.get(_cache_key, default=_empty)
             if cached is not _empty:
                 _ttl = ttl_to_seconds(ttl, *args, **kwargs, result=cached, with_callable=True)
-                context_cache_detect._set(
+                _set_detect(
+                    backend,
                     _cache_key,
                     ttl=_ttl,
                     name="simple",
