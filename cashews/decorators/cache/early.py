@@ -105,7 +105,9 @@ def early(
             task = asyncio.create_task(_get_result_for_early(*args_to_call, unlock=True))
             background_tasks.add(task)
             task.add_done_callback(background_tasks.discard)
-            if not background:
+            if background:
+                task.add_done_callback(_log_exception)
+            else:
                 await task
             return return_or_raise(result)
 
@@ -144,4 +146,9 @@ async def _get_result_for_early(
         return return_or_raise(result)
     finally:
         if unlock:
-            asyncio.create_task(backend.delete(key + _LOCK_SUFFIX))
+            asyncio.create_task(backend.delete(key + _LOCK_SUFFIX)).add_done_callback(_log_exception)
+
+
+def _log_exception(task: asyncio.Task) -> None:
+    if not task.cancelled() and task.exception() is not None:
+        logger.error("Error while recalculating cache in background", exc_info=task.exception())
