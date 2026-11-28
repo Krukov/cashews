@@ -16,7 +16,7 @@ _NO_REDIS_ERROR = "Redis backend requires `redis` to be installed."
 _CUSTOM_ERRORS = {
     "redis": _NO_REDIS_ERROR,
     "rediss": _NO_REDIS_ERROR,
-    "disk": "Disk backend requires `diskcache` to be installed.",
+    "disk": "Disk backend requires `diskcache-community` to be installed.",
 }
 _BACKENDS: dict[str, tuple[BackendOrFabric, bool, PicklerType]] = {}
 
@@ -51,7 +51,7 @@ else:
 
 
 try:
-    import diskcache  # noqa: F401
+    import diskcache_community  # noqa: F401
 except ImportError:
     pass
 else:

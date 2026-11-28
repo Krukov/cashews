@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator, Iterable, Mapping
 from datetime import datetime, timezone
 from typing import Any
 
-from diskcache import Cache, FanoutCache
+from diskcache_community import Cache, FanoutCache, SafeDisk
 
 from cashews._typing import Key, Value
 from cashews.serialize import DEFAULT_SERIALIZER, Serializer
@@ -18,11 +18,12 @@ from .interface import NOT_EXIST, UNLIMITED, Backend
 class DiskCache(Backend):
     def __init__(self, *args, directory=None, shards=8, **kwargs: Any) -> None:
         serializer = kwargs.pop("serializer", DEFAULT_SERIALIZER)
+        kwargs.setdefault("disk", SafeDisk.with_options(on_error="miss"))
         self.__is_init = False
         self._set_locks: dict[str, asyncio.Lock] = {}
         self._sharded = shards > 1
         if not self._sharded:
-            self._cache = Cache(directory=directory, **kwargs)
+            self._cache: Cache | FanoutCache = Cache(directory=directory, **kwargs)
         else:
             self._cache = FanoutCache(directory=directory, shards=shards, **kwargs)
         super().__init__(serializer=serializer, **kwargs)

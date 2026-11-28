@@ -173,18 +173,18 @@ cache.setup("rediss://0.0.0.0/", ssl_ca_certs="path/to/ca.crt", ssl_keyfile="pat
 
 #### DiskCache
 
-_Requires [diskcache](https://github.com/grantjenks/python-diskcache) package._
+_Requires [diskcache-community](https://github.com/secondwindoss/diskcache-community) package, a maintained fork of [diskcache](https://github.com/grantjenks/python-diskcache)._
 
 This will use local sqlite databases (with shards) as storage.
 
 It is a good choice if you don't want to use redis, but you need a shared storage, or your cache takes a lot of local memory.
 Also, it is a good choice for client side local storage.
 
-You can setup disk cache with [Cache parameters](https://grantjenks.com/docs/diskcache/api.html#diskcache.diskcache.DEFAULT_SETTINGS)
+You can setup disk cache with [Cache parameters](https://diskcache-community.readthedocs.io/en/stable/api.html#diskcache_community.diskcache_community.DEFAULT_SETTINGS)
 
 ** Warning ** `cache.scan` and `cache.get_match` does not work with this storage (works only if shards are disabled)
 
-** Warning ** Be careful with the [default settings](https://grantjenks.com/docs/diskcache/api.html#diskcache.diskcache.DEFAULT_SETTINGS) as they contain parameters such as `size_limit`
+** Warning ** Be careful with the [default settings](https://diskcache-community.readthedocs.io/en/stable/api.html#diskcache_community.diskcache_community.DEFAULT_SETTINGS) as they contain parameters such as `size_limit`
 
 ```python
 cache.setup("disk://")
