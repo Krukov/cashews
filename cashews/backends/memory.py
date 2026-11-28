@@ -72,6 +72,7 @@ class Memory(Backend):
         expire: float | None = None,
         exist: bool | None = None,
     ) -> bool:
+        await self._delete_expired(key)
         if exist is not None and (key in self.store) is not exist:
             return False
         if self._serializer:
@@ -102,6 +103,7 @@ class Memory(Backend):
 
     async def set_many(self, pairs: Mapping[Key, Value], expire: float | None = None) -> None:
         for key, value in pairs.items():
+            await self._delete_expired(key)
             if self._serializer:
                 value = await self._serializer.encode(self, key=key, value=value, expire=expire)
             self._set(key, value, expire)
@@ -131,6 +133,11 @@ class Memory(Backend):
             await self._call_on_remove_callbacks(key)
             return True
         return False
+
+    async def _delete_expired(self, key: Key) -> None:
+        expire_at, _ = self.store.get(key, (None, None))
+        if expire_at and expire_at < time.time():
+            await self._delete(key)
 
     async def delete_many(self, *keys: Key) -> None:
         for key in keys:
