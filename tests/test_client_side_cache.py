@@ -207,6 +207,37 @@ async def test_safe_redis_down():
         await cache.close()
 
 
+async def test_listener_reconnects_without_leaking_connections(redis_dsn, backend_factory, monkeypatch):
+    from redis.asyncio import Redis as RedisClient
+
+    from cashews.backends.redis import client_side
+
+    monkeypatch.setattr(client_side, "_RECONNECT_WAIT", 0.1)
+    name = "cashews-listener-leak-test"
+    # if each reconnect leaks a connection, this pool runs out on the second reconnect
+    backend = backend_factory(client_side.BcastClientSide, redis_dsn, client_name=name, max_connections=2)
+    await backend.init()
+    admin = RedisClient.from_url(redis_dsn)
+
+    async def wait_for_new_listener(old_id=None):
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            for client in await admin.client_list(_type="pubsub"):
+                # "t": key tracking is on, so this is a working listener and not a stale pubsub
+                if client["name"] == name and "t" in client["flags"] and client["id"] != old_id:
+                    return client["id"]
+            await asyncio.sleep(0.05)
+        pytest.fail("the listener did not reconnect")
+
+    listener_id = await wait_for_new_listener()
+    for _ in range(3):
+        await admin.client_kill_filter(_id=listener_id)
+        listener_id = await wait_for_new_listener(listener_id)
+
+    await admin.close()
+    await backend.close()
+
+
 async def test_set_get_mem_overload(create_cache):
     cache = await create_cache(Memory(size=1))
 

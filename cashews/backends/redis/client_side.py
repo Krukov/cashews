@@ -57,6 +57,13 @@ BCAST_ON = "CLIENT TRACKING on REDIRECT {client_id} BCAST PREFIX {prefix}"
 logger = logging.getLogger(__name__)
 
 
+async def _close_pubsub(pubsub) -> None:
+    # aclose() exists since redis-py 5.0.1; older versions only have reset()
+    close = getattr(pubsub, "aclose", None) or pubsub.reset
+    with error_suppress(Exception):
+        await close()
+
+
 class BcastClientSide(Redis):
     """
     Cache backend with redis as main storage and client side mem storage that invalidated by
@@ -145,6 +152,13 @@ class BcastClientSide(Redis):
 
     async def _listen_invalidate(self):
         channel = await self._get_channel()
+        try:
+            await self._read_invalidations(channel)
+        finally:
+            # give the connection back to the pool, or each reconnect leaks one
+            await _close_pubsub(channel)
+
+    async def _read_invalidations(self, channel):
         self._listen_started.set()
         await self._local_cache.clear()
         while not self.__listen_stop.is_set():
